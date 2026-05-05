@@ -12,6 +12,18 @@ Mục tiêu của bản MVP là xây một hệ thống **legal decision-support
 
 MVP **không** nhằm thay thế thẩm phán hoặc tự động ra quyết định pháp lý chính thức.
 
+## 1.1 Progress Snapshot
+
+- [x] Phase 0 skeleton đã được dựng.
+- [x] Shared contracts Python và TypeScript đã được khóa.
+- [x] Sample fixtures cho `sample_case_01` đã có.
+- [x] Mock API cho parse / search / simulate đã có.
+- [ ] Legal corpus ingestion chưa bắt đầu.
+- [ ] Retrieval pipeline thật chưa bắt đầu.
+- [ ] Multi-agent runtime thật chưa bắt đầu.
+- [ ] Guardrails và evaluation suite thật chưa bắt đầu.
+- [ ] Frontend workspace thật chưa khởi tạo.
+
 ## 2. MVP Scope Freeze
 
 ### 2.1 Case Type
@@ -74,6 +86,10 @@ Upload / nhập case file
 
 ### M1. Shared Domain Contracts
 
+Status:
+
+- [x] Completed for Phase 0
+
 Trách nhiệm:
 
 - Định nghĩa schema dùng chung cho toàn hệ thống.
@@ -102,6 +118,10 @@ Output chính:
 
 ### M2. Legal Corpus Pipeline
 
+Status:
+
+- [ ] Not started
+
 Trách nhiệm:
 
 - Load `th1nhng0/vietnamese-legal-documents`
@@ -117,6 +137,10 @@ Output chính:
 - Offline build pipeline cho search index
 
 ### M3. Retrieval Service
+
+Status:
+
+- [ ] Not started
 
 Trách nhiệm:
 
@@ -135,6 +159,10 @@ Output chính:
 
 ### M4. Case Intake and Evidence
 
+Status:
+
+- [ ] Not started beyond mock fixture/API contract
+
 Trách nhiệm:
 
 - Nhận text / PDF / pasted case content
@@ -152,6 +180,10 @@ Output chính:
 
 ### M5. Courtroom Runtime
 
+Status:
+
+- [ ] Not started
+
 Trách nhiệm:
 
 - Điều phối multi-agent flow
@@ -166,6 +198,10 @@ Output chính:
 - Runtime state transitions
 
 ### M6. Agent Skills
+
+Status:
+
+- [ ] Not started
 
 Trách nhiệm:
 
@@ -182,6 +218,10 @@ Yêu cầu:
 - Mọi claim phải tham chiếu evidence hoặc citation nếu phù hợp
 
 ### M7. Guardrails and Verification
+
+Status:
+
+- [ ] Not started
 
 Trách nhiệm:
 
@@ -200,6 +240,10 @@ Output chính:
 
 ### M8. Frontend Workspace
 
+Status:
+
+- [ ] Not started
+
 Trách nhiệm:
 
 - Upload / nhập case file
@@ -217,6 +261,10 @@ Layout đề xuất:
 - Bottom or drawer: audit log + judge summary
 
 ### M9. Reporting and Evaluation
+
+Status:
+
+- [ ] Not started beyond sample report fixture content
 
 Trách nhiệm:
 
@@ -308,29 +356,29 @@ Mục tiêu:
 
 Tasks:
 
-- Tạo cấu trúc repo theo module.
-- Định nghĩa shared schemas bằng Pydantic và TypeScript types.
-- Tạo fixtures cho `sample_case_01`.
-- Viết API contract draft cho:
-  - `/cases`
-  - `/cases/{id}/parse`
-  - `/cases/{id}/simulate`
-  - `/legal-search`
-  - `/reports/{id}`
-- Chốt naming convention cho IDs và statuses.
+- [x] Tạo cấu trúc repo theo module.
+- [x] Định nghĩa shared schemas bằng Pydantic và TypeScript types.
+- [x] Tạo fixtures cho `sample_case_01`.
+- [ ] Viết API contract draft đầy đủ cho:
+  - [ ] `/cases`
+  - [x] `/cases/{id}/parse` ở mức mock shape
+  - [x] `/cases/{id}/simulate` ở mức mock shape
+  - [x] `/legal-search` ở mức mock shape
+  - [ ] `/reports/{id}`
+- [x] Chốt naming convention cho IDs và statuses.
 
 Deliverables:
 
-- `IMPLEMENTATION_PLAN.md`
-- `shared contracts`
-- `sample fixtures`
-- `repo skeleton`
+- [x] `IMPLEMENTATION_PLAN.md`
+- [x] `shared contracts`
+- [x] `sample fixtures`
+- [x] `repo skeleton`
 
 Acceptance criteria:
 
-- Frontend, backend và orchestration đều đọc được cùng một schema.
-- Có mock JSON đủ để FE dựng UI không cần backend thật.
-- Có 1 case mẫu hoàn chỉnh end-to-end ở mức data.
+- [x] Frontend, backend và orchestration đều đọc được cùng một schema.
+- [x] Có mock JSON đủ để FE dựng UI không cần backend thật.
+- [x] Có 1 case mẫu hoàn chỉnh end-to-end ở mức data.
 
 ## Phase 1. Data and Retrieval Plane
 
@@ -340,27 +388,27 @@ Mục tiêu:
 
 Tasks:
 
-- Load dataset `th1nhng0/vietnamese-legal-documents`.
-- Clean HTML content.
-- Join metadata và content.
-- Chunk theo article-aware segmentation.
-- Xây BM25 index.
-- Xây vector index bằng `mainguyen9/vietlegal-harrier-0.6b`.
-- Thêm metadata filters cho hiệu lực và lĩnh vực.
-- Expose `/legal-search`.
+- [ ] Load dataset `th1nhng0/vietnamese-legal-documents`.
+- [ ] Clean HTML content.
+- [ ] Join metadata và content.
+- [ ] Chunk theo article-aware segmentation.
+- [ ] Xây BM25 index.
+- [ ] Xây vector index bằng `mainguyen9/vietlegal-harrier-0.6b`.
+- [ ] Thêm metadata filters cho hiệu lực và lĩnh vực.
+- [ ] Expose `/legal-search` bằng retrieval thật.
 
 Deliverables:
 
-- Corpus ingestion pipeline
-- Search indexes
-- Retrieval API
-- Top-k result schema
+- [ ] Corpus ingestion pipeline
+- [ ] Search indexes
+- [ ] Retrieval API
+- [x] Top-k result schema
 
 Acceptance criteria:
 
-- Query legal issue trả được top 3-5 passages hợp lý.
-- Mỗi result có `citation_id`, metadata và trạng thái hiệu lực.
-- Có benchmark baseline ban đầu cho Recall@10 hoặc NDCG@10 trên một tập query nhỏ nội bộ.
+- [ ] Query legal issue trả được top 3-5 passages hợp lý.
+- [ ] Mỗi result có `citation_id`, metadata và trạng thái hiệu lực.
+- [ ] Có benchmark baseline ban đầu cho Recall@10 hoặc NDCG@10 trên một tập query nhỏ nội bộ.
 
 ## Phase 2. Case Intelligence Plane
 
@@ -370,26 +418,26 @@ Mục tiêu:
 
 Tasks:
 
-- Xây case input API.
-- Parse case text / PDF cơ bản.
-- Extract facts.
-- Extract evidence.
-- Assign `evidence_id`.
-- Lưu vào database.
-- Hiển thị evidence table.
+- [ ] Xây case input API.
+- [ ] Parse case text / PDF cơ bản.
+- [ ] Extract facts.
+- [ ] Extract evidence.
+- [ ] Assign `evidence_id`.
+- [ ] Lưu vào database.
+- [ ] Hiển thị evidence table.
 
 Deliverables:
 
-- Case intake API
-- Evidence registry
-- Case state manager
-- Sample parsed case view
+- [ ] Case intake API
+- [ ] Evidence registry
+- [ ] Case state manager
+- [x] Sample parsed case view ở mức fixture
 
 Acceptance criteria:
 
-- Một case mẫu được parse thành facts và evidence có thể kiểm tra lại.
-- Evidence có source rõ ràng.
-- `case_state` có thể được truyền thẳng sang orchestration.
+- [x] Một case mẫu được parse thành facts và evidence có thể kiểm tra lại.
+- [x] Evidence có source rõ ràng.
+- [x] `case_state` có thể được truyền thẳng sang orchestration.
 
 ## Phase 3. Courtroom Simulation Plane
 
@@ -399,25 +447,25 @@ Mục tiêu:
 
 Tasks:
 
-- Xây LangGraph flow.
-- Xây Plaintiff / Prosecutor agent.
-- Xây Defense agent.
-- Xây Judge agent.
-- Xây Clerk agent.
-- Xây Legal Retrieval agent.
-- Enforce turn order và role permissions cơ bản.
+- [ ] Xây LangGraph flow.
+- [ ] Xây Plaintiff / Prosecutor agent.
+- [ ] Xây Defense agent.
+- [ ] Xây Judge agent.
+- [ ] Xây Clerk agent.
+- [ ] Xây Legal Retrieval agent.
+- [ ] Enforce turn order và role permissions cơ bản.
 
 Deliverables:
 
-- Working simulation runtime
-- Structured agent outputs
-- Trial minutes draft
+- [ ] Working simulation runtime
+- [x] Structured agent outputs ở mức fixture/schema
+- [x] Trial minutes draft ở mức fixture
 
 Acceptance criteria:
 
-- Chạy được flow đầy đủ trên case mẫu.
-- Agent outputs không phải free-form hoàn toàn, mà bám schema.
-- Mỗi claim quan trọng có evidence hoặc citation đi kèm.
+- [ ] Chạy được flow đầy đủ trên case mẫu.
+- [x] Agent outputs không phải free-form hoàn toàn, mà bám schema.
+- [x] Mỗi claim quan trọng có evidence hoặc citation đi kèm trong fixture mẫu.
 
 ## Phase 4. Harness and Safety Plane
 
@@ -427,25 +475,25 @@ Mục tiêu:
 
 Tasks:
 
-- Xây Citation Verifier.
-- Xây Unsupported Claim Detector.
-- Xây Contradiction Checker.
-- Xây Outdated Legal Basis Warning.
-- Xây Audit Logger.
-- Xây Human Review Gate.
+- [ ] Xây Citation Verifier.
+- [ ] Xây Unsupported Claim Detector.
+- [ ] Xây Contradiction Checker.
+- [ ] Xây Outdated Legal Basis Warning.
+- [ ] Xây Audit Logger.
+- [ ] Xây Human Review Gate.
 
 Deliverables:
 
-- Verification reports
-- Audit trail
-- Review checklist
+- [x] Verification reports ở mức fixture
+- [ ] Audit trail
+- [x] Review checklist ở mức fixture
 
 Acceptance criteria:
 
-- Citation không tồn tại trong retrieved set bị reject.
-- Claim không có evidence bị flag.
-- Citation hết hiệu lực bị warning.
-- Case rủi ro cao bị chặn ở human review gate.
+- [ ] Citation không tồn tại trong retrieved set bị reject.
+- [ ] Claim không có evidence bị flag.
+- [ ] Citation hết hiệu lực bị warning.
+- [ ] Case rủi ro cao bị chặn ở human review gate.
 
 ## Phase 5. Productization and Demo
 
@@ -455,25 +503,25 @@ Mục tiêu:
 
 Tasks:
 
-- Hoàn thiện UI panels.
-- Thêm report preview.
-- Export markdown report.
-- Optional PDF export.
-- Seed demo cases.
-- Viết smoke tests và demo script.
+- [ ] Hoàn thiện UI panels.
+- [ ] Thêm report preview.
+- [ ] Export markdown report.
+- [ ] Optional PDF export.
+- [x] Seed demo cases.
+- [ ] Viết smoke tests và demo script.
 
 Deliverables:
 
-- Demo-ready app
-- Final report template
-- Demo dataset / fixtures
-- Smoke test checklist
+- [ ] Demo-ready app
+- [x] Final report template ở mức fixture structure
+- [x] Demo dataset / fixtures
+- [ ] Smoke test checklist
 
 Acceptance criteria:
 
-- Có thể demo từ upload case đến final report.
-- UI hiển thị rõ evidence, citations, disputed points và review flags.
-- Có ít nhất 1 demo case ổn định để quay video hoặc thuyết trình.
+- [ ] Có thể demo từ upload case đến final report.
+- [ ] UI hiển thị rõ evidence, citations, disputed points và review flags.
+- [x] Có ít nhất 1 demo case ổn định để quay video hoặc thuyết trình ở mức data fixture.
 
 ## 7. Parallel Work Lanes
 
@@ -603,12 +651,12 @@ Phụ thuộc:
 
 ## 9. Milestones
 
-- `Milestone A`: Shared contracts freeze
-- `Milestone B`: Legal retrieval usable
-- `Milestone C`: Case ingestion usable
-- `Milestone D`: Structured simulation usable
-- `Milestone E`: Safety gate enforced
-- `Milestone F`: Demo-ready MVP
+- [x] `Milestone A`: Shared contracts freeze
+- [ ] `Milestone B`: Legal retrieval usable
+- [ ] `Milestone C`: Case ingestion usable
+- [ ] `Milestone D`: Structured simulation usable
+- [ ] `Milestone E`: Safety gate enforced
+- [ ] `Milestone F`: Demo-ready MVP
 
 ## 10. Repo Structure Suggestion
 
@@ -693,8 +741,8 @@ MVP được xem là hoàn thành khi:
 
 ## 13. Immediate Next Tasks
 
-1. Tạo repo skeleton theo module.
-2. Định nghĩa `shared schemas` bằng Pydantic và TypeScript.
-3. Tạo `sample_case_01.json` và fixtures liên quan.
-4. Chốt API contracts cho `cases`, `legal-search`, `simulate`, `reports`.
-5. Chia owner cho từng lane và bắt đầu Phase 0.
+1. [x] Tạo repo skeleton theo module.
+2. [x] Định nghĩa `shared schemas` bằng Pydantic và TypeScript.
+3. [x] Tạo `sample_case_01.json` và fixtures liên quan.
+4. [ ] Chốt API contracts cho `cases`, `legal-search`, `simulate`, `reports`.
+5. [ ] Chia owner cho từng lane và bắt đầu Phase 0.
