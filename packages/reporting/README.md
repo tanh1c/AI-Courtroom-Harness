@@ -1,8 +1,7 @@
 # Reporting Package
 
-Phase 5 owner sẽ triển khai tại đây:
+The Phase 5 owner will implement this package here:
 
 - markdown report assembly
 - optional PDF export
 - report templates
-

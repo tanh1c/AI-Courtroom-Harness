@@ -1,6 +1,6 @@
 # Retrieval Package
 
-Phase 1 owner sẽ triển khai tại đây:
+The Phase 1 owner will implement this package here:
 
 - corpus ingestion
 - BM25 index
@@ -8,4 +8,3 @@ Phase 1 owner sẽ triển khai tại đây:
 - metadata filtering
 - reranking
 - retrieval service
-

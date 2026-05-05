@@ -1,4 +1,3 @@
 # Architecture Docs
 
-Tài liệu kiến trúc, contracts và integration notes.
-
+Store architecture docs, contracts, and integration notes here.

@@ -1,3 +1,3 @@
 # Evaluation Docs
 
-Lưu benchmark notes, retrieval queries và acceptance checklists.
+Store benchmark notes, retrieval queries, and acceptance checklists here.

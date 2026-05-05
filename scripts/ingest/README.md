@@ -1,4 +1,3 @@
 # Ingest Scripts
 
-Đặt các script ingest legal corpus tại đây.
-
+Place legal corpus ingestion scripts here.

@@ -1,24 +1,24 @@
 # AI Courtroom Harness
 
-Phase 0 skeleton cho `AI Courtroom Harness`.
+Phase 0 skeleton for `AI Courtroom Harness`.
 
-Mục tiêu của skeleton này là khóa:
+The goal of this skeleton is to lock down:
 
 - Repo structure
 - Shared domain contracts
 - Mock fixtures
-- API shape tối thiểu
+- Minimal API shape
 
-để frontend, backend, retrieval và orchestration có thể triển khai song song.
+so frontend, backend, retrieval, and orchestration can be developed in parallel.
 
 ## Workspace Layout
 
 ```text
 apps/
-  api/         FastAPI mock API cho Phase 0
-  web/         placeholder cho frontend workspace
+  api/         FastAPI mock API for Phase 0
+  web/         frontend workspace placeholder
 packages/
-  shared/      schemas + fixtures dùng chung
+  shared/      shared schemas and fixtures
   retrieval/   retrieval module placeholder
   orchestration/ orchestration module placeholder
   verification/ verification module placeholder
@@ -45,7 +45,7 @@ docs/
 - `POST /api/v1/legal-search`
 - `POST /api/v1/cases/simulate`
 
-Các endpoint hiện tại trả về fixtures và được thiết kế để khóa contract cho Phase 0.
+These endpoints currently return fixtures and are intended to lock contracts for Phase 0.
 
 ## Shared Contracts
 
@@ -74,4 +74,3 @@ Run from:
 ```text
 apps/api
 ```
-

@@ -39,6 +39,7 @@ Prefer existing libraries, SDKs, and official APIs over custom hardcoded impleme
 - Use 4 spaces in Python and keep imports explicit.
 - Keep Python and TypeScript contracts aligned whenever schemas change.
 - Prefer ASCII unless a file already contains Vietnamese content.
+- Write contributor-facing documentation in English by default, especially `README.md`, `AGENTS.md`, setup guides, and package-level docs.
 - Use predictable fixture names such as `sample_case_01.*.json`.
 - Use uppercase ID prefixes in payloads: `CASE_001`, `EVID_001`, `LAW_001`, `TURN_001`.
 

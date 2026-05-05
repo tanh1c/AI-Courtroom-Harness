@@ -1,16 +1,15 @@
 # Web Workspace
 
-Placeholder cho frontend workspace của Phase 0.
+Placeholder for the Phase 0 frontend workspace.
 
-Gợi ý bước tiếp theo:
+Recommended next steps:
 
-- Khởi tạo React + TypeScript app tại đây
-- Import types từ `packages/shared/types`
-- Dùng fixtures từ `packages/shared/fixtures`
-- Build các panel:
+- Initialize a React + TypeScript app here
+- Import types from `packages/shared/types`
+- Use fixtures from `packages/shared/fixtures`
+- Build the main panels:
   - case intake
   - evidence table
   - citations panel
   - simulation timeline
   - judge summary / review panel
-

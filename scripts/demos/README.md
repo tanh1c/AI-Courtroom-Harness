@@ -1,4 +1,3 @@
 # Demo Scripts
 
-Đặt script demo và seed workflow tại đây.
-
+Place demo scripts and seed workflows here.
