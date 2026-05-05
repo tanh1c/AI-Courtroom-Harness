@@ -1,0 +1,79 @@
+{
+  "case_id": "CASE_001",
+  "title": "Tranh chấp hợp đồng mua bán xe máy",
+  "case_type": "civil_contract_dispute",
+  "facts": [
+    {
+      "fact_id": "FACT_001",
+      "content": "Hai bên ký hợp đồng mua bán xe máy ngày 05/03/2026 với giá 40.000.000 đồng.",
+      "source": "attachment:ATT_001",
+      "confidence": "high"
+    },
+    {
+      "fact_id": "FACT_002",
+      "content": "Bên mua đã thanh toán trước 28.000.000 đồng, tương ứng 70% giá trị hợp đồng.",
+      "source": "attachment:ATT_002",
+      "confidence": "high"
+    },
+    {
+      "fact_id": "FACT_003",
+      "content": "Hạn giao xe theo thỏa thuận là ngày 12/03/2026.",
+      "source": "attachment:ATT_001",
+      "confidence": "high"
+    },
+    {
+      "fact_id": "FACT_004",
+      "content": "Bên bán chưa giao xe đúng hạn và cho rằng phải thanh toán đủ 100% trước khi giao.",
+      "source": "narrative",
+      "confidence": "medium"
+    }
+  ],
+  "evidence": [
+    {
+      "evidence_id": "EVID_001",
+      "type": "contract",
+      "content": "Hợp đồng mua bán xe máy ghi nhận giá bán 40.000.000 đồng, thanh toán 70% khi ký và 30% khi nhận xe.",
+      "source": "attachment:ATT_001",
+      "status": "uncontested",
+      "used_by": [],
+      "challenged_by": []
+    },
+    {
+      "evidence_id": "EVID_002",
+      "type": "payment_receipt",
+      "content": "Biên nhận chuyển khoản ngày 05/03/2026 với số tiền 28.000.000 đồng từ ông B cho ông A.",
+      "source": "attachment:ATT_002",
+      "status": "uncontested",
+      "used_by": [],
+      "challenged_by": []
+    },
+    {
+      "evidence_id": "EVID_003",
+      "type": "message",
+      "content": "Tin nhắn ngày 12/03/2026 thể hiện ông A chưa giao xe và yêu cầu thanh toán đủ trước khi giao.",
+      "source": "narrative",
+      "status": "disputed",
+      "used_by": [],
+      "challenged_by": []
+    }
+  ],
+  "legal_issues": [
+    {
+      "issue_id": "ISSUE_001",
+      "title": "Nghĩa vụ giao tài sản theo hợp đồng",
+      "description": "Xác định bên bán có vi phạm nghĩa vụ giao xe đúng hạn hay không.",
+      "tags": ["contract", "delivery_obligation"]
+    },
+    {
+      "issue_id": "ISSUE_002",
+      "title": "Điều kiện thanh toán phần còn lại",
+      "description": "Xác định bên mua có bắt buộc thanh toán đủ 100% trước khi nhận tài sản hay không.",
+      "tags": ["payment_terms", "contract_interpretation"]
+    }
+  ],
+  "claims": [],
+  "citations": [],
+  "agent_turns": [],
+  "status": "parsed"
+}
+

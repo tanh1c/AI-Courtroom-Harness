@@ -1,0 +1,22 @@
+{
+  "case_id": "CASE_001",
+  "title": "Tranh chấp hợp đồng mua bán xe máy",
+  "case_type": "civil_contract_dispute",
+  "language": "vi",
+  "narrative": "Ngày 05/03/2026, ông B ký hợp đồng mua của ông A một xe máy trị giá 40.000.000 đồng. Ông B đã chuyển khoản trước 28.000.000 đồng theo thỏa thuận thanh toán 70% khi ký hợp đồng và 30% còn lại khi nhận xe. Hạn giao xe là ngày 12/03/2026. Đến hạn, ông A không giao xe và cho rằng ông B phải thanh toán đủ 100% trước khi giao. Ông B yêu cầu ông A giao xe hoặc hoàn trả tiền đã nhận và bồi thường chi phí phát sinh.",
+  "attachments": [
+    {
+      "attachment_id": "ATT_001",
+      "filename": "hop_dong_mua_ban.pdf",
+      "media_type": "application/pdf",
+      "note": "Hợp đồng mua bán xe máy"
+    },
+    {
+      "attachment_id": "ATT_002",
+      "filename": "bien_lai_chuyen_khoan.png",
+      "media_type": "image/png",
+      "note": "Biên nhận chuyển khoản 28.000.000 đồng"
+    }
+  ]
+}
+

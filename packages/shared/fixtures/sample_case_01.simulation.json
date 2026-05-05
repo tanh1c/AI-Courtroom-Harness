@@ -1,0 +1,186 @@
+{
+  "case": {
+    "case_id": "CASE_001",
+    "title": "Tranh chấp hợp đồng mua bán xe máy",
+    "case_type": "civil_contract_dispute",
+    "facts": [
+      {
+        "fact_id": "FACT_001",
+        "content": "Hai bên ký hợp đồng mua bán xe máy ngày 05/03/2026 với giá 40.000.000 đồng.",
+        "source": "attachment:ATT_001",
+        "confidence": "high"
+      },
+      {
+        "fact_id": "FACT_002",
+        "content": "Bên mua đã thanh toán trước 28.000.000 đồng, tương ứng 70% giá trị hợp đồng.",
+        "source": "attachment:ATT_002",
+        "confidence": "high"
+      },
+      {
+        "fact_id": "FACT_003",
+        "content": "Hạn giao xe theo thỏa thuận là ngày 12/03/2026.",
+        "source": "attachment:ATT_001",
+        "confidence": "high"
+      },
+      {
+        "fact_id": "FACT_004",
+        "content": "Bên bán chưa giao xe đúng hạn và cho rằng phải thanh toán đủ 100% trước khi giao.",
+        "source": "narrative",
+        "confidence": "medium"
+      }
+    ],
+    "evidence": [
+      {
+        "evidence_id": "EVID_001",
+        "type": "contract",
+        "content": "Hợp đồng mua bán xe máy ghi nhận giá bán 40.000.000 đồng, thanh toán 70% khi ký và 30% khi nhận xe.",
+        "source": "attachment:ATT_001",
+        "status": "uncontested",
+        "used_by": ["plaintiff_agent", "defense_agent"],
+        "challenged_by": []
+      },
+      {
+        "evidence_id": "EVID_002",
+        "type": "payment_receipt",
+        "content": "Biên nhận chuyển khoản ngày 05/03/2026 với số tiền 28.000.000 đồng từ ông B cho ông A.",
+        "source": "attachment:ATT_002",
+        "status": "uncontested",
+        "used_by": ["plaintiff_agent"],
+        "challenged_by": []
+      },
+      {
+        "evidence_id": "EVID_003",
+        "type": "message",
+        "content": "Tin nhắn ngày 12/03/2026 thể hiện ông A chưa giao xe và yêu cầu thanh toán đủ trước khi giao.",
+        "source": "narrative",
+        "status": "disputed",
+        "used_by": ["plaintiff_agent", "defense_agent"],
+        "challenged_by": ["defense_agent"]
+      }
+    ],
+    "legal_issues": [
+      {
+        "issue_id": "ISSUE_001",
+        "title": "Nghĩa vụ giao tài sản theo hợp đồng",
+        "description": "Xác định bên bán có vi phạm nghĩa vụ giao xe đúng hạn hay không.",
+        "tags": ["contract", "delivery_obligation"]
+      },
+      {
+        "issue_id": "ISSUE_002",
+        "title": "Điều kiện thanh toán phần còn lại",
+        "description": "Xác định bên mua có bắt buộc thanh toán đủ 100% trước khi nhận tài sản hay không.",
+        "tags": ["payment_terms", "contract_interpretation"]
+      }
+    ],
+    "claims": [
+      {
+        "claim_id": "CLAIM_001",
+        "speaker": "plaintiff_agent",
+        "content": "Bên bán đã vi phạm nghĩa vụ giao tài sản đúng thời hạn theo thỏa thuận trong hợp đồng.",
+        "evidence_ids": ["EVID_001", "EVID_003"],
+        "citation_ids": ["LAW_001"],
+        "confidence": "high"
+      },
+      {
+        "claim_id": "CLAIM_002",
+        "speaker": "defense_agent",
+        "content": "Cần làm rõ hợp đồng có điều khoản cho phép giữ hàng cho đến khi thanh toán đủ hay không.",
+        "evidence_ids": ["EVID_001"],
+        "citation_ids": ["LAW_002"],
+        "confidence": "medium"
+      }
+    ],
+    "citations": [
+      {
+        "citation_id": "LAW_001",
+        "doc_id": "DOC_001",
+        "title": "Bộ luật Dân sự 2015",
+        "article": "Điều 434",
+        "clause": null,
+        "content": "Bên bán có nghĩa vụ giao tài sản cho bên mua đúng số lượng, chất lượng, chủng loại, thời hạn và địa điểm đã thỏa thuận.",
+        "retrieval_score": 0.92,
+        "effective_status": "active",
+        "source": "vbpl.vn"
+      },
+      {
+        "citation_id": "LAW_002",
+        "doc_id": "DOC_002",
+        "title": "Bộ luật Dân sự 2015",
+        "article": "Điều 440",
+        "clause": null,
+        "content": "Bên mua có nghĩa vụ thanh toán tiền theo thời hạn, địa điểm và mức tiền được thỏa thuận.",
+        "retrieval_score": 0.88,
+        "effective_status": "active",
+        "source": "vbpl.vn"
+      }
+    ],
+    "agent_turns": [
+      {
+        "turn_id": "TURN_001",
+        "agent": "plaintiff_agent",
+        "message": "Nguyên đơn cho rằng bị đơn chậm giao xe dù đã nhận trước 70% giá trị hợp đồng.",
+        "claims": ["CLAIM_001"],
+        "evidence_used": ["EVID_001", "EVID_002", "EVID_003"],
+        "citations_used": ["LAW_001"],
+        "status": "ok"
+      },
+      {
+        "turn_id": "TURN_002",
+        "agent": "defense_agent",
+        "message": "Bị đơn yêu cầu làm rõ điều kiện thanh toán trước khi xác định có vi phạm hay không.",
+        "claims": ["CLAIM_002"],
+        "evidence_used": ["EVID_001"],
+        "citations_used": ["LAW_002"],
+        "status": "needs_fact_check"
+      }
+    ],
+    "status": "simulated"
+  },
+  "fact_check": {
+    "unsupported_claims": [],
+    "contradictions": [
+      "Cần đối chiếu chính xác nội dung điều khoản thanh toán và thời điểm chuyển giao xe trong hợp đồng."
+    ],
+    "citation_mismatches": [],
+    "risk_level": "medium"
+  },
+  "citation_verification": {
+    "accepted_citations": ["LAW_001", "LAW_002"],
+    "rejected_citations": [],
+    "warnings": [
+      "Cần đối chiếu nguồn văn bản chính thức để xác nhận snapshot corpus vẫn còn cập nhật."
+    ]
+  },
+  "judge_summary": {
+    "summary": "Vụ việc xoay quanh việc bên bán chưa giao xe đúng hạn và tranh chấp về điều kiện thanh toán phần còn lại.",
+    "main_disputed_points": [
+      "Bên bán có được quyền từ chối giao xe cho đến khi nhận đủ 100% tiền hay không.",
+      "Thiệt hại phát sinh do chậm giao xe có đủ căn cứ để yêu cầu bồi thường hay không."
+    ],
+    "questions_to_clarify": [
+      "Điều khoản giao xe có gắn với điều kiện thanh toán đủ 100% hay không.",
+      "Có chứng cứ bổ sung nào về thiệt hại thực tế của bên mua không."
+    ],
+    "unsupported_claims": [],
+    "recommended_human_review": true
+  },
+  "trial_minutes": {
+    "case_id": "CASE_001",
+    "turn_ids": ["TURN_001", "TURN_002"],
+    "minutes_markdown": "## Trial Minutes\n\n- TURN_001: Plaintiff presented the delayed-delivery claim grounded in the contract and payment receipt.\n- TURN_002: Defense requested clarification on whether full payment was a condition precedent to delivery."
+  },
+  "final_report": {
+    "case_id": "CASE_001",
+    "case_summary": "Tranh chấp hợp đồng mua bán xe máy liên quan đến việc chậm giao tài sản và điều kiện thanh toán phần còn lại.",
+    "disputed_points": [
+      "Nghĩa vụ giao tài sản đúng hạn của bên bán.",
+      "Cách hiểu điều khoản thanh toán 70/30 trong hợp đồng."
+    ],
+    "human_review_checklist": [
+      "Đối chiếu điều khoản nguyên văn trong hợp đồng.",
+      "Xác minh thêm chứng cứ về thiệt hại phát sinh.",
+      "Đối chiếu lại văn bản pháp luật từ nguồn chính thức."
+    ],
+    "disclaimer": "This system is for legal education, simulation, and research support only. It does not replace qualified legal professionals."
+  }
+}
