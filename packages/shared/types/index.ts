@@ -1,4 +1,10 @@
 export type CaseType = "civil_contract_dispute";
+export type CaseStatus =
+  | "draft"
+  | "parsed"
+  | "simulated"
+  | "review_required"
+  | "report_ready";
 
 export type EvidenceType =
   | "contract"
@@ -41,6 +47,27 @@ export interface CaseFileInput {
   language: string;
   narrative: string;
   attachments: CaseAttachment[];
+}
+
+export interface CaseCreateRequest {
+  title: string;
+  case_type: CaseType;
+  language: string;
+  narrative: string;
+  attachments: CaseAttachment[];
+}
+
+export interface CaseRecord {
+  case_id: string;
+  title: string;
+  case_type: CaseType;
+  language: string;
+  status: CaseStatus;
+  attachment_count: number;
+}
+
+export interface CaseCreateResponse {
+  case: CaseRecord;
 }
 
 export interface Fact {
@@ -143,7 +170,7 @@ export interface CaseState {
   claims: Claim[];
   citations: Citation[];
   agent_turns: AgentTurn[];
-  status: string;
+  status: CaseStatus;
 }
 
 export interface ParseCaseResponse {
@@ -157,4 +184,11 @@ export interface SimulationResponse {
   judge_summary: JudgeSummary;
   trial_minutes: TrialMinutes;
   final_report: FinalReport;
+}
+
+export interface ReportResponse {
+  case_id: string;
+  report_status: CaseStatus;
+  generated_from_turns: string[];
+  report: FinalReport;
 }

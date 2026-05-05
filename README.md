@@ -41,9 +41,11 @@ docs/
 
 - `GET /health`
 - `GET /api/v1/fixtures/sample-case`
-- `POST /api/v1/cases/parse`
+- `POST /api/v1/cases`
+- `POST /api/v1/cases/{case_id}/parse`
 - `POST /api/v1/legal-search`
-- `POST /api/v1/cases/simulate`
+- `POST /api/v1/cases/{case_id}/simulate`
+- `GET /api/v1/reports/{case_id}`
 
 These endpoints currently return fixtures and are intended to lock contracts for Phase 0.
 
@@ -60,7 +62,9 @@ TypeScript types:
 ## Sample Fixtures
 
 - `packages/shared/fixtures/sample_case_01.case.json`
+- `packages/shared/fixtures/sample_case_01.create.response.json`
 - `packages/shared/fixtures/sample_case_01.parse.json`
+- `packages/shared/fixtures/sample_case_01.report.json`
 - `packages/shared/fixtures/sample_case_01.simulation.json`
 
 ## Run API Mock

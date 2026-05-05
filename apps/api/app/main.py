@@ -11,9 +11,12 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from packages.shared.python.ai_court_shared.schemas import (
+    CaseCreateRequest,
+    CaseCreateResponse,
     CaseFileInput,
     CaseState,
     ParseCaseResponse,
+    ReportResponse,
     SimulationResponse,
 )
 FIXTURES_DIR = ROOT_DIR / "packages" / "shared" / "fixtures"
@@ -41,9 +44,16 @@ def get_sample_case() -> CaseFileInput:
     return CaseFileInput.model_validate(load_fixture("sample_case_01.case.json"))
 
 
-@app.post("/api/v1/cases/parse", response_model=ParseCaseResponse)
-def parse_case(_: CaseFileInput) -> ParseCaseResponse:
+@app.post("/api/v1/cases", response_model=CaseCreateResponse)
+def create_case(_: CaseCreateRequest) -> CaseCreateResponse:
+    payload = load_fixture("sample_case_01.create.response.json")
+    return CaseCreateResponse.model_validate(payload)
+
+
+@app.post("/api/v1/cases/{case_id}/parse", response_model=ParseCaseResponse)
+def parse_case(case_id: str) -> ParseCaseResponse:
     payload = load_fixture("sample_case_01.parse.json")
+    payload["case_id"] = case_id
     return ParseCaseResponse(case=CaseState.model_validate(payload))
 
 
@@ -56,7 +66,18 @@ def legal_search(_: dict) -> dict:
     }
 
 
-@app.post("/api/v1/cases/simulate", response_model=SimulationResponse)
-def simulate_case(_: dict) -> SimulationResponse:
+@app.post("/api/v1/cases/{case_id}/simulate", response_model=SimulationResponse)
+def simulate_case(case_id: str) -> SimulationResponse:
     payload = load_fixture("sample_case_01.simulation.json")
+    payload["case"]["case_id"] = case_id
+    payload["trial_minutes"]["case_id"] = case_id
+    payload["final_report"]["case_id"] = case_id
     return SimulationResponse.model_validate(payload)
+
+
+@app.get("/api/v1/reports/{case_id}", response_model=ReportResponse)
+def get_report(case_id: str) -> ReportResponse:
+    payload = load_fixture("sample_case_01.report.json")
+    payload["case_id"] = case_id
+    payload["report"]["case_id"] = case_id
+    return ReportResponse.model_validate(payload)

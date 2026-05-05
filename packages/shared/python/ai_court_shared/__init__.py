@@ -1,7 +1,11 @@
 from .schemas import (
     AgentName,
     AgentTurn,
+    CaseCreateRequest,
+    CaseCreateResponse,
     CaseFileInput,
+    CaseRecord,
+    CaseStatus,
     CaseState,
     CaseType,
     Citation,
@@ -18,6 +22,7 @@ from .schemas import (
     JudgeSummary,
     LegalIssue,
     ParseCaseResponse,
+    ReportResponse,
     SimulationResponse,
     TrialMinutes,
     TurnStatus,
@@ -26,7 +31,11 @@ from .schemas import (
 __all__ = [
     "AgentName",
     "AgentTurn",
+    "CaseCreateRequest",
+    "CaseCreateResponse",
     "CaseFileInput",
+    "CaseRecord",
+    "CaseStatus",
     "CaseState",
     "CaseType",
     "Citation",
@@ -43,8 +52,8 @@ __all__ = [
     "JudgeSummary",
     "LegalIssue",
     "ParseCaseResponse",
+    "ReportResponse",
     "SimulationResponse",
     "TrialMinutes",
     "TurnStatus",
 ]
-

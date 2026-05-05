@@ -1,0 +1,11 @@
+{
+  "case": {
+    "case_id": "CASE_001",
+    "title": "Tranh chấp hợp đồng mua bán xe máy",
+    "case_type": "civil_contract_dispute",
+    "language": "vi",
+    "status": "draft",
+    "attachment_count": 2
+  }
+}
+

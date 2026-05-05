@@ -1,0 +1,19 @@
+{
+  "case_id": "CASE_001",
+  "report_status": "report_ready",
+  "generated_from_turns": ["TURN_001", "TURN_002"],
+  "report": {
+    "case_id": "CASE_001",
+    "case_summary": "Tranh chấp hợp đồng mua bán xe máy liên quan đến việc chậm giao tài sản và điều kiện thanh toán phần còn lại.",
+    "disputed_points": [
+      "Nghĩa vụ giao tài sản đúng hạn của bên bán.",
+      "Cách hiểu điều khoản thanh toán 70/30 trong hợp đồng."
+    ],
+    "human_review_checklist": [
+      "Đối chiếu điều khoản nguyên văn trong hợp đồng.",
+      "Xác minh thêm chứng cứ về thiệt hại phát sinh.",
+      "Đối chiếu lại văn bản pháp luật từ nguồn chính thức."
+    ],
+    "disclaimer": "This system is for legal education, simulation, and research support only. It does not replace qualified legal professionals."
+  }
+}

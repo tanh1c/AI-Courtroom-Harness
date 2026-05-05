@@ -9,6 +9,14 @@ class CaseType(str, Enum):
     CIVIL_CONTRACT_DISPUTE = "civil_contract_dispute"
 
 
+class CaseStatus(str, Enum):
+    DRAFT = "draft"
+    PARSED = "parsed"
+    SIMULATED = "simulated"
+    REVIEW_REQUIRED = "review_required"
+    REPORT_READY = "report_ready"
+
+
 class EvidenceType(str, Enum):
     CONTRACT = "contract"
     PAYMENT_RECEIPT = "payment_receipt"
@@ -67,6 +75,27 @@ class CaseFileInput(BaseModel):
     language: str = "vi"
     narrative: str
     attachments: list[CaseAttachment] = Field(default_factory=list)
+
+
+class CaseCreateRequest(BaseModel):
+    title: str
+    case_type: CaseType
+    language: str = "vi"
+    narrative: str
+    attachments: list[CaseAttachment] = Field(default_factory=list)
+
+
+class CaseRecord(BaseModel):
+    case_id: str
+    title: str
+    case_type: CaseType
+    language: str = "vi"
+    status: CaseStatus
+    attachment_count: int = 0
+
+
+class CaseCreateResponse(BaseModel):
+    case: CaseRecord
 
 
 class Fact(BaseModel):
@@ -169,7 +198,7 @@ class CaseState(BaseModel):
     claims: list[Claim] = Field(default_factory=list)
     citations: list[Citation] = Field(default_factory=list)
     agent_turns: list[AgentTurn] = Field(default_factory=list)
-    status: str
+    status: CaseStatus
 
 
 class ParseCaseResponse(BaseModel):
@@ -184,3 +213,9 @@ class SimulationResponse(BaseModel):
     trial_minutes: TrialMinutes
     final_report: FinalReport
 
+
+class ReportResponse(BaseModel):
+    case_id: str
+    report_status: CaseStatus
+    generated_from_turns: list[str] = Field(default_factory=list)
+    report: FinalReport
