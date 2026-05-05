@@ -43,6 +43,12 @@ class EffectiveStatus(str, Enum):
     UNKNOWN = "unknown"
 
 
+class RetrievalStrategy(str, Enum):
+    BM25_LOCAL_SEED = "bm25_local_seed"
+    HYBRID = "hybrid"
+    VECTOR_ONLY = "vector_only"
+
+
 class AgentName(str, Enum):
     PLAINTIFF_AGENT = "plaintiff_agent"
     PROSECUTOR_AGENT = "prosecutor_agent"
@@ -141,6 +147,24 @@ class Citation(BaseModel):
     retrieval_score: float
     effective_status: EffectiveStatus
     source: str
+
+
+class LegalSearchFilter(BaseModel):
+    linh_vuc: list[str] = Field(default_factory=list)
+    loai_van_ban: list[str] = Field(default_factory=list)
+    co_quan_ban_hanh: list[str] = Field(default_factory=list)
+    effective_status: list[EffectiveStatus] = Field(default_factory=list)
+
+
+class LegalSearchRequest(BaseModel):
+    query: str
+    top_k: int = Field(default=5, ge=1, le=20)
+    filters: LegalSearchFilter = Field(default_factory=LegalSearchFilter)
+
+
+class LegalSearchResponse(BaseModel):
+    citations: list[Citation] = Field(default_factory=list)
+    query_strategy: RetrievalStrategy
 
 
 class AgentTurn(BaseModel):

@@ -1,6 +1,6 @@
 # AI Courtroom Harness
 
-Phase 0 skeleton for `AI Courtroom Harness`.
+Phase 0 foundation plus an early Phase 1 retrieval baseline for `AI Courtroom Harness`.
 
 The goal of this skeleton is to lock down:
 
@@ -8,6 +8,7 @@ The goal of this skeleton is to lock down:
 - Shared domain contracts
 - Mock fixtures
 - Minimal API shape
+- A local retrieval baseline for legal search
 
 so frontend, backend, retrieval, and orchestration can be developed in parallel.
 
@@ -19,7 +20,7 @@ apps/
   web/         frontend workspace placeholder
 packages/
   shared/      shared schemas and fixtures
-  retrieval/   retrieval module placeholder
+  retrieval/   retrieval baseline, seed corpus, and ingest helpers
   orchestration/ orchestration module placeholder
   verification/ verification module placeholder
   reporting/   reporting module placeholder
@@ -47,7 +48,7 @@ docs/
 - `POST /api/v1/cases/{case_id}/simulate`
 - `GET /api/v1/reports/{case_id}`
 
-These endpoints currently return fixtures and are intended to lock contracts for Phase 0.
+The case and report endpoints still return fixtures. The legal search endpoint now uses a local BM25 retrieval baseline backed by a seed legal corpus.
 
 ## Shared Contracts
 
@@ -66,6 +67,20 @@ TypeScript types:
 - `packages/shared/fixtures/sample_case_01.parse.json`
 - `packages/shared/fixtures/sample_case_01.report.json`
 - `packages/shared/fixtures/sample_case_01.simulation.json`
+
+## Retrieval Baseline
+
+- Seed corpus: `packages/retrieval/python/ai_court_retrieval/resources/seed_legal_corpus.json`
+- Search service: `packages/retrieval/python/ai_court_retrieval/service.py`
+- Ingest helper: `scripts/ingest/build_legal_corpus.py`
+- Smoke eval: `scripts/eval/smoke_legal_search.py`
+- Optional full-corpus dependency: install `datasets` inside `.venv` before running the ingest helper
+
+Run a retrieval smoke check from the repo root:
+
+```bash
+.\.venv\Scripts\python scripts/eval/smoke_legal_search.py
+```
 
 ## Run API Mock
 

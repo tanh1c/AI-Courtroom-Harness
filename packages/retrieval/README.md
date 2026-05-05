@@ -1,10 +1,17 @@
 # Retrieval Package
 
-The Phase 1 owner will implement this package here:
+This package contains the Phase 1 legal retrieval baseline.
 
-- corpus ingestion
-- BM25 index
-- vector index
-- metadata filtering
-- reranking
-- retrieval service
+Current contents:
+
+- seed legal corpus resources
+- HTML cleaning and article-aware chunking helpers
+- local BM25 search with metadata filtering
+- ingest script entrypoints for Hugging Face legal datasets
+
+Next steps:
+
+- build normalized chunks from the full legal corpus
+- add vector retrieval with the legal embedding model
+- merge lexical and vector candidates
+- add reranking and retrieval evaluation

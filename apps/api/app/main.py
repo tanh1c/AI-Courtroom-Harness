@@ -10,11 +10,16 @@ ROOT_DIR = Path(__file__).resolve().parents[3]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from packages.retrieval.python.ai_court_retrieval.service import (
+    get_local_legal_retrieval_service,
+)
 from packages.shared.python.ai_court_shared.schemas import (
     CaseCreateRequest,
     CaseCreateResponse,
     CaseFileInput,
     CaseState,
+    LegalSearchRequest,
+    LegalSearchResponse,
     ParseCaseResponse,
     ReportResponse,
     SimulationResponse,
@@ -57,13 +62,10 @@ def parse_case(case_id: str) -> ParseCaseResponse:
     return ParseCaseResponse(case=CaseState.model_validate(payload))
 
 
-@app.post("/api/v1/legal-search")
-def legal_search(_: dict) -> dict:
-    simulation = load_fixture("sample_case_01.simulation.json")
-    return {
-        "citations": simulation["case"]["citations"],
-        "query_strategy": "fixture_stub",
-    }
+@app.post("/api/v1/legal-search", response_model=LegalSearchResponse)
+def legal_search(request: LegalSearchRequest) -> LegalSearchResponse:
+    service = get_local_legal_retrieval_service()
+    return service.search(request)
 
 
 @app.post("/api/v1/cases/{case_id}/simulate", response_model=SimulationResponse)

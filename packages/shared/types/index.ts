@@ -16,6 +16,7 @@ export type EvidenceType =
 export type EvidenceStatus = "uncontested" | "disputed" | "rejected";
 export type ClaimConfidence = "low" | "medium" | "high";
 export type EffectiveStatus = "active" | "expired" | "unknown";
+export type RetrievalStrategy = "bm25_local_seed" | "hybrid" | "vector_only";
 
 export type AgentName =
   | "plaintiff_agent"
@@ -113,6 +114,24 @@ export interface Citation {
   retrieval_score: number;
   effective_status: EffectiveStatus;
   source: string;
+}
+
+export interface LegalSearchFilter {
+  linh_vuc: string[];
+  loai_van_ban: string[];
+  co_quan_ban_hanh: string[];
+  effective_status: EffectiveStatus[];
+}
+
+export interface LegalSearchRequest {
+  query: string;
+  top_k: number;
+  filters: LegalSearchFilter;
+}
+
+export interface LegalSearchResponse {
+  citations: Citation[];
+  query_strategy: RetrievalStrategy;
 }
 
 export interface AgentTurn {

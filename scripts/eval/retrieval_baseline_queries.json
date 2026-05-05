@@ -1,0 +1,18 @@
+[
+  {
+    "query": "bên bán giao tài sản đúng thời hạn theo hợp đồng",
+    "top_k": 3,
+    "expected_citation_ids": ["LAW_CHUNK_001_001", "LAW_CHUNK_002_001"]
+  },
+  {
+    "query": "bên mua thanh toán tiền theo thỏa thuận trong hợp đồng",
+    "top_k": 3,
+    "expected_citation_ids": ["LAW_CHUNK_001_002", "LAW_CHUNK_002_002"]
+  },
+  {
+    "query": "bồi thường thiệt hại do vi phạm nghĩa vụ dân sự",
+    "top_k": 3,
+    "expected_citation_ids": ["LAW_CHUNK_001_004", "LAW_CHUNK_001_003"]
+  }
+]
+
