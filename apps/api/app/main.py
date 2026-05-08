@@ -5,11 +5,18 @@ import sys
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi import HTTPException
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from .case_parser import parse_case_input
+from .case_store import (
+    create_case as create_case_record,
+    load_case_input,
+    save_case_state,
+)
 from packages.retrieval.python.ai_court_retrieval.service import (
     get_local_legal_retrieval_service,
 )
@@ -35,7 +42,7 @@ def load_fixture(name: str) -> dict:
 app = FastAPI(
     title="AI Courtroom Harness API",
     version="0.1.0",
-    description="Phase 0 mock API used to lock shared contracts and unblock parallel work.",
+    description="Phase 1 retrieval plus Phase 2 case intake baseline API for AI Courtroom Harness.",
 )
 
 
@@ -50,16 +57,20 @@ def get_sample_case() -> CaseFileInput:
 
 
 @app.post("/api/v1/cases", response_model=CaseCreateResponse)
-def create_case(_: CaseCreateRequest) -> CaseCreateResponse:
-    payload = load_fixture("sample_case_01.create.response.json")
-    return CaseCreateResponse.model_validate(payload)
+def create_case(request: CaseCreateRequest) -> CaseCreateResponse:
+    record = create_case_record(request)
+    return CaseCreateResponse(case=record)
 
 
 @app.post("/api/v1/cases/{case_id}/parse", response_model=ParseCaseResponse)
 def parse_case(case_id: str) -> ParseCaseResponse:
-    payload = load_fixture("sample_case_01.parse.json")
-    payload["case_id"] = case_id
-    return ParseCaseResponse(case=CaseState.model_validate(payload))
+    case_input = load_case_input(case_id)
+    if case_input is None:
+        raise HTTPException(status_code=404, detail=f"Case not found: {case_id}")
+
+    case_state = parse_case_input(case_input)
+    save_case_state(case_state)
+    return ParseCaseResponse(case=case_state)
 
 
 @app.post("/api/v1/legal-search", response_model=LegalSearchResponse)

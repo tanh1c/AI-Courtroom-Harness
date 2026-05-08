@@ -1,6 +1,6 @@
 # AI Courtroom Harness
 
-Phase 0 foundation plus an early Phase 1 retrieval baseline for `AI Courtroom Harness`.
+Phase 0 foundation plus early Phase 1 and Phase 2 baselines for `AI Courtroom Harness`.
 
 The goal of this skeleton is to lock down:
 
@@ -9,6 +9,7 @@ The goal of this skeleton is to lock down:
 - Mock fixtures
 - Minimal API shape
 - A local retrieval baseline for legal search
+- A CPU-friendly case intake and parsing baseline
 
 so frontend, backend, retrieval, and orchestration can be developed in parallel.
 
@@ -38,7 +39,7 @@ docs/
   eval/
 ```
 
-## FastAPI Mock Endpoints
+## FastAPI Endpoints
 
 - `GET /health`
 - `GET /api/v1/fixtures/sample-case`
@@ -48,7 +49,10 @@ docs/
 - `POST /api/v1/cases/{case_id}/simulate`
 - `GET /api/v1/reports/{case_id}`
 
-The case and report endpoints still return fixtures. The legal search endpoint now uses a local BM25 retrieval baseline backed by a seed legal corpus.
+- `POST /api/v1/cases` now persists draft case input to `data/processed/cases/<case_id>/case.json`
+- `POST /api/v1/cases/{case_id}/parse` now runs a local heuristic parser and persists `parsed.json`
+- `GET /api/v1/reports/{case_id}` and `POST /api/v1/cases/{case_id}/simulate` still return fixtures
+- `POST /api/v1/legal-search` uses the retrieval baseline over the MVP legal corpus
 
 ## Shared Contracts
 
@@ -103,3 +107,13 @@ Run from:
 ```text
 apps/api
 ```
+
+## Phase 2 Smoke Check
+
+The Phase 2 baseline is CPU-only and does not require a GPU. Run:
+
+```bash
+.\.venv\Scripts\python scripts/eval/smoke_case_intake.py
+```
+
+This creates a draft case, parses it into facts, evidence, and legal issues, and writes the artifacts to `data/processed/cases/`.
