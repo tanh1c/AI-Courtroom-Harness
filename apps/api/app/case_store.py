@@ -15,6 +15,7 @@ from packages.shared.python.ai_court_shared.schemas import (
     CaseRecord,
     CaseState,
     CaseStatus,
+    SimulationResponse,
 )
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
@@ -105,6 +106,13 @@ def _snapshot_case_input(case_input: CaseFileInput) -> None:
 
 def _snapshot_case_state(case_state: CaseState) -> None:
     _write_json(_case_dir(case_state.case_id) / "parsed.json", case_state.model_dump(mode="json"))
+
+
+def _snapshot_simulation_response(simulation_response: SimulationResponse) -> None:
+    _write_json(
+        _case_dir(simulation_response.case.case_id) / "simulation.json",
+        simulation_response.model_dump(mode="json"),
+    )
 
 
 def _row_to_case_input(row: sqlite3.Row) -> CaseFileInput:
@@ -293,6 +301,22 @@ def load_case_detail(case_id: str) -> CaseDetailResponse | None:
         case_input=case_input,
         parsed_case=case_state,
     )
+
+
+def save_simulation_response(simulation_response: SimulationResponse) -> None:
+    save_case_state(simulation_response.case)
+    _snapshot_simulation_response(simulation_response)
+
+
+def load_simulation_response(case_id: str) -> SimulationResponse | None:
+    path = _case_dir(case_id) / "simulation.json"
+    if path.exists():
+        return SimulationResponse.model_validate(_read_json(path))
+
+    sample_simulation = _load_fixture("sample_case_01.simulation.json")
+    if sample_simulation.get("case", {}).get("case_id") == case_id:
+        return SimulationResponse.model_validate(sample_simulation)
+    return None
 
 
 def list_cases() -> CaseListResponse:

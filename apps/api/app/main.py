@@ -21,9 +21,14 @@ from .case_store import (
     load_case_detail,
     load_case_input,
     load_case_state,
+    load_simulation_response,
     list_cases,
     save_case_state,
+    save_simulation_response,
     store_uploaded_attachment_file,
+)
+from packages.orchestration.python.ai_court_orchestration.service import (
+    get_courtroom_simulation_service,
 )
 from packages.retrieval.python.ai_court_retrieval.service import (
     get_local_legal_retrieval_service,
@@ -52,7 +57,7 @@ def load_fixture(name: str) -> dict:
 app = FastAPI(
     title="AI Courtroom Harness API",
     version="0.1.0",
-    description="Phase 1 retrieval plus Phase 2 case intake baseline API for AI Courtroom Harness.",
+    description="Phase 1 retrieval, Phase 2 intake, and Phase 3 simulation baseline API for AI Courtroom Harness.",
 )
 
 
@@ -136,15 +141,26 @@ def legal_search(request: LegalSearchRequest) -> LegalSearchResponse:
 
 @app.post("/api/v1/cases/{case_id}/simulate", response_model=SimulationResponse)
 def simulate_case(case_id: str) -> SimulationResponse:
-    payload = load_fixture("sample_case_01.simulation.json")
-    payload["case"]["case_id"] = case_id
-    payload["trial_minutes"]["case_id"] = case_id
-    payload["final_report"]["case_id"] = case_id
-    return SimulationResponse.model_validate(payload)
+    case_state = load_case_state(case_id)
+    if case_state is None:
+        raise HTTPException(status_code=404, detail=f"Parsed case state not found: {case_id}")
+    simulation_service = get_courtroom_simulation_service()
+    simulation_response = simulation_service.simulate(case_state)
+    save_simulation_response(simulation_response)
+    return simulation_response
 
 
 @app.get("/api/v1/reports/{case_id}", response_model=ReportResponse)
 def get_report(case_id: str) -> ReportResponse:
+    simulation_response = load_simulation_response(case_id)
+    if simulation_response is not None:
+        return ReportResponse(
+            case_id=case_id,
+            report_status=simulation_response.case.status,
+            generated_from_turns=simulation_response.trial_minutes.turn_ids,
+            report=simulation_response.final_report,
+        )
+
     payload = load_fixture("sample_case_01.report.json")
     payload["case_id"] = case_id
     payload["report"]["case_id"] = case_id

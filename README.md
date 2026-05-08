@@ -59,7 +59,8 @@ docs/
 - `POST /api/v1/cases/{case_id}/attachments` uploads a local attachment into `data/raw/cases/<case_id>/attachments/` and resets the case back to `draft` until it is parsed again
 - `POST /api/v1/cases/{case_id}/parse` now runs a local heuristic parser and persists `parsed.json`
 - `GET /api/v1/cases/{case_id}/state` returns the stored parsed case state for frontend consumption
-- `GET /api/v1/reports/{case_id}` and `POST /api/v1/cases/{case_id}/simulate` still return fixtures
+- `POST /api/v1/cases/{case_id}/simulate` now runs a LangGraph-based courtroom simulation flow over the parsed case state
+- `GET /api/v1/reports/{case_id}` now returns the latest stored simulation report when available, and falls back to the fixture only for the sample case without a local simulation snapshot
 - `POST /api/v1/legal-search` uses the retrieval baseline over the MVP legal corpus
 - Attachment parsing is CPU-friendly and supports metadata parsing for all attachments plus best-effort local text extraction for PDF and text files when `local_path` is provided
 
@@ -126,3 +127,13 @@ The Phase 2 baseline is CPU-only and does not require a GPU. Run:
 ```
 
 This creates a draft case, uploads a PDF attachment, parses it into facts, evidence, and legal issues, and writes the artifacts to `data/processed/cases/`.
+
+## Phase 3 Smoke Check
+
+The Phase 3 simulation runtime is also CPU-only. Run:
+
+```bash
+.\.venv\Scripts\python scripts/eval/smoke_simulation.py
+```
+
+This drives `create -> upload attachment -> parse -> simulate -> report` through the FastAPI app and verifies that the LangGraph-based multi-agent flow produces structured claims, turns, minutes, and a final report.
