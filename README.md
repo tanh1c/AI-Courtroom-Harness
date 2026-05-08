@@ -44,15 +44,20 @@ docs/
 - `GET /health`
 - `GET /api/v1/fixtures/sample-case`
 - `POST /api/v1/cases`
+- `GET /api/v1/cases/{case_id}`
 - `POST /api/v1/cases/{case_id}/parse`
+- `GET /api/v1/cases/{case_id}/state`
 - `POST /api/v1/legal-search`
 - `POST /api/v1/cases/{case_id}/simulate`
 - `GET /api/v1/reports/{case_id}`
 
 - `POST /api/v1/cases` now persists draft case input to `data/processed/cases/<case_id>/case.json`
+- `GET /api/v1/cases/{case_id}` returns draft input plus the latest parsed state when available
 - `POST /api/v1/cases/{case_id}/parse` now runs a local heuristic parser and persists `parsed.json`
+- `GET /api/v1/cases/{case_id}/state` returns the stored parsed case state for frontend consumption
 - `GET /api/v1/reports/{case_id}` and `POST /api/v1/cases/{case_id}/simulate` still return fixtures
 - `POST /api/v1/legal-search` uses the retrieval baseline over the MVP legal corpus
+- Attachment parsing is CPU-friendly and supports metadata parsing for all attachments plus best-effort local text extraction for PDF and text files when `local_path` is provided
 
 ## Shared Contracts
 

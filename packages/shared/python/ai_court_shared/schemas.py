@@ -67,11 +67,19 @@ class TurnStatus(str, Enum):
     REJECTED = "rejected"
 
 
+class AttachmentParseStatus(str, Enum):
+    METADATA_ONLY = "metadata_only"
+    TEXT_EXTRACTED = "text_extracted"
+    MISSING_FILE = "missing_file"
+    UNREADABLE = "unreadable"
+
+
 class CaseAttachment(BaseModel):
     attachment_id: str
     filename: str
     media_type: str
     note: str | None = None
+    local_path: str | None = None
 
 
 class CaseFileInput(BaseModel):
@@ -102,6 +110,20 @@ class CaseRecord(BaseModel):
 
 class CaseCreateResponse(BaseModel):
     case: CaseRecord
+
+
+class AttachmentParseResult(BaseModel):
+    attachment_id: str
+    filename: str
+    media_type: str
+    note: str | None = None
+    local_path: str | None = None
+    detected_evidence_type: EvidenceType
+    extraction_status: AttachmentParseStatus
+    extracted_text_excerpt: str | None = None
+    extracted_char_count: int = 0
+    source: str
+    warnings: list[str] = Field(default_factory=list)
 
 
 class Fact(BaseModel):
@@ -232,6 +254,7 @@ class CaseState(BaseModel):
     case_id: str
     title: str
     case_type: CaseType
+    attachment_parses: list[AttachmentParseResult] = Field(default_factory=list)
     facts: list[Fact] = Field(default_factory=list)
     evidence: list[Evidence] = Field(default_factory=list)
     legal_issues: list[LegalIssue] = Field(default_factory=list)
@@ -243,6 +266,12 @@ class CaseState(BaseModel):
 
 class ParseCaseResponse(BaseModel):
     case: CaseState
+
+
+class CaseDetailResponse(BaseModel):
+    record: CaseRecord
+    case_input: CaseFileInput
+    parsed_case: CaseState | None = None
 
 
 class SimulationResponse(BaseModel):

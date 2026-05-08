@@ -1,8 +1,11 @@
 from .schemas import (
     AgentName,
     AgentTurn,
+    AttachmentParseResult,
+    AttachmentParseStatus,
     CaseCreateRequest,
     CaseCreateResponse,
+    CaseDetailResponse,
     CaseFileInput,
     CaseRecord,
     CaseStatus,
@@ -38,8 +41,11 @@ from .schemas import (
 __all__ = [
     "AgentName",
     "AgentTurn",
+    "AttachmentParseResult",
+    "AttachmentParseStatus",
     "CaseCreateRequest",
     "CaseCreateResponse",
+    "CaseDetailResponse",
     "CaseFileInput",
     "CaseRecord",
     "CaseStatus",

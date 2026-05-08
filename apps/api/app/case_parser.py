@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
+from pypdf import PdfReader
 from packages.shared.python.ai_court_shared.schemas import (
+    AttachmentParseResult,
+    AttachmentParseStatus,
     CaseAttachment,
     CaseFileInput,
     CaseState,
@@ -54,6 +58,126 @@ def classify_evidence_type(attachment: CaseAttachment) -> EvidenceType:
     return EvidenceType.OTHER
 
 
+def truncate_text(text: str, limit: int = 320) -> str:
+    normalized = normalize_text(text)
+    if len(normalized) <= limit:
+        return normalized
+    return normalized[: limit - 3].rstrip() + "..."
+
+
+def extract_pdf_text(path: Path, max_pages: int = 3) -> str:
+    reader = PdfReader(str(path))
+    snippets: list[str] = []
+    for page in reader.pages[:max_pages]:
+        snippets.append(page.extract_text() or "")
+    return normalize_text(" ".join(snippets))
+
+
+def extract_text_attachment(path: Path, max_chars: int = 2000) -> str:
+    return normalize_text(path.read_text(encoding="utf-8", errors="ignore")[:max_chars])
+
+
+def build_attachment_parse_result(attachment: CaseAttachment) -> AttachmentParseResult:
+    warnings: list[str] = []
+    evidence_type = classify_evidence_type(attachment)
+    source = f"attachment:{attachment.attachment_id}"
+    local_path = attachment.local_path
+    if not local_path:
+        return AttachmentParseResult(
+            attachment_id=attachment.attachment_id,
+            filename=attachment.filename,
+            media_type=attachment.media_type,
+            note=attachment.note,
+            local_path=local_path,
+            detected_evidence_type=evidence_type,
+            extraction_status=AttachmentParseStatus.METADATA_ONLY,
+            source=source,
+            warnings=warnings,
+        )
+
+    path = Path(local_path)
+    if not path.exists():
+        warnings.append("Local attachment path does not exist on disk.")
+        return AttachmentParseResult(
+            attachment_id=attachment.attachment_id,
+            filename=attachment.filename,
+            media_type=attachment.media_type,
+            note=attachment.note,
+            local_path=local_path,
+            detected_evidence_type=evidence_type,
+            extraction_status=AttachmentParseStatus.MISSING_FILE,
+            source=source,
+            warnings=warnings,
+        )
+
+    try:
+        lowered_name = attachment.filename.lower()
+        lowered_media_type = attachment.media_type.lower()
+        extracted_text = ""
+        if lowered_media_type == "application/pdf" or lowered_name.endswith(".pdf"):
+            extracted_text = extract_pdf_text(path)
+        elif lowered_media_type.startswith("text/") or lowered_name.endswith(".txt"):
+            extracted_text = extract_text_attachment(path)
+        else:
+            warnings.append("Attachment type is not supported for local text extraction yet.")
+            return AttachmentParseResult(
+                attachment_id=attachment.attachment_id,
+                filename=attachment.filename,
+                media_type=attachment.media_type,
+                note=attachment.note,
+                local_path=local_path,
+                detected_evidence_type=evidence_type,
+                extraction_status=AttachmentParseStatus.METADATA_ONLY,
+                source=source,
+                warnings=warnings,
+            )
+
+        if not extracted_text:
+            warnings.append("No readable text was extracted from the attachment.")
+            return AttachmentParseResult(
+                attachment_id=attachment.attachment_id,
+                filename=attachment.filename,
+                media_type=attachment.media_type,
+                note=attachment.note,
+                local_path=local_path,
+                detected_evidence_type=evidence_type,
+                extraction_status=AttachmentParseStatus.UNREADABLE,
+                source=source,
+                warnings=warnings,
+            )
+
+        return AttachmentParseResult(
+            attachment_id=attachment.attachment_id,
+            filename=attachment.filename,
+            media_type=attachment.media_type,
+            note=attachment.note,
+            local_path=local_path,
+            detected_evidence_type=evidence_type,
+            extraction_status=AttachmentParseStatus.TEXT_EXTRACTED,
+            extracted_text_excerpt=truncate_text(extracted_text),
+            extracted_char_count=len(extracted_text),
+            source=source,
+            warnings=warnings,
+        )
+    except Exception as exc:
+        warnings.append(f"Attachment text extraction failed: {exc}")
+        return AttachmentParseResult(
+            attachment_id=attachment.attachment_id,
+            filename=attachment.filename,
+            media_type=attachment.media_type,
+            note=attachment.note,
+            local_path=local_path,
+            detected_evidence_type=evidence_type,
+            extraction_status=AttachmentParseStatus.UNREADABLE,
+            source=source,
+            warnings=warnings,
+        )
+
+
+def build_attachment_parses(attachments: list[CaseAttachment]) -> list[AttachmentParseResult]:
+    return [build_attachment_parse_result(attachment) for attachment in attachments]
+
+
 def pick_fact_source(sentence: str, attachments: list[CaseAttachment]) -> str:
     lowered = sentence.lower()
     for attachment in attachments:
@@ -99,14 +223,23 @@ def build_facts(case_input: CaseFileInput) -> list[Fact]:
     return facts
 
 
-def build_attachment_evidence(attachments: list[CaseAttachment]) -> list[Evidence]:
+def build_attachment_evidence(
+    attachments: list[CaseAttachment],
+    attachment_parses: list[AttachmentParseResult],
+) -> list[Evidence]:
     evidence: list[Evidence] = []
-    for index, attachment in enumerate(attachments, start=1):
+    for index, (attachment, parsed_attachment) in enumerate(zip(attachments, attachment_parses), start=1):
+        content = summarize_attachment(attachment)
+        if parsed_attachment.extracted_text_excerpt:
+            content = (
+                f"{content} Trích đoạn đã đọc được: "
+                f"{parsed_attachment.extracted_text_excerpt}"
+            )
         evidence.append(
             Evidence(
                 evidence_id=f"EVID_{index:03d}",
-                type=classify_evidence_type(attachment),
-                content=summarize_attachment(attachment),
+                type=parsed_attachment.detected_evidence_type,
+                content=content,
                 source=f"attachment:{attachment.attachment_id}",
                 status=EvidenceStatus.UNCONTESTED,
             )
@@ -199,8 +332,9 @@ def build_legal_issues(case_input: CaseFileInput) -> list[LegalIssue]:
 
 
 def parse_case_input(case_input: CaseFileInput) -> CaseState:
+    attachment_parses = build_attachment_parses(case_input.attachments)
     facts = build_facts(case_input)
-    attachment_evidence = build_attachment_evidence(case_input.attachments)
+    attachment_evidence = build_attachment_evidence(case_input.attachments, attachment_parses)
     narrative_evidence = build_narrative_evidence(case_input, facts, len(attachment_evidence) + 1)
     legal_issues = build_legal_issues(case_input)
 
@@ -208,6 +342,7 @@ def parse_case_input(case_input: CaseFileInput) -> CaseState:
         case_id=case_input.case_id,
         title=case_input.title,
         case_type=CaseType(case_input.case_type),
+        attachment_parses=attachment_parses,
         facts=facts,
         evidence=attachment_evidence + narrative_evidence,
         legal_issues=legal_issues,

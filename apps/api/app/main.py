@@ -14,7 +14,9 @@ if str(ROOT_DIR) not in sys.path:
 from .case_parser import parse_case_input
 from .case_store import (
     create_case as create_case_record,
+    load_case_detail,
     load_case_input,
+    load_case_state,
     save_case_state,
 )
 from packages.retrieval.python.ai_court_retrieval.service import (
@@ -23,6 +25,7 @@ from packages.retrieval.python.ai_court_retrieval.service import (
 from packages.shared.python.ai_court_shared.schemas import (
     CaseCreateRequest,
     CaseCreateResponse,
+    CaseDetailResponse,
     CaseFileInput,
     CaseState,
     LegalSearchRequest,
@@ -62,6 +65,14 @@ def create_case(request: CaseCreateRequest) -> CaseCreateResponse:
     return CaseCreateResponse(case=record)
 
 
+@app.get("/api/v1/cases/{case_id}", response_model=CaseDetailResponse)
+def get_case_detail(case_id: str) -> CaseDetailResponse:
+    case_detail = load_case_detail(case_id)
+    if case_detail is None:
+        raise HTTPException(status_code=404, detail=f"Case not found: {case_id}")
+    return case_detail
+
+
 @app.post("/api/v1/cases/{case_id}/parse", response_model=ParseCaseResponse)
 def parse_case(case_id: str) -> ParseCaseResponse:
     case_input = load_case_input(case_id)
@@ -70,6 +81,14 @@ def parse_case(case_id: str) -> ParseCaseResponse:
 
     case_state = parse_case_input(case_input)
     save_case_state(case_state)
+    return ParseCaseResponse(case=case_state)
+
+
+@app.get("/api/v1/cases/{case_id}/state", response_model=ParseCaseResponse)
+def get_case_state(case_id: str) -> ParseCaseResponse:
+    case_state = load_case_state(case_id)
+    if case_state is None:
+        raise HTTPException(status_code=404, detail=f"Parsed case state not found: {case_id}")
     return ParseCaseResponse(case=case_state)
 
 

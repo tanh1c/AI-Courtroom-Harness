@@ -34,11 +34,18 @@ export type TurnStatus =
   | "needs_review"
   | "rejected";
 
+export type AttachmentParseStatus =
+  | "metadata_only"
+  | "text_extracted"
+  | "missing_file"
+  | "unreadable";
+
 export interface CaseAttachment {
   attachment_id: string;
   filename: string;
   media_type: string;
   note?: string | null;
+  local_path?: string | null;
 }
 
 export interface CaseFileInput {
@@ -69,6 +76,20 @@ export interface CaseRecord {
 
 export interface CaseCreateResponse {
   case: CaseRecord;
+}
+
+export interface AttachmentParseResult {
+  attachment_id: string;
+  filename: string;
+  media_type: string;
+  note?: string | null;
+  local_path?: string | null;
+  detected_evidence_type: EvidenceType;
+  extraction_status: AttachmentParseStatus;
+  extracted_text_excerpt?: string | null;
+  extracted_char_count: number;
+  source: string;
+  warnings: string[];
 }
 
 export interface Fact {
@@ -183,6 +204,7 @@ export interface CaseState {
   case_id: string;
   title: string;
   case_type: CaseType;
+  attachment_parses: AttachmentParseResult[];
   facts: Fact[];
   evidence: Evidence[];
   legal_issues: LegalIssue[];
@@ -194,6 +216,12 @@ export interface CaseState {
 
 export interface ParseCaseResponse {
   case: CaseState;
+}
+
+export interface CaseDetailResponse {
+  record: CaseRecord;
+  case_input: CaseFileInput;
+  parsed_case?: CaseState | null;
 }
 
 export interface SimulationResponse {
