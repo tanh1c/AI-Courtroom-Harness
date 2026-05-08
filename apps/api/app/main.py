@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -22,28 +23,43 @@ from .case_store import (
     load_case_detail,
     load_case_input,
     load_case_state,
+    load_markdown_report,
+    load_review_record,
     load_simulation_response,
     list_cases,
     save_case_state,
+    save_markdown_report,
+    save_review_record,
     save_simulation_response,
     store_uploaded_attachment_file,
 )
 from packages.orchestration.python.ai_court_orchestration.service import (
     get_courtroom_simulation_service,
 )
+from packages.reporting.python.ai_court_reporting.service import (
+    get_markdown_report_service,
+)
 from packages.retrieval.python.ai_court_retrieval.service import (
     get_local_legal_retrieval_service,
 )
 from packages.shared.python.ai_court_shared.schemas import (
+    AuditEvent,
+    AuditStage,
     AuditTrailResponse,
     CaseCreateRequest,
     CaseCreateResponse,
     CaseDetailResponse,
     CaseFileInput,
     CaseListResponse,
-    CaseState,
+    CaseStatus,
+    ClaimConfidence,
+    HumanReviewGate,
+    HumanReviewRecord,
+    HumanReviewRequest,
+    HumanReviewResponse,
     LegalSearchRequest,
     LegalSearchResponse,
+    MarkdownReportResponse,
     ParseCaseResponse,
     ReportResponse,
     SimulationResponse,
@@ -57,6 +73,85 @@ FIXTURES_DIR = ROOT_DIR / "packages" / "shared" / "fixtures"
 def load_fixture(name: str) -> dict:
     with (FIXTURES_DIR / name).open("r", encoding="utf-8") as handle:
         return json.load(handle)
+
+
+def utc_now() -> str:
+    return datetime.now(UTC).isoformat()
+
+
+def next_audit_event_id(events: list[AuditEvent]) -> str:
+    return f"AUDIT_{len(events) + 1:03d}"
+
+
+def resolve_human_review(
+    case_id: str,
+    request: HumanReviewRequest,
+) -> HumanReviewResponse:
+    simulation_response = load_simulation_response(case_id)
+    if simulation_response is None:
+        raise HTTPException(status_code=404, detail=f"Simulation not found: {case_id}")
+
+    updated = SimulationResponse.model_validate(simulation_response.model_dump(mode="json"))
+    checklist = list(dict.fromkeys(
+        updated.human_review.checklist
+        + updated.final_report.human_review_checklist
+        + request.checklist_updates
+    ))
+
+    if request.decision.value == "approve":
+        report_status = CaseStatus.REPORT_READY
+        updated.human_review = HumanReviewGate(
+            required=False,
+            blocked=False,
+            reasons=[],
+            checklist=checklist,
+        )
+        severity = ClaimConfidence.LOW
+        message = f"Human reviewer {request.reviewer_name} approved the report for export."
+    else:
+        report_status = CaseStatus.REVIEW_REQUIRED
+        rejection_reasons = list(updated.human_review.reasons)
+        rejection_reasons.append("Human reviewer rejected the current report and requested revisions.")
+        if request.notes:
+            rejection_reasons.append(f"Reviewer note: {request.notes}")
+        updated.human_review = HumanReviewGate(
+            required=True,
+            blocked=True,
+            reasons=list(dict.fromkeys(rejection_reasons)),
+            checklist=checklist,
+        )
+        severity = ClaimConfidence.HIGH
+        message = f"Human reviewer {request.reviewer_name} rejected the report pending revisions."
+
+    updated.case.status = report_status
+    updated.final_report.human_review_checklist = checklist
+    updated.audit_trail.append(
+        AuditEvent(
+            event_id=next_audit_event_id(updated.audit_trail),
+            stage=AuditStage.HUMAN_REVIEW,
+            severity=severity,
+            message=message,
+        )
+    )
+
+    review_record = HumanReviewRecord(
+        reviewer_name=request.reviewer_name,
+        decision=request.decision,
+        notes=request.notes,
+        checklist_updates=request.checklist_updates,
+        resolved_at=utc_now(),
+        status_after=report_status,
+    )
+
+    save_simulation_response(updated)
+    save_review_record(case_id, review_record)
+    return HumanReviewResponse(
+        case_id=case_id,
+        report_status=report_status,
+        human_review=updated.human_review,
+        review_record=review_record,
+        report=updated.final_report,
+    )
 
 
 app = FastAPI(
@@ -164,6 +259,11 @@ def simulate_case(case_id: str) -> SimulationResponse:
     return simulation_response
 
 
+@app.post("/api/v1/cases/{case_id}/review", response_model=HumanReviewResponse)
+def review_case(case_id: str, request: HumanReviewRequest) -> HumanReviewResponse:
+    return resolve_human_review(case_id, request)
+
+
 @app.get("/api/v1/reports/{case_id}", response_model=ReportResponse)
 def get_report(case_id: str) -> ReportResponse:
     simulation_response = load_simulation_response(case_id)
@@ -179,3 +279,34 @@ def get_report(case_id: str) -> ReportResponse:
     payload["case_id"] = case_id
     payload["report"]["case_id"] = case_id
     return ReportResponse.model_validate(payload)
+
+
+@app.post("/api/v1/reports/{case_id}/markdown", response_model=MarkdownReportResponse)
+def export_markdown_report(case_id: str) -> MarkdownReportResponse:
+    simulation_response = load_simulation_response(case_id)
+    if simulation_response is None:
+        raise HTTPException(status_code=404, detail=f"Simulation not found: {case_id}")
+    if simulation_response.case.status != CaseStatus.REPORT_READY:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Report is not ready for markdown export: {simulation_response.case.status.value}",
+        )
+
+    review_record = load_review_record(case_id)
+    service = get_markdown_report_service()
+    markdown = service.render(simulation_response, review_record)
+    markdown_path = save_markdown_report(case_id, markdown)
+    return MarkdownReportResponse(
+        case_id=case_id,
+        report_status=simulation_response.case.status,
+        markdown_path=markdown_path,
+        markdown=markdown,
+    )
+
+
+@app.get("/api/v1/reports/{case_id}/markdown", response_model=MarkdownReportResponse)
+def get_markdown_export(case_id: str) -> MarkdownReportResponse:
+    report = load_markdown_report(case_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail=f"Markdown report not found: {case_id}")
+    return report

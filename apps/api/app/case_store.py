@@ -16,6 +16,8 @@ from packages.shared.python.ai_court_shared.schemas import (
     CaseRecord,
     CaseState,
     CaseStatus,
+    HumanReviewRecord,
+    MarkdownReportResponse,
     SimulationResponse,
 )
 
@@ -53,6 +55,14 @@ def _ensure_storage() -> None:
             )
             """
         )
+        columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(cases)").fetchall()
+        }
+        if "review_record_json" not in columns:
+            connection.execute("ALTER TABLE cases ADD COLUMN review_record_json TEXT")
+        if "report_markdown_path" not in columns:
+            connection.execute("ALTER TABLE cases ADD COLUMN report_markdown_path TEXT")
 
 
 def _connect() -> sqlite3.Connection:
@@ -79,6 +89,11 @@ def _write_json(path: Path, payload: dict) -> None:
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+
+
+def _write_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
 
 
 def _read_json(path: Path) -> dict:
@@ -113,6 +128,13 @@ def _snapshot_simulation_response(simulation_response: SimulationResponse) -> No
     _write_json(
         _case_dir(simulation_response.case.case_id) / "simulation.json",
         simulation_response.model_dump(mode="json"),
+    )
+
+
+def _snapshot_review_record(case_id: str, review_record: HumanReviewRecord) -> None:
+    _write_json(
+        _case_dir(case_id) / "review.json",
+        review_record.model_dump(mode="json"),
     )
 
 
@@ -331,6 +353,21 @@ def load_audit_trail(case_id: str) -> AuditTrailResponse | None:
     )
 
 
+def load_review_record(case_id: str) -> HumanReviewRecord | None:
+    _ensure_storage()
+    with _connect() as connection:
+        row = connection.execute(
+            "SELECT review_record_json FROM cases WHERE case_id = ?",
+            (case_id,),
+        ).fetchone()
+    if row is not None and row["review_record_json"]:
+        return HumanReviewRecord.model_validate(json.loads(row["review_record_json"]))
+    path = _case_dir(case_id) / "review.json"
+    if path.exists():
+        return HumanReviewRecord.model_validate(_read_json(path))
+    return None
+
+
 def list_cases() -> CaseListResponse:
     _ensure_storage()
     records: list[CaseRecord] = []
@@ -347,6 +384,74 @@ def list_cases() -> CaseListResponse:
         case_state = _row_to_case_state(row)
         records.append(build_case_record(case_input, case_state))
     return CaseListResponse(cases=records)
+
+
+def save_review_record(case_id: str, review_record: HumanReviewRecord) -> None:
+    _ensure_storage()
+    with _connect() as connection:
+        connection.execute(
+            """
+            UPDATE cases
+            SET review_record_json = ?, status = ?, updated_at = ?
+            WHERE case_id = ?
+            """,
+            (
+                json.dumps(review_record.model_dump(mode="json"), ensure_ascii=False),
+                review_record.status_after,
+                _utc_now(),
+                case_id,
+            ),
+        )
+        connection.commit()
+    _snapshot_review_record(case_id, review_record)
+
+
+def save_markdown_report(case_id: str, markdown: str) -> str:
+    _ensure_storage()
+    path = _case_dir(case_id) / "report.md"
+    _write_text(path, markdown)
+    with _connect() as connection:
+        connection.execute(
+            """
+            UPDATE cases
+            SET report_markdown_path = ?, updated_at = ?
+            WHERE case_id = ?
+            """,
+            (
+                str(path),
+                _utc_now(),
+                case_id,
+            ),
+        )
+        connection.commit()
+    return str(path)
+
+
+def load_markdown_report(case_id: str) -> MarkdownReportResponse | None:
+    _ensure_storage()
+    simulation_response = load_simulation_response(case_id)
+    if simulation_response is None:
+        return None
+    with _connect() as connection:
+        row = connection.execute(
+            "SELECT report_markdown_path FROM cases WHERE case_id = ?",
+            (case_id,),
+        ).fetchone()
+    markdown_path = row["report_markdown_path"] if row is not None else None
+    if not markdown_path:
+        path = _case_dir(case_id) / "report.md"
+        if not path.exists():
+            return None
+        markdown_path = str(path)
+    path = Path(markdown_path)
+    if not path.exists():
+        return None
+    return MarkdownReportResponse(
+        case_id=case_id,
+        report_status=simulation_response.case.status,
+        markdown_path=str(path),
+        markdown=path.read_text(encoding="utf-8"),
+    )
 
 
 def reserve_next_attachment_id(attachments: list[CaseAttachment]) -> str:

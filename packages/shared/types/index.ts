@@ -42,6 +42,8 @@ export type AuditStage =
   | "reporting"
   | "human_review";
 
+export type HumanReviewDecision = "approve" | "reject";
+
 export type AttachmentParseStatus =
   | "metadata_only"
   | "text_extracted"
@@ -207,6 +209,15 @@ export interface HumanReviewGate {
   checklist: string[];
 }
 
+export interface HumanReviewRecord {
+  reviewer_name: string;
+  decision: HumanReviewDecision;
+  notes?: string | null;
+  checklist_updates: string[];
+  resolved_at: string;
+  status_after: CaseStatus;
+}
+
 export interface JudgeSummary {
   summary: string;
   main_disputed_points: string[];
@@ -253,6 +264,13 @@ export interface CaseDetailResponse {
   parsed_case?: CaseState | null;
 }
 
+export interface HumanReviewRequest {
+  reviewer_name: string;
+  decision: HumanReviewDecision;
+  notes?: string | null;
+  checklist_updates: string[];
+}
+
 export interface SimulationResponse {
   case: CaseState;
   fact_check: FactCheckResult;
@@ -270,9 +288,24 @@ export interface AuditTrailResponse {
   human_review: HumanReviewGate;
 }
 
+export interface HumanReviewResponse {
+  case_id: string;
+  report_status: CaseStatus;
+  human_review: HumanReviewGate;
+  review_record: HumanReviewRecord;
+  report: FinalReport;
+}
+
 export interface ReportResponse {
   case_id: string;
   report_status: CaseStatus;
   generated_from_turns: string[];
   report: FinalReport;
+}
+
+export interface MarkdownReportResponse {
+  case_id: string;
+  report_status: CaseStatus;
+  markdown_path: string;
+  markdown: string;
 }

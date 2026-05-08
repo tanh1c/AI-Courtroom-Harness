@@ -76,6 +76,11 @@ class AuditStage(str, Enum):
     HUMAN_REVIEW = "human_review"
 
 
+class HumanReviewDecision(str, Enum):
+    APPROVE = "approve"
+    REJECT = "reject"
+
+
 class AttachmentParseStatus(str, Enum):
     METADATA_ONLY = "metadata_only"
     TEXT_EXTRACTED = "text_extracted"
@@ -258,6 +263,15 @@ class HumanReviewGate(BaseModel):
     checklist: list[str] = Field(default_factory=list)
 
 
+class HumanReviewRecord(BaseModel):
+    reviewer_name: str
+    decision: HumanReviewDecision
+    notes: str | None = None
+    checklist_updates: list[str] = Field(default_factory=list)
+    resolved_at: str
+    status_after: CaseStatus
+
+
 class JudgeSummary(BaseModel):
     summary: str
     main_disputed_points: list[str] = Field(default_factory=list)
@@ -304,6 +318,13 @@ class CaseDetailResponse(BaseModel):
     parsed_case: CaseState | None = None
 
 
+class HumanReviewRequest(BaseModel):
+    reviewer_name: str
+    decision: HumanReviewDecision
+    notes: str | None = None
+    checklist_updates: list[str] = Field(default_factory=list)
+
+
 class SimulationResponse(BaseModel):
     case: CaseState
     fact_check: FactCheckResult
@@ -323,8 +344,23 @@ class AuditTrailResponse(BaseModel):
     human_review: HumanReviewGate
 
 
+class HumanReviewResponse(BaseModel):
+    case_id: str
+    report_status: CaseStatus
+    human_review: HumanReviewGate
+    review_record: HumanReviewRecord
+    report: FinalReport
+
+
 class ReportResponse(BaseModel):
     case_id: str
     report_status: CaseStatus
     generated_from_turns: list[str] = Field(default_factory=list)
     report: FinalReport
+
+
+class MarkdownReportResponse(BaseModel):
+    case_id: str
+    report_status: CaseStatus
+    markdown_path: str
+    markdown: str

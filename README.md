@@ -52,7 +52,10 @@ docs/
 - `GET /api/v1/cases/{case_id}/audit`
 - `POST /api/v1/legal-search`
 - `POST /api/v1/cases/{case_id}/simulate`
+- `POST /api/v1/cases/{case_id}/review`
 - `GET /api/v1/reports/{case_id}`
+- `POST /api/v1/reports/{case_id}/markdown`
+- `GET /api/v1/reports/{case_id}/markdown`
 
 - `POST /api/v1/cases` now persists draft case input to a local SQLite store and writes case snapshots to `data/processed/cases/<case_id>/case.json`
 - `GET /api/v1/cases` lists locally created cases from the persistence layer
@@ -62,7 +65,10 @@ docs/
 - `GET /api/v1/cases/{case_id}/state` returns the stored parsed case state for frontend consumption
 - `GET /api/v1/cases/{case_id}/audit` returns the persisted audit trail and human review gate
 - `POST /api/v1/cases/{case_id}/simulate` now runs a LangGraph-based courtroom simulation flow over the parsed case state
+- `POST /api/v1/cases/{case_id}/review` resolves the human review gate and can move a case from `review_required` to `report_ready`
 - `GET /api/v1/reports/{case_id}` now returns the latest stored simulation report when available, and falls back to the fixture only for the sample case without a local simulation snapshot
+- `POST /api/v1/reports/{case_id}/markdown` exports a persisted markdown report once the case is `report_ready`
+- `GET /api/v1/reports/{case_id}/markdown` reads the stored markdown export for the case
 - `POST /api/v1/legal-search` uses the retrieval baseline over the MVP legal corpus
 - Attachment parsing is CPU-friendly and supports metadata parsing for all attachments plus best-effort local text extraction for PDF and text files when `local_path` is provided
 
@@ -148,3 +154,15 @@ The same simulation smoke now also verifies:
 - unsupported claim and citation checks
 - human review gate activation
 - report status transitioning to `review_required` when risks remain
+
+## Phase 5 Backend Check
+
+The Phase 5 backend additions are still CPU-only. Run:
+
+```bash
+.\.venv\Scripts\python scripts/eval/smoke_review_export.py
+```
+
+This drives `create -> upload attachment -> parse -> simulate -> review approve -> markdown export`
+and verifies that the review gate can be resolved into `report_ready` before exporting
+`data/processed/cases/<case_id>/report.md`.
