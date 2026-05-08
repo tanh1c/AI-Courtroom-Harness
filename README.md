@@ -70,17 +70,27 @@ TypeScript types:
 
 ## Retrieval Baseline
 
-- Seed corpus: `packages/retrieval/python/ai_court_retrieval/resources/seed_legal_corpus.json`
+- Real MVP corpus: `packages/retrieval/python/ai_court_retrieval/resources/mvp_legal_corpus.json`
+- Fallback seed corpus: `packages/retrieval/python/ai_court_retrieval/resources/seed_legal_corpus.json`
 - Search service: `packages/retrieval/python/ai_court_retrieval/service.py`
 - Ingest helper: `scripts/ingest/build_legal_corpus.py`
 - Smoke eval: `scripts/eval/smoke_legal_search.py`
 - Optional full-corpus dependency: install `datasets` inside `.venv` before running the ingest helper
+- Remote vector setup guide: `docs/COLAB_VECTOR_SETUP.md`
 
 Run a retrieval smoke check from the repo root:
 
 ```bash
 .\.venv\Scripts\python scripts/eval/smoke_legal_search.py
 ```
+
+To enable hybrid search without running the embedding model on your laptop, set:
+
+```powershell
+$env:AI_COURT_VECTOR_API_URL="https://your-colab-ngrok-url"
+```
+
+The local API will then merge BM25 with remote vector results from Colab and fall back to BM25-only if the remote service is unavailable.
 
 ## Run API Mock
 

@@ -4,14 +4,15 @@ This package contains the Phase 1 legal retrieval baseline.
 
 Current contents:
 
-- seed legal corpus resources
+- real MVP legal corpus resources built from the Hugging Face dataset
+- fallback seed corpus resources
 - HTML cleaning and article-aware chunking helpers
 - local BM25 search with metadata filtering
+- remote vector fusion support for Colab-hosted embeddings
 - ingest script entrypoints for Hugging Face legal datasets
 
 Next steps:
 
-- build normalized chunks from the full legal corpus
-- add vector retrieval with the legal embedding model
-- merge lexical and vector candidates
-- add reranking and retrieval evaluation
+- expand beyond the curated MVP real-document profile
+- stabilize the Colab vector lane and tunnel workflow
+- add reranking and broader retrieval evaluation

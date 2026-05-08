@@ -44,7 +44,7 @@ class EffectiveStatus(str, Enum):
 
 
 class RetrievalStrategy(str, Enum):
-    BM25_LOCAL_SEED = "bm25_local_seed"
+    BM25_LOCAL = "bm25_local"
     HYBRID = "hybrid"
     VECTOR_ONLY = "vector_only"
 
@@ -165,6 +165,22 @@ class LegalSearchRequest(BaseModel):
 class LegalSearchResponse(BaseModel):
     citations: list[Citation] = Field(default_factory=list)
     query_strategy: RetrievalStrategy
+
+
+class RemoteVectorSearchRequest(BaseModel):
+    query: str
+    top_k: int = Field(default=50, ge=1, le=100)
+    filters: LegalSearchFilter = Field(default_factory=LegalSearchFilter)
+
+
+class RemoteVectorSearchResult(BaseModel):
+    chunk_id: str
+    score: float
+
+
+class RemoteVectorSearchResponse(BaseModel):
+    results: list[RemoteVectorSearchResult] = Field(default_factory=list)
+    model_name: str
 
 
 class AgentTurn(BaseModel):

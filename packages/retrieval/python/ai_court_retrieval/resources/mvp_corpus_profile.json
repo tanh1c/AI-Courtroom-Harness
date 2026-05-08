@@ -1,0 +1,5 @@
+{
+  "description": "Real legal documents from th1nhng0/vietnamese-legal-documents used for the MVP civil and commercial retrieval baseline.",
+  "doc_ids": [95942, 26117, 147004, 167688],
+  "document_numbers": ["91/2015/QH13", "36/2005/QH11", "21/2021/NĐ-CP", "02/2022/NQ-HĐTP"]
+}

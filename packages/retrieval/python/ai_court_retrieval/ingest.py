@@ -4,6 +4,8 @@ import re
 from typing import Iterable
 
 from bs4 import BeautifulSoup
+from huggingface_hub import hf_hub_download
+import pyarrow.dataset as ds
 
 from .models import LegalChunk
 
@@ -74,3 +76,52 @@ def build_legal_chunks(
 
     return chunks
 
+
+def _download_dataset_file(filename: str) -> str:
+    return hf_hub_download(
+        repo_id="th1nhng0/vietnamese-legal-documents",
+        repo_type="dataset",
+        filename=filename,
+    )
+
+
+def load_metadata_rows_by_ids(doc_ids: list[int]) -> list[dict]:
+    metadata_path = _download_dataset_file("data/metadata.parquet")
+    dataset = ds.dataset(metadata_path, format="parquet")
+    scanner = dataset.scanner(
+        columns=[
+            "id",
+            "title",
+            "so_ky_hieu",
+            "ngay_ban_hanh",
+            "loai_van_ban",
+            "ngay_co_hieu_luc",
+            "ngay_het_hieu_luc",
+            "linh_vuc",
+            "co_quan_ban_hanh",
+            "tinh_trang_hieu_luc",
+        ],
+        filter=ds.field("id").isin(doc_ids),
+    )
+    return scanner.to_table().to_pylist()
+
+
+def load_content_rows_by_ids(doc_ids: list[int]) -> list[dict]:
+    content_path = _download_dataset_file("data/content.parquet")
+    dataset = ds.dataset(content_path, format="parquet")
+    string_ids = [str(doc_id) for doc_id in doc_ids]
+    scanner = dataset.scanner(
+        columns=["id", "content_html"],
+        filter=ds.field("id").isin(string_ids),
+    )
+    rows = scanner.to_table().to_pylist()
+    deduped: dict[str, dict] = {}
+    for row in rows:
+        deduped[str(row["id"])] = row
+    return list(deduped.values())
+
+
+def build_legal_chunks_from_doc_ids(doc_ids: list[int], source: str = "vbpl.vn") -> list[LegalChunk]:
+    metadata_rows = load_metadata_rows_by_ids(doc_ids)
+    content_rows = load_content_rows_by_ids(doc_ids)
+    return build_legal_chunks(metadata_rows, content_rows, source=source)

@@ -16,7 +16,7 @@ export type EvidenceType =
 export type EvidenceStatus = "uncontested" | "disputed" | "rejected";
 export type ClaimConfidence = "low" | "medium" | "high";
 export type EffectiveStatus = "active" | "expired" | "unknown";
-export type RetrievalStrategy = "bm25_local_seed" | "hybrid" | "vector_only";
+export type RetrievalStrategy = "bm25_local" | "hybrid" | "vector_only";
 
 export type AgentName =
   | "plaintiff_agent"
