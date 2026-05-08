@@ -78,6 +78,10 @@ export interface CaseCreateResponse {
   case: CaseRecord;
 }
 
+export interface CaseListResponse {
+  cases: CaseRecord[];
+}
+
 export interface AttachmentParseResult {
   attachment_id: string;
   filename: string;

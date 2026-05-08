@@ -43,16 +43,20 @@ docs/
 
 - `GET /health`
 - `GET /api/v1/fixtures/sample-case`
+- `GET /api/v1/cases`
 - `POST /api/v1/cases`
 - `GET /api/v1/cases/{case_id}`
+- `POST /api/v1/cases/{case_id}/attachments`
 - `POST /api/v1/cases/{case_id}/parse`
 - `GET /api/v1/cases/{case_id}/state`
 - `POST /api/v1/legal-search`
 - `POST /api/v1/cases/{case_id}/simulate`
 - `GET /api/v1/reports/{case_id}`
 
-- `POST /api/v1/cases` now persists draft case input to `data/processed/cases/<case_id>/case.json`
+- `POST /api/v1/cases` now persists draft case input to a local SQLite store and writes case snapshots to `data/processed/cases/<case_id>/case.json`
+- `GET /api/v1/cases` lists locally created cases from the persistence layer
 - `GET /api/v1/cases/{case_id}` returns draft input plus the latest parsed state when available
+- `POST /api/v1/cases/{case_id}/attachments` uploads a local attachment into `data/raw/cases/<case_id>/attachments/` and resets the case back to `draft` until it is parsed again
 - `POST /api/v1/cases/{case_id}/parse` now runs a local heuristic parser and persists `parsed.json`
 - `GET /api/v1/cases/{case_id}/state` returns the stored parsed case state for frontend consumption
 - `GET /api/v1/reports/{case_id}` and `POST /api/v1/cases/{case_id}/simulate` still return fixtures
@@ -121,4 +125,4 @@ The Phase 2 baseline is CPU-only and does not require a GPU. Run:
 .\.venv\Scripts\python scripts/eval/smoke_case_intake.py
 ```
 
-This creates a draft case, parses it into facts, evidence, and legal issues, and writes the artifacts to `data/processed/cases/`.
+This creates a draft case, uploads a PDF attachment, parses it into facts, evidence, and legal issues, and writes the artifacts to `data/processed/cases/`.

@@ -1,17 +1,17 @@
 from __future__ import annotations
 
+import logging
 import sys
 import tempfile
-import logging
 from pathlib import Path
+
+from fastapi.testclient import TestClient
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from apps.api.app.main import create_case, get_case_detail, get_case_state, parse_case
-from packages.shared.python.ai_court_shared.schemas import CaseAttachment, CaseCreateRequest, CaseType
-
+from apps.api.app.main import app
 
 MINIMAL_PDF_BYTES = b"""%PDF-1.4
 1 0 obj
@@ -62,51 +62,60 @@ def main() -> None:
     pdf_path = temp_dir / "hop_dong_laptop.pdf"
     write_sample_pdf(pdf_path)
 
-    request = CaseCreateRequest(
-        title="Tranh chấp hợp đồng mua bán laptop",
-        case_type=CaseType.CIVIL_CONTRACT_DISPUTE,
-        narrative=(
-            "Ngày 10/04/2026, bà C đặt mua của cửa hàng D một laptop trị giá 25.000.000 đồng. "
-            "Bà C đã chuyển khoản trước 15.000.000 đồng. Hai bên hẹn giao hàng ngày 15/04/2026 "
-            "nhưng cửa hàng D chưa giao hàng và yêu cầu thanh toán đủ toàn bộ trước khi giao. "
-            "Bà C yêu cầu hoàn tiền và bồi thường chi phí phát sinh."
-        ),
-        attachments=[
-            CaseAttachment(
-                attachment_id="ATT_LOCAL_001",
-                filename="hop_dong_laptop.pdf",
-                media_type="application/pdf",
-                note="Hợp đồng mua bán laptop",
-                local_path=str(pdf_path),
-            ),
-            CaseAttachment(
-                attachment_id="ATT_LOCAL_002",
-                filename="bien_lai_chuyen_khoan.png",
-                media_type="image/png",
-                note="Biên lai chuyển khoản 15.000.000 đồng",
-            ),
-        ],
-    )
-    created = create_case(request)
-    parsed = parse_case(created.case.case_id)
-    detail = get_case_detail(created.case.case_id)
-    state = get_case_state(created.case.case_id)
+    client = TestClient(app)
 
-    print("created_case_id:", created.case.case_id)
-    print("status:", parsed.case.status)
-    print("fact_count:", len(parsed.case.facts))
-    print("evidence_count:", len(parsed.case.evidence))
-    print("issue_titles:", [issue.title for issue in parsed.case.legal_issues])
-    print("detail_status:", detail.record.status)
-    print("state_status:", state.case.status)
-    print(
-        "attachment_parse_statuses:",
-        [attachment.extraction_status for attachment in parsed.case.attachment_parses],
+    create_response = client.post(
+        "/api/v1/cases",
+        json={
+            "title": "Tranh chấp hợp đồng mua bán laptop",
+            "case_type": "civil_contract_dispute",
+            "language": "vi",
+            "narrative": (
+                "Ngày 10/04/2026, bà C đặt mua của cửa hàng D một laptop trị giá 25.000.000 đồng. "
+                "Bà C đã chuyển khoản trước 15.000.000 đồng. Hai bên hẹn giao hàng ngày 15/04/2026 "
+                "nhưng cửa hàng D chưa giao hàng và yêu cầu thanh toán đủ toàn bộ trước khi giao. "
+                "Bà C yêu cầu hoàn tiền và bồi thường chi phí phát sinh."
+            ),
+            "attachments": [],
+        },
     )
-    print(
-        "attachment_excerpt_present:",
-        [bool(attachment.extracted_text_excerpt) for attachment in parsed.case.attachment_parses],
-    )
+    create_response.raise_for_status()
+    created_case = create_response.json()["case"]
+    case_id = created_case["case_id"]
+
+    with pdf_path.open("rb") as handle:
+        upload_response = client.post(
+            f"/api/v1/cases/{case_id}/attachments",
+            data={"note": "Hợp đồng mua bán laptop"},
+            files={"file": ("hop_dong_laptop.pdf", handle, "application/pdf")},
+        )
+    upload_response.raise_for_status()
+
+    parse_response = client.post(f"/api/v1/cases/{case_id}/parse")
+    parse_response.raise_for_status()
+    parsed_case = parse_response.json()["case"]
+
+    detail_response = client.get(f"/api/v1/cases/{case_id}")
+    detail_response.raise_for_status()
+    detail_case = detail_response.json()
+
+    state_response = client.get(f"/api/v1/cases/{case_id}/state")
+    state_response.raise_for_status()
+    state_case = state_response.json()["case"]
+
+    list_response = client.get("/api/v1/cases")
+    list_response.raise_for_status()
+    listed_cases = list_response.json()["cases"]
+
+    print("created_case_id:", case_id)
+    print("listed_case_count:", len(listed_cases))
+    print("detail_status:", detail_case["record"]["status"])
+    print("state_status:", state_case["status"])
+    print("fact_count:", len(parsed_case["facts"]))
+    print("evidence_count:", len(parsed_case["evidence"]))
+    print("attachment_parse_statuses:", [item["extraction_status"] for item in parsed_case["attachment_parses"]])
+    print("attachment_excerpt_present:", [bool(item["extracted_text_excerpt"]) for item in parsed_case["attachment_parses"]])
+    print("issue_titles:", [issue["title"] for issue in parsed_case["legal_issues"]])
 
 
 if __name__ == "__main__":

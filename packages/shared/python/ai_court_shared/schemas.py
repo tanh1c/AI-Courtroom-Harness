@@ -112,6 +112,10 @@ class CaseCreateResponse(BaseModel):
     case: CaseRecord
 
 
+class CaseListResponse(BaseModel):
+    cases: list[CaseRecord] = Field(default_factory=list)
+
+
 class AttachmentParseResult(BaseModel):
     attachment_id: str
     filename: str

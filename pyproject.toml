@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ai-courtroom-harness"
 version = "0.1.0"
-description = "Phase 0 skeleton for AI Courtroom Harness"
+description = "Phase 1 retrieval and Phase 2 case intake baseline for AI Courtroom Harness"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -16,6 +16,7 @@ dependencies = [
   "pydantic>=2.8.0",
   "pypdf>=5.5.0",
   "pyarrow>=21.0.0",
+  "python-multipart>=0.0.20",
   "rank-bm25>=0.2.2",
   "uvicorn>=0.30.0",
 ]

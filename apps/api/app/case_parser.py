@@ -223,6 +223,30 @@ def build_facts(case_input: CaseFileInput) -> list[Fact]:
     return facts
 
 
+def build_attachment_facts(
+    attachment_parses: list[AttachmentParseResult],
+    start_index: int,
+) -> list[Fact]:
+    facts: list[Fact] = []
+    next_index = start_index
+    for attachment in attachment_parses:
+        if not attachment.extracted_text_excerpt:
+            continue
+        facts.append(
+            Fact(
+                fact_id=f"FACT_{next_index:03d}",
+                content=(
+                    f"Nội dung trích xuất từ tệp {attachment.filename}: "
+                    f"{attachment.extracted_text_excerpt}"
+                ),
+                source=attachment.source,
+                confidence=ClaimConfidence.HIGH,
+            )
+        )
+        next_index += 1
+    return facts
+
+
 def build_attachment_evidence(
     attachments: list[CaseAttachment],
     attachment_parses: list[AttachmentParseResult],
@@ -286,11 +310,15 @@ def build_narrative_evidence(
     return evidence
 
 
-def build_legal_issues(case_input: CaseFileInput) -> list[LegalIssue]:
+def build_legal_issues(case_input: CaseFileInput, attachment_parses: list[AttachmentParseResult]) -> list[LegalIssue]:
     issues: list[LegalIssue] = []
-    narrative = case_input.narrative.lower()
+    attachment_text = " ".join(
+        attachment.extracted_text_excerpt or ""
+        for attachment in attachment_parses
+    ).lower()
+    combined_text = f"{case_input.narrative.lower()} {attachment_text}"
     if any(
-        keyword in narrative
+        keyword in combined_text
         for keyword in ["không giao", "chậm giao", "hạn giao", "giao xe", "giao hàng", "giao tài sản", "chưa giao"]
     ):
         issues.append(
@@ -301,7 +329,7 @@ def build_legal_issues(case_input: CaseFileInput) -> list[LegalIssue]:
                 tags=["contract", "delivery_obligation"],
             )
         )
-    if any(keyword in narrative for keyword in ["thanh toán", "chuyển khoản", "%", "trả trước"]):
+    if any(keyword in combined_text for keyword in ["thanh toán", "chuyển khoản", "%", "trả trước"]):
         issues.append(
             LegalIssue(
                 issue_id=f"ISSUE_{len(issues) + 1:03d}",
@@ -310,7 +338,7 @@ def build_legal_issues(case_input: CaseFileInput) -> list[LegalIssue]:
                 tags=["payment_terms", "contract_interpretation"],
             )
         )
-    if any(keyword in narrative for keyword in ["hoàn trả", "hoàn tiền", "bồi thường", "chi phí phát sinh"]):
+    if any(keyword in combined_text for keyword in ["hoàn trả", "hoàn tiền", "bồi thường", "chi phí phát sinh"]):
         issues.append(
             LegalIssue(
                 issue_id=f"ISSUE_{len(issues) + 1:03d}",
@@ -333,10 +361,12 @@ def build_legal_issues(case_input: CaseFileInput) -> list[LegalIssue]:
 
 def parse_case_input(case_input: CaseFileInput) -> CaseState:
     attachment_parses = build_attachment_parses(case_input.attachments)
-    facts = build_facts(case_input)
+    narrative_facts = build_facts(case_input)
+    attachment_facts = build_attachment_facts(attachment_parses, len(narrative_facts) + 1)
+    facts = narrative_facts + attachment_facts
     attachment_evidence = build_attachment_evidence(case_input.attachments, attachment_parses)
-    narrative_evidence = build_narrative_evidence(case_input, facts, len(attachment_evidence) + 1)
-    legal_issues = build_legal_issues(case_input)
+    narrative_evidence = build_narrative_evidence(case_input, narrative_facts, len(attachment_evidence) + 1)
+    legal_issues = build_legal_issues(case_input, attachment_parses)
 
     return CaseState(
         case_id=case_input.case_id,
