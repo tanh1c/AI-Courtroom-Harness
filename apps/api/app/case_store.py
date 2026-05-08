@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from packages.shared.python.ai_court_shared.schemas import (
+    AuditTrailResponse,
     CaseAttachment,
     CaseCreateRequest,
     CaseDetailResponse,
@@ -317,6 +318,17 @@ def load_simulation_response(case_id: str) -> SimulationResponse | None:
     if sample_simulation.get("case", {}).get("case_id") == case_id:
         return SimulationResponse.model_validate(sample_simulation)
     return None
+
+
+def load_audit_trail(case_id: str) -> AuditTrailResponse | None:
+    simulation_response = load_simulation_response(case_id)
+    if simulation_response is None:
+        return None
+    return AuditTrailResponse(
+        case_id=case_id,
+        audit_trail=simulation_response.audit_trail,
+        human_review=simulation_response.human_review,
+    )
 
 
 def list_cases() -> CaseListResponse:

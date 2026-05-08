@@ -49,6 +49,7 @@ docs/
 - `POST /api/v1/cases/{case_id}/attachments`
 - `POST /api/v1/cases/{case_id}/parse`
 - `GET /api/v1/cases/{case_id}/state`
+- `GET /api/v1/cases/{case_id}/audit`
 - `POST /api/v1/legal-search`
 - `POST /api/v1/cases/{case_id}/simulate`
 - `GET /api/v1/reports/{case_id}`
@@ -59,6 +60,7 @@ docs/
 - `POST /api/v1/cases/{case_id}/attachments` uploads a local attachment into `data/raw/cases/<case_id>/attachments/` and resets the case back to `draft` until it is parsed again
 - `POST /api/v1/cases/{case_id}/parse` now runs a local heuristic parser and persists `parsed.json`
 - `GET /api/v1/cases/{case_id}/state` returns the stored parsed case state for frontend consumption
+- `GET /api/v1/cases/{case_id}/audit` returns the persisted audit trail and human review gate
 - `POST /api/v1/cases/{case_id}/simulate` now runs a LangGraph-based courtroom simulation flow over the parsed case state
 - `GET /api/v1/reports/{case_id}` now returns the latest stored simulation report when available, and falls back to the fixture only for the sample case without a local simulation snapshot
 - `POST /api/v1/legal-search` uses the retrieval baseline over the MVP legal corpus
@@ -137,3 +139,12 @@ The Phase 3 simulation runtime is also CPU-only. Run:
 ```
 
 This drives `create -> upload attachment -> parse -> simulate -> report` through the FastAPI app and verifies that the LangGraph-based multi-agent flow produces structured claims, turns, minutes, and a final report.
+
+## Phase 4 Safety Check
+
+The same simulation smoke now also verifies:
+
+- audit trail creation
+- unsupported claim and citation checks
+- human review gate activation
+- report status transitioning to `review_required` when risks remain

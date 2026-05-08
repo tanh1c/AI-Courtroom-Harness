@@ -34,6 +34,14 @@ export type TurnStatus =
   | "needs_review"
   | "rejected";
 
+export type AuditStage =
+  | "retrieval"
+  | "argument"
+  | "verification"
+  | "judicial_review"
+  | "reporting"
+  | "human_review";
+
 export type AttachmentParseStatus =
   | "metadata_only"
   | "text_extracted"
@@ -182,6 +190,23 @@ export interface CitationVerificationResult {
   warnings: string[];
 }
 
+export interface AuditEvent {
+  event_id: string;
+  stage: AuditStage;
+  severity: ClaimConfidence;
+  message: string;
+  related_claim_ids: string[];
+  related_citation_ids: string[];
+  related_evidence_ids: string[];
+}
+
+export interface HumanReviewGate {
+  required: boolean;
+  blocked: boolean;
+  reasons: string[];
+  checklist: string[];
+}
+
 export interface JudgeSummary {
   summary: string;
   main_disputed_points: string[];
@@ -232,9 +257,17 @@ export interface SimulationResponse {
   case: CaseState;
   fact_check: FactCheckResult;
   citation_verification: CitationVerificationResult;
+  audit_trail: AuditEvent[];
+  human_review: HumanReviewGate;
   judge_summary: JudgeSummary;
   trial_minutes: TrialMinutes;
   final_report: FinalReport;
+}
+
+export interface AuditTrailResponse {
+  case_id: string;
+  audit_trail: AuditEvent[];
+  human_review: HumanReviewGate;
 }
 
 export interface ReportResponse {

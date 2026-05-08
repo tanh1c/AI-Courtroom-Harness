@@ -67,6 +67,15 @@ class TurnStatus(str, Enum):
     REJECTED = "rejected"
 
 
+class AuditStage(str, Enum):
+    RETRIEVAL = "retrieval"
+    ARGUMENT = "argument"
+    VERIFICATION = "verification"
+    JUDICIAL_REVIEW = "judicial_review"
+    REPORTING = "reporting"
+    HUMAN_REVIEW = "human_review"
+
+
 class AttachmentParseStatus(str, Enum):
     METADATA_ONLY = "metadata_only"
     TEXT_EXTRACTED = "text_extracted"
@@ -232,6 +241,23 @@ class CitationVerificationResult(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class AuditEvent(BaseModel):
+    event_id: str
+    stage: AuditStage
+    severity: ClaimConfidence
+    message: str
+    related_claim_ids: list[str] = Field(default_factory=list)
+    related_citation_ids: list[str] = Field(default_factory=list)
+    related_evidence_ids: list[str] = Field(default_factory=list)
+
+
+class HumanReviewGate(BaseModel):
+    required: bool
+    blocked: bool
+    reasons: list[str] = Field(default_factory=list)
+    checklist: list[str] = Field(default_factory=list)
+
+
 class JudgeSummary(BaseModel):
     summary: str
     main_disputed_points: list[str] = Field(default_factory=list)
@@ -282,9 +308,19 @@ class SimulationResponse(BaseModel):
     case: CaseState
     fact_check: FactCheckResult
     citation_verification: CitationVerificationResult
+    audit_trail: list[AuditEvent] = Field(default_factory=list)
+    human_review: HumanReviewGate = Field(
+        default_factory=lambda: HumanReviewGate(required=False, blocked=False)
+    )
     judge_summary: JudgeSummary
     trial_minutes: TrialMinutes
     final_report: FinalReport
+
+
+class AuditTrailResponse(BaseModel):
+    case_id: str
+    audit_trail: list[AuditEvent] = Field(default_factory=list)
+    human_review: HumanReviewGate
 
 
 class ReportResponse(BaseModel):

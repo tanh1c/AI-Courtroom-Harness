@@ -102,6 +102,10 @@ def main() -> None:
     simulate_response.raise_for_status()
     simulation = simulate_response.json()
 
+    audit_response = client.get(f"/api/v1/cases/{case_id}/audit")
+    audit_response.raise_for_status()
+    audit = audit_response.json()
+
     report_response = client.get(f"/api/v1/reports/{case_id}")
     report_response.raise_for_status()
     report = report_response.json()
@@ -112,6 +116,9 @@ def main() -> None:
     print("turn_agents:", [turn["agent"] for turn in simulation["case"]["agent_turns"]])
     print("citation_count:", len(simulation["case"]["citations"]))
     print("risk_level:", simulation["fact_check"]["risk_level"])
+    print("audit_event_count:", len(audit["audit_trail"]))
+    print("human_review_required:", audit["human_review"]["required"])
+    print("human_review_blocked:", audit["human_review"]["blocked"])
     print("report_status:", report["report_status"])
     print("report_turn_count:", len(report["generated_from_turns"]))
     print("disputed_points:", simulation["judge_summary"]["main_disputed_points"])

@@ -18,6 +18,7 @@ from .case_parser import parse_case_input
 from .case_store import (
     add_case_attachment,
     create_case as create_case_record,
+    load_audit_trail,
     load_case_detail,
     load_case_input,
     load_case_state,
@@ -34,6 +35,7 @@ from packages.retrieval.python.ai_court_retrieval.service import (
     get_local_legal_retrieval_service,
 )
 from packages.shared.python.ai_court_shared.schemas import (
+    AuditTrailResponse,
     CaseCreateRequest,
     CaseCreateResponse,
     CaseDetailResponse,
@@ -45,6 +47,9 @@ from packages.shared.python.ai_court_shared.schemas import (
     ParseCaseResponse,
     ReportResponse,
     SimulationResponse,
+)
+from packages.verification.python.ai_court_verification.service import (
+    get_verification_service,
 )
 FIXTURES_DIR = ROOT_DIR / "packages" / "shared" / "fixtures"
 
@@ -133,6 +138,14 @@ def get_case_state(case_id: str) -> ParseCaseResponse:
     return ParseCaseResponse(case=case_state)
 
 
+@app.get("/api/v1/cases/{case_id}/audit", response_model=AuditTrailResponse)
+def get_case_audit(case_id: str) -> AuditTrailResponse:
+    audit_response = load_audit_trail(case_id)
+    if audit_response is None:
+        raise HTTPException(status_code=404, detail=f"Audit trail not found: {case_id}")
+    return audit_response
+
+
 @app.post("/api/v1/legal-search", response_model=LegalSearchResponse)
 def legal_search(request: LegalSearchRequest) -> LegalSearchResponse:
     service = get_local_legal_retrieval_service()
@@ -145,7 +158,8 @@ def simulate_case(case_id: str) -> SimulationResponse:
     if case_state is None:
         raise HTTPException(status_code=404, detail=f"Parsed case state not found: {case_id}")
     simulation_service = get_courtroom_simulation_service()
-    simulation_response = simulation_service.simulate(case_state)
+    verification_service = get_verification_service()
+    simulation_response = verification_service.verify(simulation_service.simulate(case_state))
     save_simulation_response(simulation_response)
     return simulation_response
 
