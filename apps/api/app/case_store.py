@@ -18,6 +18,7 @@ from packages.shared.python.ai_court_shared.schemas import (
     CaseStatus,
     HearingSession,
     HumanReviewRecord,
+    HtmlReportResponse,
     MarkdownReportResponse,
     SimulationResponse,
 )
@@ -449,6 +450,48 @@ def save_markdown_report(case_id: str, markdown: str) -> str:
         )
         connection.commit()
     return str(path)
+
+
+def save_hearing_record_markdown(case_id: str, markdown: str) -> str:
+    path = _case_dir(case_id) / "hearing_v1_record.md"
+    _write_text(path, markdown)
+    return str(path)
+
+
+def save_hearing_record_html(case_id: str, html: str) -> str:
+    path = _case_dir(case_id) / "hearing_v1_record.html"
+    _write_text(path, html)
+    return str(path)
+
+
+def load_hearing_record_markdown(case_id: str) -> MarkdownReportResponse | None:
+    hearing_session = load_hearing_session(case_id)
+    if hearing_session is None:
+        return None
+    path = _case_dir(case_id) / "hearing_v1_record.md"
+    if not path.exists():
+        return None
+    return MarkdownReportResponse(
+        case_id=case_id,
+        report_status=hearing_session.status,
+        markdown_path=str(path),
+        markdown=path.read_text(encoding="utf-8"),
+    )
+
+
+def load_hearing_record_html(case_id: str) -> HtmlReportResponse | None:
+    hearing_session = load_hearing_session(case_id)
+    if hearing_session is None:
+        return None
+    path = _case_dir(case_id) / "hearing_v1_record.html"
+    if not path.exists():
+        return None
+    return HtmlReportResponse(
+        case_id=case_id,
+        report_status=hearing_session.status,
+        html_path=str(path),
+        html=path.read_text(encoding="utf-8"),
+    )
 
 
 def load_markdown_report(case_id: str) -> MarkdownReportResponse | None:

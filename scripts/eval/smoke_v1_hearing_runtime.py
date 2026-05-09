@@ -133,6 +133,14 @@ def main() -> None:
     outcome_response.raise_for_status()
     outcome_payload = outcome_response.json()
 
+    markdown_response = client.post(f"/api/v1/cases/{case_id}/hearing/record/markdown")
+    markdown_response.raise_for_status()
+    markdown_record = markdown_response.json()
+
+    html_response = client.post(f"/api/v1/cases/{case_id}/hearing/record/html")
+    html_response.raise_for_status()
+    html_record = html_response.json()
+
     agents_by_stage = {
         turn["hearing_stage"]: turn["agent"]
         for turn in persisted["turns"]
@@ -182,6 +190,14 @@ def main() -> None:
     assert not any(marker in outcome_text for marker in official_markers), "Outcome used official judgment language."
     assert outcome_payload["human_review"]["blocked"] is True, "Outcome must stay behind human review."
     assert outcome["outcome_id"] in checklist_text, "Outcome review item missing from human review checklist."
+    markdown_text = markdown_record["markdown"]
+    assert "V1 Simulated Hearing Record" in markdown_text
+    assert "Evidence Challenges" in markdown_text
+    assert "Judge Clarification Questions And Responses" in markdown_text
+    assert "Non-Binding Proposed Outcome" in markdown_text
+    assert outcome["outcome_id"] in markdown_text
+    assert html_record["html_path"].endswith("hearing_v1_record.html")
+    assert "<html" in html_record["html"].lower()
 
     print("case_id:", case_id)
     print("session_id:", persisted["session_id"])
@@ -199,6 +215,8 @@ def main() -> None:
     print("verification_tool_call_count:", len(verification["tool_calls"]))
     print("outcome_count:", len(outcome_payload["outcome_candidates"]))
     print("outcome_disposition:", outcome["disposition"])
+    print("hearing_record_markdown_path:", markdown_record["markdown_path"])
+    print("hearing_record_html_path:", html_record["html_path"])
     print("human_review_blocked:", persisted["human_review"]["blocked"])
 
 

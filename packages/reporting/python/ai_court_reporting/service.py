@@ -8,6 +8,7 @@ import markdown as markdown_lib
 from packages.shared.python.ai_court_shared.schemas import (
     AgentName,
     AgentTurn,
+    HearingSession,
     HumanReviewRecord,
     SimulationResponse,
 )
@@ -329,6 +330,238 @@ class MarkdownReportService:
         return "\n".join(lines).strip() + "\n"
 
 
+def render_v1_table(rows: list[tuple[str, str]]) -> list[str]:
+    lines = ["| Field | Value |", "| --- | --- |"]
+    for key, value in rows:
+        lines.append(f"| {key} | {value or 'None'} |")
+    return lines
+
+
+class V1HearingRecordService:
+    def render(self, hearing: HearingSession) -> str:
+        lines: list[str] = [
+            f"# V1 Simulated Hearing Record - {hearing.case.case_id}",
+            "",
+            "> Non-binding courtroom simulation record for legal education and decision-support. This is not a judgment.",
+            "",
+            "## Case Metadata",
+            "",
+            *render_v1_table(
+                [
+                    ("Case ID", f"`{hearing.case.case_id}`"),
+                    ("Session ID", f"`{hearing.session_id}`"),
+                    ("Status", f"`{hearing.status.value}`"),
+                    ("Current stage", f"`{hearing.current_stage.value}`"),
+                    ("Case type", f"`{hearing.case.case_type.value}`"),
+                ]
+            ),
+            "",
+            "## Procedural Timeline",
+            "",
+        ]
+        for index, stage in enumerate(hearing.stage_order, start=1):
+            stage_turns = [turn for turn in hearing.turns if turn.hearing_stage == stage]
+            marker = "completed" if stage_turns else "pending"
+            lines.append(f"{index}. `{stage.value}` - {marker} - {len(stage_turns)} turn(s)")
+
+        lines.extend(["", "## Evidence Registry", ""])
+        if not hearing.case.evidence:
+            lines.extend(["- No evidence captured.", ""])
+        for evidence in hearing.case.evidence:
+            lines.extend(
+                [
+                    f"### {evidence.evidence_id} - {evidence.type.value}",
+                    "",
+                    evidence.content,
+                    "",
+                    f"- Source: {evidence.source}",
+                    f"- Status: `{evidence.status.value}`",
+                    f"- Used by: {', '.join(evidence.used_by) if evidence.used_by else 'None'}",
+                    f"- Challenged by: {', '.join(evidence.challenged_by) if evidence.challenged_by else 'None'}",
+                    "",
+                ]
+            )
+
+        lines.extend(["## Evidence Challenges", ""])
+        if not hearing.evidence_challenges:
+            lines.extend(["- No evidence challenges recorded.", ""])
+        for challenge in hearing.evidence_challenges:
+            lines.extend(
+                [
+                    f"### {challenge.challenge_id} - {challenge.evidence_id}",
+                    "",
+                    f"- Raised by: `{challenge.raised_by.value}`",
+                    f"- Admissibility: `{challenge.admissibility.value}`",
+                    f"- Affected claims: {', '.join(challenge.affected_claim_ids) if challenge.affected_claim_ids else 'None'}",
+                    f"- Reason: {challenge.reason}",
+                    f"- Resolution note: {challenge.resolution_notes or 'None'}",
+                    "",
+                ]
+            )
+
+        lines.extend(["## Party Arguments", ""])
+        for claim in hearing.case.claims:
+            lines.extend(
+                [
+                    f"### {claim.claim_id} - {agent_label(claim.speaker)}",
+                    "",
+                    claim.content,
+                    "",
+                    f"- Confidence: `{claim.confidence.value}`",
+                    f"- Evidence: {', '.join(claim.evidence_ids) if claim.evidence_ids else 'None'}",
+                    f"- Citations: {', '.join(claim.citation_ids) if claim.citation_ids else 'None'}",
+                    "",
+                ]
+            )
+        if not hearing.case.claims:
+            lines.extend(["- No party claims recorded.", ""])
+
+        lines.extend(["## Judge Clarification Questions And Responses", ""])
+        for question in hearing.clarification_questions:
+            lines.extend(
+                [
+                    f"### {question.question_id}",
+                    "",
+                    question.question,
+                    "",
+                    f"- Status: `{question.status.value}`",
+                    f"- Related claims: {', '.join(question.related_claim_ids) if question.related_claim_ids else 'None'}",
+                    f"- Related evidence: {', '.join(question.related_evidence_ids) if question.related_evidence_ids else 'None'}",
+                    "",
+                ]
+            )
+            responses = [response for response in hearing.party_responses if response.question_id == question.question_id]
+            if not responses:
+                lines.extend(["- No party responses recorded.", ""])
+            for response in responses:
+                lines.extend(
+                    [
+                        f"- `{response.responder.value}` `{response.status.value}`: {response.content}",
+                        f"  - Evidence: {', '.join(response.evidence_ids) if response.evidence_ids else 'None'}",
+                        f"  - Citations: {', '.join(response.citation_ids) if response.citation_ids else 'None'}",
+                    ]
+                )
+            lines.append("")
+
+        lines.extend(["## Verification Agents", ""])
+        if hearing.fact_check is not None:
+            lines.extend(
+                [
+                    "### Fact-check Agent",
+                    "",
+                    f"- Risk level: `{hearing.fact_check.risk_level.value}`",
+                    "- Unsupported claims:",
+                    *bullet_lines(hearing.fact_check.unsupported_claims),
+                    "- Contradictions:",
+                    *bullet_lines(hearing.fact_check.contradictions),
+                    "- Citation mismatches:",
+                    *bullet_lines(hearing.fact_check.citation_mismatches),
+                    "",
+                ]
+            )
+        if hearing.citation_verification is not None:
+            lines.extend(
+                [
+                    "### Citation Verifier Agent",
+                    "",
+                    "- Accepted citations:",
+                    *bullet_lines(hearing.citation_verification.accepted_citations),
+                    "- Rejected citations:",
+                    *bullet_lines(hearing.citation_verification.rejected_citations),
+                    "- Warnings:",
+                    *bullet_lines(hearing.citation_verification.warnings),
+                    "",
+                ]
+            )
+
+        lines.extend(["## Non-Binding Proposed Outcome", ""])
+        if not hearing.outcome_candidates:
+            lines.extend(["- No outcome candidate generated.", ""])
+        for outcome in hearing.outcome_candidates:
+            lines.extend(
+                [
+                    f"### {outcome.outcome_id} - `{outcome.disposition.value}`",
+                    "",
+                    outcome.rationale,
+                    "",
+                    f"- Risk level: `{outcome.risk_level.value}`",
+                    f"- Requires human review: `{outcome.requires_human_review}`",
+                    f"- Supported claims: {', '.join(outcome.supported_claim_ids) if outcome.supported_claim_ids else 'None'}",
+                    f"- Evidence: {', '.join(outcome.evidence_ids) if outcome.evidence_ids else 'None'}",
+                    f"- Citations: {', '.join(outcome.citation_ids) if outcome.citation_ids else 'None'}",
+                    f"- Disclaimer: {outcome.disclaimer}",
+                    "",
+                ]
+            )
+
+        lines.extend(["## Human Review Gate", ""])
+        lines.extend(
+            [
+                f"- Required: `{hearing.human_review.required}`",
+                f"- Blocked: `{hearing.human_review.blocked}`",
+                "",
+                "### Reasons",
+                "",
+                *bullet_lines(hearing.human_review.reasons),
+                "",
+                "### Checklist",
+                "",
+                *bullet_lines(hearing.human_review.checklist),
+                "",
+            ]
+        )
+
+        lines.extend(["## Full Stage Transcript", ""])
+        for turn in hearing.turns:
+            lines.extend(
+                [
+                    f"### {turn.turn_id} - `{turn.hearing_stage.value}` - {agent_label(turn.agent)}",
+                    "",
+                    turn.message,
+                    "",
+                    f"- Status: `{turn.status.value}`",
+                    f"- Claims: {', '.join(turn.claims) if turn.claims else 'None'}",
+                    f"- Evidence: {', '.join(turn.evidence_used) if turn.evidence_used else 'None'}",
+                    f"- Citations: {', '.join(turn.citations_used) if turn.citations_used else 'None'}",
+                    f"- Tool calls: {', '.join(turn.tool_call_ids) if turn.tool_call_ids else 'None'}",
+                    "",
+                ]
+            )
+
+        lines.extend(["## Tool Call Trace", ""])
+        if not hearing.tool_calls:
+            lines.extend(["- No tool calls recorded.", ""])
+        for tool_call in hearing.tool_calls:
+            lines.extend(
+                [
+                    f"- `{tool_call.tool_call_id}` `{tool_call.tool_name}` by `{tool_call.agent.value}`: {tool_call.input_summary}",
+                    f"  - Outputs: {', '.join(tool_call.output_refs) if tool_call.output_refs else 'None'}",
+                    f"  - Status: `{tool_call.status.value}`",
+                ]
+            )
+
+        lines.extend(["", "## Harness Violations", ""])
+        if not hearing.harness_violations:
+            lines.extend(["- No harness violations recorded.", ""])
+        for violation in hearing.harness_violations:
+            lines.extend(
+                [
+                    f"- `{violation.violation_id}` `{violation.rule}` `{violation.severity.value}`: {violation.message}",
+                ]
+            )
+
+        lines.extend(
+            [
+                "",
+                "## Disclaimer",
+                "",
+                "This V1 hearing record is a simulated, non-binding decision-support artifact. It is not legal advice, a court order, or an official judgment.",
+                "",
+            ]
+        )
+        return "\n".join(lines).strip() + "\n"
+
+
 class HtmlReportService:
     def render(self, *, title: str, markdown_text: str) -> str:
         body = markdown_lib.markdown(
@@ -610,3 +843,8 @@ def get_markdown_report_service() -> MarkdownReportService:
 @lru_cache(maxsize=1)
 def get_html_report_service() -> HtmlReportService:
     return HtmlReportService()
+
+
+@lru_cache(maxsize=1)
+def get_v1_hearing_record_service() -> V1HearingRecordService:
+    return V1HearingRecordService()

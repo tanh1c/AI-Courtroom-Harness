@@ -175,6 +175,10 @@ docs/
 - `GET /api/v1/cases/{case_id}/evidence/challenges`
 - `GET /api/v1/cases/{case_id}/verification`
 - `GET /api/v1/cases/{case_id}/outcome`
+- `POST /api/v1/cases/{case_id}/hearing/record/markdown`
+- `GET /api/v1/cases/{case_id}/hearing/record/markdown`
+- `POST /api/v1/cases/{case_id}/hearing/record/html`
+- `GET /api/v1/cases/{case_id}/hearing/record/html`
 - `POST /api/v1/cases/{case_id}/review`
 - `GET /api/v1/reports/{case_id}`
 - `POST /api/v1/reports/{case_id}/markdown`
@@ -279,6 +283,16 @@ The Phase 3 simulation runtime is also CPU-only. Run:
 ```
 
 This drives `create -> upload attachment -> parse -> simulate -> report` through the FastAPI app and verifies that the LangGraph-based multi-agent flow produces structured claims, turns, minutes, and a final report.
+
+V1 backend smoke checks:
+
+```bash
+.\.venv\Scripts\python scripts/eval/smoke_v1_hearing_runtime.py
+.\.venv\Scripts\python scripts/eval/smoke_v1_eval_cases.py
+.\.venv\Scripts\python scripts/eval/smoke_v1_negative_guards.py
+```
+
+These validate the stage-based hearing runtime, V1 record markdown/HTML export, three demo cases, and negative guard behavior. The real frontend UI remains pending in `apps/web`.
 
 ## LLM Providers
 

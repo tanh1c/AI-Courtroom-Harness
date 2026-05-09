@@ -466,3 +466,10 @@ export interface MarkdownReportResponse {
   markdown_path: string;
   markdown: string;
 }
+
+export interface HtmlReportResponse {
+  case_id: string;
+  report_status: CaseStatus;
+  html_path: string;
+  html: string;
+}

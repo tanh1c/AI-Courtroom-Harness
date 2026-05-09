@@ -533,3 +533,10 @@ class MarkdownReportResponse(BaseModel):
     report_status: CaseStatus
     markdown_path: str
     markdown: str
+
+
+class HtmlReportResponse(BaseModel):
+    case_id: str
+    report_status: CaseStatus
+    html_path: str
+    html: str

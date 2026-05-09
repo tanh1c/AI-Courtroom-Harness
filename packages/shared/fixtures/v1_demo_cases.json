@@ -1,0 +1,47 @@
+[
+  {
+    "demo_id": "demo_contract_delivery_delay",
+    "title": "Tranh chấp chậm giao xe máy",
+    "case_type": "civil_contract_dispute",
+    "language": "vi",
+    "narrative": "Ngày 05/03/2026, ông B ký hợp đồng mua xe máy của ông A với giá 40.000.000 đồng. Ông B đã thanh toán trước 28.000.000 đồng. Hạn giao xe là ngày 12/03/2026 nhưng ông A chưa giao xe và yêu cầu thanh toán đủ 100% trước khi giao. Ông B yêu cầu giao xe hoặc hoàn trả tiền đã nhận và bồi thường chi phí phát sinh.",
+    "attachment_note": "Hợp đồng mua bán xe máy",
+    "attachment_text": "Motorbike sale contract. Price 40,000,000 VND. Deposit 70 percent at signing. Delivery deadline 12/03/2026.",
+    "expected": {
+      "min_stage_count": 13,
+      "min_challenge_count": 1,
+      "min_question_count": 2,
+      "expected_outcome_disposition": "requires_more_evidence"
+    }
+  },
+  {
+    "demo_id": "demo_payment_condition_dispute",
+    "title": "Tranh chấp điều kiện thanh toán còn lại",
+    "case_type": "civil_contract_dispute",
+    "language": "vi",
+    "narrative": "Công ty M ký hợp đồng mua thiết bị văn phòng của Công ty N với tổng giá trị 120.000.000 đồng. Công ty M đã thanh toán 60% khi ký hợp đồng. Công ty N cho rằng 40% còn lại phải thanh toán trước khi bàn giao, trong khi Công ty M cho rằng khoản này thanh toán sau nghiệm thu. Hai bên tranh chấp về thời điểm bàn giao và điều kiện thanh toán.",
+    "attachment_note": "Hợp đồng mua thiết bị văn phòng",
+    "attachment_text": "Office equipment sale contract. Total value 120,000,000 VND. Payment condition for remaining 40 percent is disputed.",
+    "expected": {
+      "min_stage_count": 13,
+      "min_challenge_count": 1,
+      "min_question_count": 2,
+      "expected_outcome_disposition": "requires_more_evidence"
+    }
+  },
+  {
+    "demo_id": "demo_defective_goods_dispute",
+    "title": "Tranh chấp hàng hóa có khuyết tật",
+    "case_type": "civil_contract_dispute",
+    "language": "vi",
+    "narrative": "Bà C mua một máy lạnh từ cửa hàng D với giá 18.000.000 đồng. Sau khi nhận hàng, máy lạnh không hoạt động ổn định và phát sinh lỗi làm lạnh. Bà C yêu cầu đổi hàng hoặc hoàn trả tiền. Cửa hàng D cho rằng lỗi do lắp đặt và cần kiểm tra biên bản kỹ thuật trước khi xác định trách nhiệm.",
+    "attachment_note": "Biên nhận mua máy lạnh và ghi chú kỹ thuật",
+    "attachment_text": "Air conditioner purchase receipt. Buyer reports cooling defect. Seller requests technical inspection before accepting liability.",
+    "expected": {
+      "min_stage_count": 13,
+      "min_challenge_count": 1,
+      "min_question_count": 2,
+      "expected_outcome_disposition": "requires_more_evidence"
+    }
+  }
+]

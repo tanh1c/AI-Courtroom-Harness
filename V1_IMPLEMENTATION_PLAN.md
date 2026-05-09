@@ -15,7 +15,8 @@ The MVP proves the core harness path. V1 expands it into a fuller courtroom-simu
 - [x] V1 Phase 2 evidence and verification agents are complete with explicit turns, tool traces, challenge endpoint, and verification endpoint.
 - [x] V1 Phase 3 clarification round is complete with multi-question judge clarification, grounded party responses, and unresolved-question review checklist propagation.
 - [x] V1 Phase 4 non-binding proposed outcome is complete with grounded candidates, official-judgment language guard, outcome endpoint, and mandatory human review.
-- [ ] V1 report/UI integration has not started.
+- [x] V1 Phase 5 backend report hooks and evaluation are complete.
+- [ ] Real frontend/UI implementation remains pending in `apps/web`.
 
 ## 1. V1 Decision
 
@@ -238,7 +239,7 @@ Acceptance:
 
 Status:
 
-- [ ] Planned
+- [x] Backend renderer completed for V1 Phase 5; frontend display remains pending.
 
 Upgrade report output into a fuller simulated hearing record:
 
@@ -255,15 +256,15 @@ Upgrade report output into a fuller simulated hearing record:
 
 Acceptance:
 
-- [ ] Markdown and HTML preview both render the V1 sections.
-- [ ] Report remains readable without the frontend.
-- [ ] Rejected citations are not shown as valid legal basis.
+- [x] Markdown and HTML preview both render the V1 sections.
+- [x] Report remains readable without the frontend.
+- [x] Rejected citations are not shown as accepted legal basis.
 
 ### V1-M9. Evaluation And Demo Cases
 
 Status:
 
-- [ ] Planned
+- [x] Completed for V1 Phase 5
 
 Create a small V1 evaluation set:
 
@@ -281,9 +282,9 @@ Each case should include:
 
 Acceptance:
 
-- [ ] At least three demo cases run end-to-end.
-- [ ] Smoke script validates V1 stage order.
-- [ ] Negative tests cover unsupported claims, invalid citations, and role violations.
+- [x] At least three demo cases run end-to-end.
+- [x] Smoke script validates V1 stage order.
+- [x] Negative tests cover unsupported claims, invalid citations, and role violations.
 
 ## 5. V1 Phases
 
@@ -384,16 +385,20 @@ Goal:
 
 Tasks:
 
-- [ ] Update markdown report renderer.
-- [ ] Update HTML preview renderer.
-- [ ] Expose V1 API response fields for frontend.
-- [ ] Add three demo cases.
-- [ ] Add V1 smoke and negative tests.
+- [x] Update markdown report renderer.
+- [x] Update HTML preview renderer.
+- [x] Expose V1 API response fields for frontend.
+- [x] Add three demo cases.
+- [x] Add V1 smoke and negative tests.
 
 Exit criteria:
 
-- [ ] V1 scripted demo runs end-to-end.
+- [x] V1 scripted backend demo/evaluation runs end-to-end.
 - [ ] V1 frontend can display hearing stages, challenges, verification turns, and proposed outcome.
+
+Note:
+
+- FE/UI implementation is intentionally left for the frontend lane.
 
 ## 6. Parallel Work Lanes
 
@@ -424,13 +429,13 @@ Prefer extending existing endpoints if that keeps the API simpler.
 
 V1 is complete when:
 
-- [ ] A case runs through a full stage-based simulated hearing.
-- [ ] Evidence challenge flow is visible and persisted.
-- [ ] Fact-check and citation verification are explicit transcript turns.
-- [ ] Judge clarification questions and party responses are captured.
-- [ ] Non-binding proposed outcome is generated only with grounding and review.
-- [ ] Formal hearing record report includes all major stages.
-- [ ] At least three demo cases pass smoke checks.
+- [x] A case runs through a full stage-based simulated hearing.
+- [x] Evidence challenge flow is visible and persisted.
+- [x] Fact-check and citation verification are explicit transcript turns.
+- [x] Judge clarification questions and party responses are captured.
+- [x] Non-binding proposed outcome is generated only with grounding and review.
+- [x] Formal hearing record report includes all major stages.
+- [x] At least three demo cases pass smoke checks.
 - [ ] Frontend can inspect all new V1 surfaces.
 
 ## 9. Risks And Guardrails
