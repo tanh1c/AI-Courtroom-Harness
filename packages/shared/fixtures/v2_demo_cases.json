@@ -1,0 +1,260 @@
+[
+  {
+    "demo_id": "v2_strong_plaintiff_delivery",
+    "expected_disposition": "simulated_plaintiff_favored",
+    "case": {
+      "case_id": "CASE_V2_DEMO_001",
+      "title": "Tranh chấp chậm giao xe máy - nguyên đơn mạnh",
+      "case_type": "civil_contract_dispute",
+      "attachment_parses": [],
+      "facts": [
+        {
+          "fact_id": "FACT_001",
+          "content": "Hai bên ký hợp đồng mua bán xe máy trị giá 40.000.000 đồng.",
+          "source": "fixture",
+          "confidence": "high"
+        },
+        {
+          "fact_id": "FACT_002",
+          "content": "Nguyên đơn đã thanh toán 70% giá trị hợp đồng khi ký.",
+          "source": "fixture",
+          "confidence": "high"
+        },
+        {
+          "fact_id": "FACT_003",
+          "content": "Hợp đồng ghi rõ ngày giao xe là 12/03/2026 và không kèm điều kiện thanh toán đủ trước khi giao.",
+          "source": "fixture",
+          "confidence": "high"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "EVID_001",
+          "type": "contract",
+          "content": "Hợp đồng ghi giá trị, khoản thanh toán 70% và ngày giao xe 12/03/2026.",
+          "source": "fixture",
+          "status": "uncontested",
+          "used_by": [
+            "plaintiff_agent"
+          ],
+          "challenged_by": []
+        },
+        {
+          "evidence_id": "EVID_002",
+          "type": "payment_receipt",
+          "content": "Biên nhận thanh toán 28.000.000 đồng.",
+          "source": "fixture",
+          "status": "uncontested",
+          "used_by": [
+            "plaintiff_agent"
+          ],
+          "challenged_by": []
+        }
+      ],
+      "legal_issues": [
+        {
+          "issue_id": "ISSUE_001",
+          "title": "Nghĩa vụ giao tài sản đúng hạn",
+          "description": "Bên bán có nghĩa vụ giao tài sản đúng thời hạn đã thỏa thuận.",
+          "tags": [
+            "delivery",
+            "contract"
+          ]
+        }
+      ],
+      "claims": [
+        {
+          "claim_id": "CLAIM_001",
+          "speaker": "plaintiff_agent",
+          "content": "Nguyên đơn cho rằng bị đơn vi phạm nghĩa vụ giao xe đúng hạn.",
+          "evidence_ids": [
+            "EVID_001",
+            "EVID_002"
+          ],
+          "citation_ids": [
+            "LAW_ACTIVE_DELIVERY"
+          ],
+          "confidence": "high"
+        }
+      ],
+      "citations": [
+        {
+          "citation_id": "LAW_ACTIVE_DELIVERY",
+          "doc_id": "95942",
+          "title": "Dân sự",
+          "article": "Điều 434",
+          "clause": null,
+          "content": "Bên bán phải giao tài sản cho bên mua đúng thời hạn đã thỏa thuận.",
+          "retrieval_score": 0.99,
+          "effective_status": "active",
+          "source": "fixture"
+        }
+      ],
+      "agent_turns": [],
+      "status": "parsed"
+    }
+  },
+  {
+    "demo_id": "v2_strong_defense_payment_condition",
+    "expected_disposition": "simulated_defense_favored",
+    "case": {
+      "case_id": "CASE_V2_DEMO_002",
+      "title": "Tranh chấp điều kiện thanh toán - bị đơn mạnh",
+      "case_type": "civil_contract_dispute",
+      "attachment_parses": [],
+      "facts": [
+        {
+          "fact_id": "FACT_001",
+          "content": "Hợp đồng quy định bên mua phải thanh toán đủ 100% trước khi bên bán bàn giao thiết bị.",
+          "source": "fixture",
+          "confidence": "high"
+        },
+        {
+          "fact_id": "FACT_002",
+          "content": "Nguyên đơn mới thanh toán 60% giá trị hợp đồng.",
+          "source": "fixture",
+          "confidence": "high"
+        },
+        {
+          "fact_id": "FACT_003",
+          "content": "Bị đơn thông báo sẵn sàng bàn giao sau khi nhận đủ khoản còn lại.",
+          "source": "fixture",
+          "confidence": "high"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "EVID_001",
+          "type": "contract",
+          "content": "Điều khoản hợp đồng ghi rõ thanh toán đủ trước khi bàn giao.",
+          "source": "fixture",
+          "status": "uncontested",
+          "used_by": [
+            "defense_agent"
+          ],
+          "challenged_by": []
+        }
+      ],
+      "legal_issues": [
+        {
+          "issue_id": "ISSUE_001",
+          "title": "Điều kiện thanh toán trước khi bàn giao",
+          "description": "Xác định điều kiện thanh toán có là điều kiện để bên bán bàn giao tài sản hay không.",
+          "tags": [
+            "payment",
+            "condition"
+          ]
+        }
+      ],
+      "claims": [
+        {
+          "claim_id": "CLAIM_001",
+          "speaker": "defense_agent",
+          "content": "Bị đơn cho rằng chưa phát sinh nghĩa vụ bàn giao vì bên mua chưa thanh toán đủ theo điều kiện hợp đồng.",
+          "evidence_ids": [
+            "EVID_001"
+          ],
+          "citation_ids": [
+            "LAW_ACTIVE_PAYMENT_CONDITION"
+          ],
+          "confidence": "high"
+        }
+      ],
+      "citations": [
+        {
+          "citation_id": "LAW_ACTIVE_PAYMENT_CONDITION",
+          "doc_id": "95942",
+          "title": "Dân sự",
+          "article": "Điều 332",
+          "clause": null,
+          "content": "Bên có quyền có thể căn cứ nghĩa vụ thanh toán đã thỏa thuận để bảo vệ quyền lợi hợp đồng.",
+          "retrieval_score": 0.94,
+          "effective_status": "active",
+          "source": "fixture"
+        }
+      ],
+      "agent_turns": [],
+      "status": "parsed"
+    }
+  },
+  {
+    "demo_id": "v2_ambiguous_requires_more_evidence",
+    "expected_disposition": "requires_more_evidence",
+    "case": {
+      "case_id": "CASE_V2_DEMO_003",
+      "title": "Tranh chấp hàng hóa lỗi - thiếu chứng cứ",
+      "case_type": "civil_contract_dispute",
+      "attachment_parses": [],
+      "facts": [
+        {
+          "fact_id": "FACT_001",
+          "content": "Người mua cho rằng máy lạnh bị lỗi sau khi nhận hàng.",
+          "source": "fixture",
+          "confidence": "medium"
+        },
+        {
+          "fact_id": "FACT_002",
+          "content": "Người bán cho rằng lỗi có thể do lắp đặt.",
+          "source": "fixture",
+          "confidence": "medium"
+        }
+      ],
+      "evidence": [
+        {
+          "evidence_id": "EVID_001",
+          "type": "statement",
+          "content": "Tường trình của người mua về lỗi làm lạnh.",
+          "source": "fixture",
+          "status": "disputed",
+          "used_by": [
+            "plaintiff_agent",
+            "defense_agent"
+          ],
+          "challenged_by": [
+            "defense_agent"
+          ]
+        }
+      ],
+      "legal_issues": [
+        {
+          "issue_id": "ISSUE_001",
+          "title": "Hàng hóa có khuyết tật",
+          "description": "Xác định lỗi hàng hóa và trách nhiệm đổi trả khi thiếu biên bản kỹ thuật.",
+          "tags": [
+            "defect",
+            "evidence"
+          ]
+        }
+      ],
+      "claims": [
+        {
+          "claim_id": "CLAIM_001",
+          "speaker": "plaintiff_agent",
+          "content": "Người mua yêu cầu đổi hàng hoặc hoàn tiền do hàng hóa lỗi.",
+          "evidence_ids": [
+            "EVID_001"
+          ],
+          "citation_ids": [
+            "LAW_EXPIRED_DEFECT"
+          ],
+          "confidence": "medium"
+        }
+      ],
+      "citations": [
+        {
+          "citation_id": "LAW_EXPIRED_DEFECT",
+          "doc_id": "EXPIRED",
+          "title": "Expired test citation",
+          "article": "Điều test",
+          "clause": null,
+          "content": "Expired citation used to exercise requires-more-evidence path.",
+          "retrieval_score": 0.1,
+          "effective_status": "expired",
+          "source": "fixture"
+        }
+      ],
+      "agent_turns": [],
+      "status": "parsed"
+    }
+  }
+]

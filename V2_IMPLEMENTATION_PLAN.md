@@ -9,7 +9,8 @@ V2 starts after the backend MVP and V1 procedural harness are stable. The goal i
 - [x] V2 Phase 2 courtroom dialogue layer is implemented.
 - [x] V2 Phase 3 deliberation and simulation-safe verdict guard is implemented.
 - [x] V2 Phase 4 formal trial record and simulated outcome export are implemented.
-- [ ] V2 Phase 5 evaluation, demo fixtures, and UI hooks are implemented.
+- [x] V2 Phase 5 backend evaluation, demo fixtures, and API UI hooks are implemented.
+- [ ] Real frontend rendering and frontend handoff notes remain pending.
 
 ## 1. V2 Product Goal
 
@@ -216,6 +217,11 @@ Acceptance:
 
 ### V2-M7. Evaluation And Demo Fixtures
 
+Status:
+
+- [x] Backend completed for V2 Phase 5
+- [ ] Frontend handoff/rendering notes deferred until the FE lane resumes
+
 Add three stable V2 demo cases:
 
 - Strong plaintiff case.
@@ -224,10 +230,10 @@ Add three stable V2 demo cases:
 
 Acceptance:
 
-- [ ] Each fixture reaches the expected outcome type.
-- [ ] Smoke tests verify complete stage coverage.
-- [ ] Evaluation checks transcript completeness and grounding discipline.
-- [ ] Demo script can run one full V2 trial end-to-end.
+- [x] Each fixture reaches the expected outcome type.
+- [x] Smoke tests verify complete stage coverage.
+- [x] Evaluation checks transcript completeness and grounding discipline.
+- [x] Demo script can run one full V2 trial end-to-end.
 
 ## 4. Suggested Phase Plan
 
@@ -268,11 +274,11 @@ Acceptance:
 
 ### Phase 5. Evaluation And UI Handoff
 
-- [ ] Add V2 smoke and regression tests.
-- [ ] Add three stable demo cases.
-- [ ] Add API endpoints for frontend timeline/transcript rendering.
+- [x] Add V2 smoke and regression tests.
+- [x] Add three stable demo cases.
+- [x] Add API endpoints for frontend timeline/transcript rendering.
 - [ ] Write frontend handoff notes for trial transcript UI.
-- [ ] Add a config flag for `human_review_mode`: `optional`, `required`, or `off`.
+- [x] Add a config flag for `human_review_mode`: `optional`, `required`, or `off`.
 
 ## 5. Demo-Ready Definition
 

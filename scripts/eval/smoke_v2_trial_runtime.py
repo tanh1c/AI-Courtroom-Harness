@@ -194,6 +194,10 @@ def main() -> None:
     html_response.raise_for_status()
     html_record = html_response.json()
 
+    ui_state_response = client.get(f"/api/v1/cases/{case_id}/trial-v2/ui-state")
+    ui_state_response.raise_for_status()
+    ui_state = ui_state_response.json()
+
     stage_turns = {stage: 0 for stage in persisted["stage_order"]}
     for turn in persisted["dialogue_turns"]:
         stage_turns[turn["trial_stage"]] += 1
@@ -249,6 +253,11 @@ def main() -> None:
     assert html_record["html_path"].endswith("hearing_v2_record.html")
     assert "<html" in html_record["html"].lower()
     assert "Transcript Phiên Tòa" in html_record["html"]
+    assert ui_state["case_id"] == case_id
+    assert len(ui_state["timeline"]) == len(persisted["stage_order"])
+    assert all(item["status"] == "completed" for item in ui_state["timeline"])
+    assert len(ui_state["transcript"]) == len(persisted["dialogue_turns"])
+    assert ui_state["simulated_decision"]["disposition"] == persisted["simulated_decision"]["disposition"]
 
     print("case_id:", case_id)
     print("session_id:", persisted["session_id"])
@@ -279,6 +288,8 @@ def main() -> None:
     print("human_review_blocked:", persisted["human_review"]["blocked"])
     print("v2_record_markdown_path:", markdown_record["markdown_path"])
     print("v2_record_html_path:", html_record["html_path"])
+    print("ui_timeline_count:", len(ui_state["timeline"]))
+    print("ui_transcript_count:", len(ui_state["transcript"]))
 
 
 if __name__ == "__main__":

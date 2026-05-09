@@ -574,6 +574,30 @@ export interface V2TrialAdvanceRequest {
   expected_stage?: TrialProcedureStage | null;
 }
 
+export interface V2TrialTimelineItem {
+  trial_stage: TrialProcedureStage;
+  label: string;
+  status: string;
+  turn_ids: string[];
+}
+
+export interface V2TrialUiStateResponse {
+  case_id: string;
+  session_id: string;
+  current_stage: TrialProcedureStage;
+  status: CaseStatus;
+  timeline: V2TrialTimelineItem[];
+  transcript: CourtroomDialogueTurn[];
+  evidence_examinations: EvidenceExamination[];
+  debate_rounds: DebateRound[];
+  final_statements: FinalStatement[];
+  deliberation?: DeliberationRecord | null;
+  simulated_decision?: SimulatedDecision | null;
+  decision_guard?: DecisionGuardResult | null;
+  human_review: HumanReviewGate;
+  dialogue_quality: DialogueQualityReport;
+}
+
 export interface HearingAdvanceRequest {
   expected_stage?: HearingStage | null;
 }

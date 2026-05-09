@@ -658,6 +658,30 @@ class V2TrialAdvanceRequest(BaseModel):
     expected_stage: TrialProcedureStage | None = None
 
 
+class V2TrialTimelineItem(BaseModel):
+    trial_stage: TrialProcedureStage
+    label: str
+    status: str
+    turn_ids: list[str] = Field(default_factory=list)
+
+
+class V2TrialUiStateResponse(BaseModel):
+    case_id: str
+    session_id: str
+    current_stage: TrialProcedureStage
+    status: CaseStatus
+    timeline: list[V2TrialTimelineItem] = Field(default_factory=list)
+    transcript: list[CourtroomDialogueTurn] = Field(default_factory=list)
+    evidence_examinations: list[EvidenceExamination] = Field(default_factory=list)
+    debate_rounds: list[DebateRound] = Field(default_factory=list)
+    final_statements: list[FinalStatement] = Field(default_factory=list)
+    deliberation: DeliberationRecord | None = None
+    simulated_decision: SimulatedDecision | None = None
+    decision_guard: DecisionGuardResult | None = None
+    human_review: HumanReviewGate
+    dialogue_quality: DialogueQualityReport
+
+
 class HearingAdvanceRequest(BaseModel):
     expected_stage: HearingStage | None = None
 

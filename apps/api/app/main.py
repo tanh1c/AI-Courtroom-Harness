@@ -95,6 +95,8 @@ from packages.shared.python.ai_court_shared.schemas import (
     SimulationResponse,
     V2TrialAdvanceRequest,
     V2TrialSession,
+    V2TrialTimelineItem,
+    V2TrialUiStateResponse,
 )
 from packages.verification.python.ai_court_verification.service import (
     get_verification_service,
@@ -375,6 +377,44 @@ def get_v2_trial(case_id: str) -> V2TrialSession:
     if trial_session is None:
         raise HTTPException(status_code=404, detail=f"V2 trial session not found: {case_id}")
     return trial_session
+
+
+def build_v2_timeline(trial_session: V2TrialSession) -> list[V2TrialTimelineItem]:
+    timeline: list[V2TrialTimelineItem] = []
+    for stage in trial_session.stage_order:
+        turns = [turn for turn in trial_session.dialogue_turns if turn.trial_stage == stage]
+        timeline.append(
+            V2TrialTimelineItem(
+                trial_stage=stage,
+                label=stage.value.replace("_", " ").title(),
+                status="completed" if turns else "pending",
+                turn_ids=[turn.turn_id for turn in turns],
+            )
+        )
+    return timeline
+
+
+@app.get("/api/v1/cases/{case_id}/trial-v2/ui-state", response_model=V2TrialUiStateResponse)
+def get_v2_trial_ui_state(case_id: str) -> V2TrialUiStateResponse:
+    trial_session = load_v2_trial_session(case_id)
+    if trial_session is None:
+        raise HTTPException(status_code=404, detail=f"V2 trial session not found: {case_id}")
+    return V2TrialUiStateResponse(
+        case_id=case_id,
+        session_id=trial_session.session_id,
+        current_stage=trial_session.current_stage,
+        status=trial_session.status,
+        timeline=build_v2_timeline(trial_session),
+        transcript=trial_session.dialogue_turns,
+        evidence_examinations=trial_session.evidence_examinations,
+        debate_rounds=trial_session.debate_rounds,
+        final_statements=trial_session.final_statements,
+        deliberation=trial_session.deliberation,
+        simulated_decision=trial_session.simulated_decision,
+        decision_guard=trial_session.decision_guard,
+        human_review=trial_session.human_review,
+        dialogue_quality=trial_session.dialogue_quality,
+    )
 
 
 @app.post("/api/v1/cases/{case_id}/trial-v2/record/markdown", response_model=MarkdownReportResponse)

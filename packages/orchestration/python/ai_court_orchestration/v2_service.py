@@ -513,6 +513,7 @@ class CourtroomV2RuntimeService:
         defense_claims = self._claim_ids_for(session, AgentName.DEFENSE_AGENT)
         evidence_ids = self._evidence_ids(session)[:1]
         citation_ids = self._citation_ids(session)[-1:]
+        has_dispute = self._has_disputed_evidence(session)
         self._append_turn(
             session,
             trial_stage=TrialProcedureStage.DEFENSE_RESPONSE_STATEMENT,
@@ -525,8 +526,8 @@ class CourtroomV2RuntimeService:
             claim_ids=defense_claims,
             evidence_ids=evidence_ids,
             citation_ids=citation_ids,
-            status=TurnStatus.NEEDS_FACT_CHECK,
-            risk_notes=["Điều kiện thanh toán còn lại cần được đối chiếu với hợp đồng."],
+            status=TurnStatus.NEEDS_FACT_CHECK if has_dispute else TurnStatus.OK,
+            risk_notes=(["Điều kiện thanh toán còn lại cần được đối chiếu với hợp đồng."] if has_dispute else []),
         )
 
     def _advance_evidence_examination(self, session: V2TrialSession) -> None:
@@ -677,6 +678,7 @@ class CourtroomV2RuntimeService:
         )
 
     def _advance_defense_rebuttal(self, session: V2TrialSession) -> None:
+        has_dispute = self._has_disputed_evidence(session)
         plaintiff_turn_ids = [
             turn.turn_id
             for turn in session.dialogue_turns
@@ -694,8 +696,8 @@ class CourtroomV2RuntimeService:
             claim_ids=self._claim_ids_for(session, AgentName.DEFENSE_AGENT),
             evidence_ids=self._evidence_ids(session)[:1],
             citation_ids=self._citation_ids(session)[-1:],
-            status=TurnStatus.NEEDS_FACT_CHECK,
-            risk_notes=["Lập luận phòng vệ vẫn cần fact-check theo chứng cứ hợp đồng."],
+            status=TurnStatus.NEEDS_FACT_CHECK if has_dispute else TurnStatus.OK,
+            risk_notes=(["Lập luận phòng vệ vẫn cần fact-check theo chứng cứ hợp đồng."] if has_dispute else []),
         )
         defense_follow_up = self._append_turn(
             session,
@@ -709,8 +711,8 @@ class CourtroomV2RuntimeService:
             claim_ids=self._claim_ids_for(session, AgentName.DEFENSE_AGENT),
             evidence_ids=self._evidence_ids(session)[:1],
             citation_ids=self._citation_ids(session)[-1:],
-            status=TurnStatus.NEEDS_FACT_CHECK,
-            risk_notes=["Bồi thường vẫn thiếu chứng cứ định lượng."],
+            status=TurnStatus.NEEDS_FACT_CHECK if has_dispute else TurnStatus.OK,
+            risk_notes=(["Bồi thường vẫn thiếu chứng cứ định lượng."] if has_dispute else []),
         )
         session.debate_rounds = [
             DebateRound(
@@ -746,7 +748,7 @@ class CourtroomV2RuntimeService:
             claim_ids=self._claim_ids_for(session, AgentName.DEFENSE_AGENT),
             evidence_ids=self._evidence_ids(session)[:1],
             citation_ids=self._citation_ids(session)[-1:],
-            status=TurnStatus.NEEDS_REVIEW,
+            status=TurnStatus.NEEDS_REVIEW if self._has_disputed_evidence(session) else TurnStatus.OK,
         )
         session.final_statements = [
             FinalStatement(
