@@ -271,3 +271,21 @@ The Phase 5 backend additions are still CPU-only. Run:
 This drives `create -> upload attachment -> parse -> simulate -> review approve -> markdown export`
 and verifies that the review gate can be resolved into `report_ready` before exporting
 `data/processed/cases/<case_id>/report.md`.
+
+## Scripted Demo Flow
+
+Run the MVP demo end-to-end without starting the API server manually:
+
+```powershell
+.\scripts\demos\run_demo.ps1
+```
+
+Optional browser preview:
+
+```powershell
+.\scripts\demos\run_demo.ps1 -OpenPreview
+```
+
+This scripted flow uses the in-repo FastAPI app through `TestClient`, creates a demo case,
+exports `report.md`, and generates `report_preview.html` under
+`data/processed/cases/<case_id>/`.

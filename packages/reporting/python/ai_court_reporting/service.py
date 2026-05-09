@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from html import escape
+
+import markdown as markdown_lib
 
 from packages.shared.python.ai_court_shared.schemas import (
     HumanReviewRecord,
@@ -175,6 +178,155 @@ class MarkdownReportService:
         return "\n".join(lines).strip() + "\n"
 
 
+class HtmlReportService:
+    def render(self, *, title: str, markdown_text: str) -> str:
+        body = markdown_lib.markdown(
+            markdown_text,
+            extensions=[
+                "extra",
+                "fenced_code",
+                "tables",
+                "sane_lists",
+                "nl2br",
+            ],
+        )
+        safe_title = escape(title)
+        return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{safe_title}</title>
+  <style>
+    :root {{
+      color-scheme: light;
+      --bg: #f6f1e8;
+      --paper: #fffdf8;
+      --ink: #1e1a17;
+      --muted: #6e6257;
+      --line: #d9cfc2;
+      --accent: #8d2b1e;
+      --accent-soft: #f2ddd8;
+      --code: #f3eee6;
+      --shadow: rgba(30, 26, 23, 0.12);
+    }}
+    * {{
+      box-sizing: border-box;
+    }}
+    body {{
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      background:
+        radial-gradient(circle at top, #fff7ef 0%, transparent 38%),
+        linear-gradient(180deg, #efe5d7 0%, var(--bg) 100%);
+      color: var(--ink);
+    }}
+    main {{
+      max-width: 920px;
+      margin: 32px auto;
+      padding: 40px 48px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 24px 60px var(--shadow);
+    }}
+    h1, h2, h3 {{
+      line-height: 1.2;
+      margin-top: 1.6em;
+      margin-bottom: 0.6em;
+    }}
+    h1 {{
+      margin-top: 0;
+      font-size: 2rem;
+      border-bottom: 3px solid var(--accent);
+      padding-bottom: 0.4rem;
+    }}
+    h2 {{
+      font-size: 1.35rem;
+      color: var(--accent);
+    }}
+    h3 {{
+      font-size: 1.05rem;
+    }}
+    p, li {{
+      font-size: 1rem;
+      line-height: 1.72;
+    }}
+    ul {{
+      padding-left: 1.4rem;
+    }}
+    code {{
+      font-family: Consolas, "Courier New", monospace;
+      background: var(--code);
+      padding: 0.1rem 0.35rem;
+      border-radius: 6px;
+    }}
+    pre {{
+      overflow-x: auto;
+      padding: 1rem;
+      border-radius: 12px;
+      background: var(--code);
+      border: 1px solid var(--line);
+    }}
+    blockquote {{
+      margin: 1rem 0;
+      padding: 0.2rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--accent-soft);
+      color: var(--muted);
+    }}
+    table {{
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+    }}
+    th, td {{
+      border: 1px solid var(--line);
+      padding: 0.7rem;
+      text-align: left;
+      vertical-align: top;
+    }}
+    th {{
+      background: #f8f2ea;
+    }}
+    hr {{
+      border: 0;
+      border-top: 1px solid var(--line);
+      margin: 2rem 0;
+    }}
+    .report-meta {{
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-bottom: 1.2rem;
+    }}
+    @media (max-width: 720px) {{
+      main {{
+        margin: 0;
+        min-height: 100vh;
+        border-radius: 0;
+        padding: 24px 18px 36px;
+      }}
+      h1 {{
+        font-size: 1.6rem;
+      }}
+    }}
+  </style>
+</head>
+<body>
+  <main>
+    <div class="report-meta">AI Courtroom Harness HTML Preview</div>
+    {body}
+  </main>
+</body>
+</html>
+"""
+
+
 @lru_cache(maxsize=1)
 def get_markdown_report_service() -> MarkdownReportService:
     return MarkdownReportService()
+
+
+@lru_cache(maxsize=1)
+def get_html_report_service() -> HtmlReportService:
+    return HtmlReportService()

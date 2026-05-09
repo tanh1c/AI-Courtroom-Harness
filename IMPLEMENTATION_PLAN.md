@@ -607,23 +607,23 @@ Mục tiêu:
 Tasks:
 
 - [ ] Hoàn thiện UI panels.
-- [ ] Thêm report preview.
+- [x] Thêm report preview.
 - [x] Export markdown report.
 - [ ] Optional PDF export.
 - [x] Seed demo cases.
 - [x] Viết smoke tests cho backend flow `review -> report_ready -> markdown`.
-- [ ] Viết demo script.
+- [x] Viết demo script.
 
 Deliverables:
 
-- [ ] Demo-ready app
+- [x] Demo-ready scripted app
 - [x] Final report template ở mức fixture structure
 - [x] Demo dataset / fixtures
 - [x] Smoke test checklist cho backend review/export
 
 Acceptance criteria:
 
-- [ ] Có thể demo từ upload case đến final report.
+- [x] Có thể demo từ upload case đến final report bằng scripted flow.
 - [ ] UI hiển thị rõ evidence, citations, disputed points và review flags.
 - [x] Có ít nhất 1 demo case ổn định để quay video hoặc thuyết trình ở mức data fixture.
 - [x] Backend có thể chuyển case từ `review_required` sang `report_ready` và export markdown report có persist path.
