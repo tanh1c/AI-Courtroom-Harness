@@ -5,6 +5,7 @@ Placeholder for the Phase 0 frontend workspace.
 Frontend MVP execution plan:
 
 - `apps/web/FRONTEND_MVP_PLAN.md`
+- `apps/web/AI_PROMPT_FE_HANDOFF.md`
 
 Recommended next steps:
 
