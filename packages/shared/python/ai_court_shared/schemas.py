@@ -618,6 +618,13 @@ class SimulatedDecision(BaseModel):
     requires_human_review: bool = False
 
 
+class DialogueQualityReport(BaseModel):
+    max_utterance_chars: int
+    overlong_turn_ids: list[str] = Field(default_factory=list)
+    ungrounded_turn_ids: list[str] = Field(default_factory=list)
+    role_drift_warnings: list[str] = Field(default_factory=list)
+
+
 class V2TrialSession(BaseModel):
     session_id: str
     case: CaseState
@@ -635,6 +642,9 @@ class V2TrialSession(BaseModel):
     simulated_decision: SimulatedDecision | None = None
     fact_check: FactCheckResult | None = None
     citation_verification: CitationVerificationResult | None = None
+    dialogue_quality: DialogueQualityReport = Field(
+        default_factory=lambda: DialogueQualityReport(max_utterance_chars=280)
+    )
     human_review: HumanReviewGate = Field(
         default_factory=lambda: HumanReviewGate(required=False, blocked=False)
     )

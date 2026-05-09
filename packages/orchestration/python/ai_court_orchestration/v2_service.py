@@ -14,6 +14,7 @@ from packages.shared.python.ai_court_shared.schemas import (
     DebateRound,
     DecisionGuardResult,
     DeliberationRecord,
+    DialogueQualityReport,
     EvidenceAdmissibility,
     EvidenceExamination,
     FactCheckResult,
@@ -87,6 +88,25 @@ OFFICIAL_JUDGMENT_MARKERS = [
     "the court hereby decides",
 ]
 
+MAX_UTTERANCE_CHARS = 280
+
+PARTY_GROUNDED_STAGES = {
+    TrialProcedureStage.PLAINTIFF_CLAIM_STATEMENT,
+    TrialProcedureStage.DEFENSE_RESPONSE_STATEMENT,
+    TrialProcedureStage.EVIDENCE_EXAMINATION,
+    TrialProcedureStage.JUDGE_EXAMINATION,
+    TrialProcedureStage.PLAINTIFF_DEBATE,
+    TrialProcedureStage.DEFENSE_REBUTTAL,
+    TrialProcedureStage.FINAL_STATEMENTS,
+}
+
+ROLE_DRIFT_MARKERS = {
+    AgentName.PLAINTIFF_AGENT: ["bị đơn:", "thẩm phán:", "thư ký:"],
+    AgentName.DEFENSE_AGENT: ["nguyên đơn:", "thẩm phán:", "thư ký:"],
+    AgentName.JUDGE_AGENT: ["nguyên đơn:", "bị đơn:", "thư ký:"],
+    AgentName.CLERK_AGENT: ["nguyên đơn:", "bị đơn:", "thẩm phán:"],
+}
+
 
 class TrialRuntimeError(ValueError):
     pass
@@ -110,6 +130,28 @@ def dedupe(values: list[str]) -> list[str]:
 def contains_official_judgment_language(text: str) -> bool:
     lowered = text.lower()
     return any(marker in lowered for marker in OFFICIAL_JUDGMENT_MARKERS)
+
+
+def compact_utterance(text: str, limit: int = MAX_UTTERANCE_CHARS) -> tuple[str, bool]:
+    normalized = " ".join(text.split())
+    if len(normalized) <= limit:
+        return normalized, False
+    return normalized[: limit - 1].rstrip() + "…", True
+
+
+def has_role_drift(speaker: AgentName, utterance: str) -> bool:
+    lowered = utterance.lower()
+    return any(marker in lowered for marker in ROLE_DRIFT_MARKERS.get(speaker, []))
+
+
+def is_party_grounded(turn: CourtroomDialogueTurn) -> bool:
+    if turn.speaker not in {AgentName.PLAINTIFF_AGENT, AgentName.DEFENSE_AGENT}:
+        return True
+    if turn.trial_stage not in PARTY_GROUNDED_STAGES:
+        return True
+    lowered = turn.utterance.lower()
+    explicitly_missing = "chưa có chứng cứ" in lowered or "cần đối chiếu" in lowered
+    return bool(turn.evidence_ids or turn.citation_ids or explicitly_missing)
 
 
 class CourtroomV2RuntimeService:
@@ -225,20 +267,50 @@ class CourtroomV2RuntimeService:
         risk_notes: list[str] | None = None,
     ) -> CourtroomDialogueTurn:
         self.assert_speaker_allowed(trial_stage, speaker)
+        compacted_utterance, was_compacted = compact_utterance(utterance)
+        notes = list(risk_notes or [])
+        if was_compacted:
+            notes.append(f"Utterance compacted to {MAX_UTTERANCE_CHARS} characters for demo readability.")
+        if has_role_drift(speaker, compacted_utterance):
+            notes.append("Possible role drift detected in dialogue wording.")
         turn = CourtroomDialogueTurn(
             turn_id=self._next_turn_id(session),
             trial_stage=trial_stage,
             speaker=speaker,
             speaker_label=speaker_label,
-            utterance=utterance,
+            utterance=compacted_utterance,
             claim_ids=claim_ids or [],
             evidence_ids=evidence_ids or [],
             citation_ids=citation_ids or [],
             status=status,
-            risk_notes=risk_notes or [],
+            risk_notes=dedupe(notes),
         )
         session.dialogue_turns.append(turn)
+        self._refresh_dialogue_quality(session)
         return turn
+
+    def _refresh_dialogue_quality(self, session: V2TrialSession) -> None:
+        overlong = [
+            turn.turn_id
+            for turn in session.dialogue_turns
+            if len(turn.utterance) > MAX_UTTERANCE_CHARS
+        ]
+        ungrounded = [
+            turn.turn_id
+            for turn in session.dialogue_turns
+            if not is_party_grounded(turn)
+        ]
+        role_drift = [
+            f"{turn.turn_id}: {turn.speaker.value} wording may drift from assigned role"
+            for turn in session.dialogue_turns
+            if has_role_drift(turn.speaker, turn.utterance)
+        ]
+        session.dialogue_quality = DialogueQualityReport(
+            max_utterance_chars=MAX_UTTERANCE_CHARS,
+            overlong_turn_ids=overlong,
+            ungrounded_turn_ids=ungrounded,
+            role_drift_warnings=role_drift,
+        )
 
     def _append_act(
         self,
@@ -407,6 +479,48 @@ class CourtroomV2RuntimeService:
         session.evidence_examinations = []
         for evidence in session.case.evidence:
             disputed = evidence.status.value != "uncontested" or bool(evidence.challenged_by)
+            related_claim_ids = [
+                claim.claim_id
+                for claim in session.case.claims
+                if evidence.evidence_id in claim.evidence_ids
+            ]
+            self._append_turn(
+                session,
+                trial_stage=TrialProcedureStage.EVIDENCE_EXAMINATION,
+                speaker=AgentName.JUDGE_AGENT,
+                speaker_label="Thẩm phán",
+                utterance=f"Thẩm phán đưa ra xem xét chứng cứ {evidence.evidence_id} và yêu cầu các bên nêu ý kiến.",
+                claim_ids=related_claim_ids,
+                evidence_ids=[evidence.evidence_id],
+            )
+            self._append_turn(
+                session,
+                trial_stage=TrialProcedureStage.EVIDENCE_EXAMINATION,
+                speaker=AgentName.PLAINTIFF_AGENT,
+                speaker_label="Nguyên đơn",
+                utterance=(
+                    f"Nguyên đơn đề nghị chấp nhận {evidence.evidence_id} vì chứng cứ này hỗ trợ "
+                    "yêu cầu trong hồ sơ."
+                ),
+                claim_ids=[claim_id for claim_id in related_claim_ids if claim_id in self._claim_ids_for(session, AgentName.PLAINTIFF_AGENT)],
+                evidence_ids=[evidence.evidence_id],
+                status=TurnStatus.NEEDS_REVIEW if disputed else TurnStatus.OK,
+                risk_notes=(["Lập luận dựa trên chứng cứ cần review."] if disputed else []),
+            )
+            self._append_turn(
+                session,
+                trial_stage=TrialProcedureStage.EVIDENCE_EXAMINATION,
+                speaker=AgentName.DEFENSE_AGENT,
+                speaker_label="Bị đơn",
+                utterance=(
+                    f"Bị đơn {'đề nghị kiểm tra thêm bối cảnh của' if disputed else 'không tranh chấp trực tiếp'} "
+                    f"{evidence.evidence_id} trong phạm vi phiên mô phỏng."
+                ),
+                claim_ids=[claim_id for claim_id in related_claim_ids if claim_id in self._claim_ids_for(session, AgentName.DEFENSE_AGENT)],
+                evidence_ids=[evidence.evidence_id],
+                status=TurnStatus.NEEDS_REVIEW if disputed else TurnStatus.OK,
+                risk_notes=(["Defense challenge keeps this evidence review-pending."] if disputed else []),
+            )
             session.evidence_examinations.append(
                 EvidenceExamination(
                     examination_id=f"EXAM_{len(session.evidence_examinations) + 1:03d}",
@@ -419,11 +533,7 @@ class CourtroomV2RuntimeService:
                         else "Bị đơn không tranh chấp trực tiếp chứng cứ này trong demo."
                     ),
                     admissibility=EvidenceAdmissibility.NEEDS_REVIEW if disputed else EvidenceAdmissibility.ADMITTED,
-                    related_claim_ids=[
-                        claim.claim_id
-                        for claim in session.case.claims
-                        if evidence.evidence_id in claim.evidence_ids
-                    ],
+                    related_claim_ids=related_claim_ids,
                     notes="Không dùng chứng cứ tranh chấp làm căn cứ duy nhất cho kết quả mô phỏng."
                     if disputed
                     else "Chứng cứ có thể được dùng làm căn cứ nền trong demo.",
@@ -487,6 +597,19 @@ class CourtroomV2RuntimeService:
             evidence_ids=self._evidence_ids(session)[:2],
             citation_ids=self._citation_ids(session)[:1],
         )
+        self._append_turn(
+            session,
+            trial_stage=TrialProcedureStage.PLAINTIFF_DEBATE,
+            speaker=AgentName.PLAINTIFF_AGENT,
+            speaker_label="Nguyên đơn bổ sung tranh luận",
+            utterance=(
+                "Nguyên đơn đề nghị chỉ xem điều kiện thanh toán còn lại là điểm cần giải thích, "
+                "không phải lý do phủ nhận toàn bộ nghĩa vụ giao tài sản."
+            ),
+            claim_ids=self._claim_ids_for(session, AgentName.PLAINTIFF_AGENT),
+            evidence_ids=self._evidence_ids(session)[:1],
+            citation_ids=self._citation_ids(session)[:1],
+        )
 
     def _advance_defense_rebuttal(self, session: V2TrialSession) -> None:
         plaintiff_turn_ids = [
@@ -509,12 +632,27 @@ class CourtroomV2RuntimeService:
             status=TurnStatus.NEEDS_FACT_CHECK,
             risk_notes=["Lập luận phòng vệ vẫn cần fact-check theo chứng cứ hợp đồng."],
         )
+        defense_follow_up = self._append_turn(
+            session,
+            trial_stage=TrialProcedureStage.DEFENSE_REBUTTAL,
+            speaker=AgentName.DEFENSE_AGENT,
+            speaker_label="Bị đơn bổ sung đối đáp",
+            utterance=(
+                "Bị đơn giữ quan điểm rằng chứng cứ về điều kiện thanh toán cần được đánh giá "
+                "trước khi mô phỏng trách nhiệm bồi thường."
+            ),
+            claim_ids=self._claim_ids_for(session, AgentName.DEFENSE_AGENT),
+            evidence_ids=self._evidence_ids(session)[:1],
+            citation_ids=self._citation_ids(session)[-1:],
+            status=TurnStatus.NEEDS_FACT_CHECK,
+            risk_notes=["Bồi thường vẫn thiếu chứng cứ định lượng."],
+        )
         session.debate_rounds = [
             DebateRound(
                 debate_id="DEBATE_001",
                 topic="Nghĩa vụ giao tài sản đúng hạn và điều kiện thanh toán còn lại",
                 plaintiff_turn_ids=plaintiff_turn_ids,
-                defense_turn_ids=[defense_turn.turn_id],
+                defense_turn_ids=[defense_turn.turn_id, defense_follow_up.turn_id],
                 judge_summary=(
                     "Tranh luận cho thấy nghĩa vụ giao tài sản có căn cứ ban đầu, "
                     "nhưng điều kiện thanh toán còn lại vẫn là điểm cần giải thích."
@@ -763,4 +901,3 @@ class CourtroomV2RuntimeService:
 @lru_cache(maxsize=1)
 def get_courtroom_v2_runtime_service() -> CourtroomV2RuntimeService:
     return CourtroomV2RuntimeService()
-

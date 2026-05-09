@@ -6,7 +6,7 @@ V2 starts after the backend MVP and V1 procedural harness are stable. The goal i
 
 - [x] V2 Phase 0 trial-flow contracts are defined.
 - [x] V2 Phase 1 full trial procedure runtime is implemented.
-- [ ] V2 Phase 2 courtroom dialogue layer is implemented.
+- [x] V2 Phase 2 courtroom dialogue layer is implemented.
 - [ ] V2 Phase 3 deliberation and simulation-safe verdict guard is implemented.
 - [ ] V2 Phase 4 formal trial record and simulated outcome export are implemented.
 - [ ] V2 Phase 5 evaluation, demo fixtures, and UI hooks are implemented.
@@ -114,6 +114,10 @@ Acceptance:
 
 ### V2-M3. Courtroom Dialogue Layer
 
+Status:
+
+- [x] Completed for V2 Phase 2
+
 Generate natural but concise Vietnamese hearing dialogue:
 
 - Clerk: formal opening, attendance, record keeping.
@@ -125,12 +129,16 @@ Generate natural but concise Vietnamese hearing dialogue:
 
 Acceptance:
 
-- [ ] Transcript has real multi-turn courtroom dialogue, not only summaries.
-- [ ] Each party statement is grounded in evidence or explicitly marked ungrounded.
-- [ ] Dialogue remains concise enough for a demo report.
-- [ ] Role drift is detected and flagged.
+- [x] Transcript has real multi-turn courtroom dialogue, not only summaries.
+- [x] Each party statement is grounded in evidence or explicitly marked ungrounded.
+- [x] Dialogue remains concise enough for a demo report.
+- [x] Role drift is detected and flagged.
 
 ### V2-M4. Evidence Examination And Debate
+
+Status:
+
+- [x] Completed for V2 Phase 2 baseline
 
 Add a real examination layer:
 
@@ -142,10 +150,10 @@ Add a real examination layer:
 
 Acceptance:
 
-- [ ] Every important evidence item is examined at least once.
-- [ ] Disputed evidence cannot silently support a decision.
-- [ ] Debate turns include related `claim_id`, `evidence_id`, and `citation_id`.
-- [ ] Unresolved evidence moves to human review checklist.
+- [x] Every important evidence item is examined at least once.
+- [x] Disputed evidence cannot silently support a decision.
+- [x] Debate turns include related `claim_id`, `evidence_id`, and `citation_id`.
+- [x] Unresolved evidence moves to human review checklist.
 
 ### V2-M5. Deliberation And Decision Guard
 
@@ -231,10 +239,10 @@ Acceptance:
 
 ### Phase 2. Dialogue And Evidence Examination
 
-- [ ] Implement multi-turn courtroom dialogue.
-- [ ] Implement evidence examination rounds.
-- [ ] Add debate and rebuttal turns.
-- [ ] Add transcript compactness controls.
+- [x] Implement multi-turn courtroom dialogue.
+- [x] Implement evidence examination rounds.
+- [x] Add debate and rebuttal turns.
+- [x] Add transcript compactness controls.
 
 ### Phase 3. Deliberation And Simulated Decision
 

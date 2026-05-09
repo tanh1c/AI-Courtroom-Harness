@@ -168,7 +168,14 @@ def main() -> None:
     assert len(persisted["appearances"]) == 4
     assert len(persisted["procedural_acts"]) >= 3
     assert len(persisted["evidence_examinations"]) >= 1
+    evidence_stage_turns = [
+        turn for turn in persisted["dialogue_turns"] if turn["trial_stage"] == "evidence_examination"
+    ]
+    assert len(evidence_stage_turns) >= len(persisted["evidence_examinations"]) * 3
     assert persisted["debate_rounds"], "Expected debate round."
+    debate = persisted["debate_rounds"][0]
+    assert len(debate["plaintiff_turn_ids"]) >= 2, "Expected multi-turn plaintiff debate."
+    assert len(debate["defense_turn_ids"]) >= 2, "Expected multi-turn defense rebuttal."
     assert len(persisted["final_statements"]) == 2
     assert persisted["deliberation"] is not None
     assert persisted["decision_guard"] is not None
@@ -176,6 +183,11 @@ def main() -> None:
     assert persisted["simulated_decision"] is not None
     assert persisted["simulated_decision"]["non_binding_disclaimer"]
     assert persisted["human_review"]["blocked"] is False
+    quality = persisted["dialogue_quality"]
+    assert quality["max_utterance_chars"] == 280
+    assert quality["overlong_turn_ids"] == []
+    assert quality["ungrounded_turn_ids"] == []
+    assert quality["role_drift_warnings"] == []
 
     print("case_id:", case_id)
     print("session_id:", persisted["session_id"])
@@ -188,8 +200,14 @@ def main() -> None:
     print("appearance_count:", len(persisted["appearances"]))
     print("procedural_act_count:", len(persisted["procedural_acts"]))
     print("evidence_examination_count:", len(persisted["evidence_examinations"]))
+    print("evidence_stage_turn_count:", len(evidence_stage_turns))
     print("debate_round_count:", len(persisted["debate_rounds"]))
+    print("plaintiff_debate_turn_count:", len(debate["plaintiff_turn_ids"]))
+    print("defense_rebuttal_turn_count:", len(debate["defense_turn_ids"]))
     print("final_statement_count:", len(persisted["final_statements"]))
+    print("dialogue_overlong_count:", len(quality["overlong_turn_ids"]))
+    print("dialogue_ungrounded_count:", len(quality["ungrounded_turn_ids"]))
+    print("role_drift_warning_count:", len(quality["role_drift_warnings"]))
     print("decision_disposition:", persisted["simulated_decision"]["disposition"])
     print("decision_risk:", persisted["simulated_decision"]["risk_level"])
     print("human_review_mode:", persisted["human_review_mode"])

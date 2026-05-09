@@ -538,6 +538,13 @@ export interface SimulatedDecision {
   requires_human_review: boolean;
 }
 
+export interface DialogueQualityReport {
+  max_utterance_chars: number;
+  overlong_turn_ids: string[];
+  ungrounded_turn_ids: string[];
+  role_drift_warnings: string[];
+}
+
 export interface V2TrialSession {
   session_id: string;
   case: CaseState;
@@ -555,6 +562,7 @@ export interface V2TrialSession {
   simulated_decision?: SimulatedDecision | null;
   fact_check?: FactCheckResult | null;
   citation_verification?: CitationVerificationResult | null;
+  dialogue_quality: DialogueQualityReport;
   human_review: HumanReviewGate;
   status: CaseStatus;
 }
