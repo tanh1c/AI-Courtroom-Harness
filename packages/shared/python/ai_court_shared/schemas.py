@@ -641,6 +641,10 @@ class V2TrialSession(BaseModel):
     status: CaseStatus
 
 
+class V2TrialAdvanceRequest(BaseModel):
+    expected_stage: TrialProcedureStage | None = None
+
+
 class HearingAdvanceRequest(BaseModel):
     expected_stage: HearingStage | None = None
 

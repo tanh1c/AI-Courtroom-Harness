@@ -5,7 +5,7 @@ V2 starts after the backend MVP and V1 procedural harness are stable. The goal i
 ## 0. Progress Snapshot
 
 - [x] V2 Phase 0 trial-flow contracts are defined.
-- [ ] V2 Phase 1 full trial procedure runtime is implemented.
+- [x] V2 Phase 1 full trial procedure runtime is implemented.
 - [ ] V2 Phase 2 courtroom dialogue layer is implemented.
 - [ ] V2 Phase 3 deliberation and simulation-safe verdict guard is implemented.
 - [ ] V2 Phase 4 formal trial record and simulated outcome export are implemented.
@@ -84,6 +84,10 @@ Acceptance:
 
 ### V2-M2. Full Trial Procedure Runtime
 
+Status:
+
+- [x] Completed for V2 Phase 1
+
 Expand the runtime from V1 technical stages into courtroom-facing stages:
 
 - `case_preparation`
@@ -103,10 +107,10 @@ Expand the runtime from V1 technical stages into courtroom-facing stages:
 
 Acceptance:
 
-- [ ] Runtime enforces stage order.
-- [ ] Each stage has allowed speakers and required outputs.
-- [ ] Invalid verdict attempts before deliberation are blocked.
-- [ ] The flow can stop safely at `adjourned_for_review`.
+- [x] Runtime enforces stage order.
+- [x] Each stage has allowed speakers and required outputs.
+- [x] Invalid verdict attempts before deliberation are blocked.
+- [x] The flow can stop safely at `adjourned_for_review`.
 
 ### V2-M3. Courtroom Dialogue Layer
 
@@ -220,10 +224,10 @@ Acceptance:
 
 ### Phase 1. Trial Procedure Runtime
 
-- [ ] Implement courtroom-facing stages.
-- [ ] Add speaker permission rules.
-- [ ] Add safe stop states.
-- [ ] Add smoke test for full stage traversal.
+- [x] Implement courtroom-facing stages.
+- [x] Add speaker permission rules.
+- [x] Add safe stop states.
+- [x] Add smoke test for full stage traversal.
 
 ### Phase 2. Dialogue And Evidence Examination
 

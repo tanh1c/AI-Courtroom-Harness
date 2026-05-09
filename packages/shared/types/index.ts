@@ -559,6 +559,10 @@ export interface V2TrialSession {
   status: CaseStatus;
 }
 
+export interface V2TrialAdvanceRequest {
+  expected_stage?: TrialProcedureStage | null;
+}
+
 export interface HearingAdvanceRequest {
   expected_stage?: HearingStage | null;
 }

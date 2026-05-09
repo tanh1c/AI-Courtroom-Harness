@@ -21,6 +21,7 @@ from packages.shared.python.ai_court_shared.schemas import (
     HtmlReportResponse,
     MarkdownReportResponse,
     SimulationResponse,
+    V2TrialSession,
 )
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
@@ -137,6 +138,13 @@ def _snapshot_hearing_session(hearing_session: HearingSession) -> None:
     _write_json(
         _case_dir(hearing_session.case.case_id) / "hearing_v1.json",
         hearing_session.model_dump(mode="json"),
+    )
+
+
+def _snapshot_v2_trial_session(trial_session: V2TrialSession) -> None:
+    _write_json(
+        _case_dir(trial_session.case.case_id) / "hearing_v2.json",
+        trial_session.model_dump(mode="json"),
     )
 
 
@@ -364,6 +372,22 @@ def load_hearing_session(case_id: str) -> HearingSession | None:
     sample_hearing = _load_fixture("sample_case_01.v1_hearing_session.json")
     if sample_hearing.get("case", {}).get("case_id") == case_id:
         return HearingSession.model_validate(sample_hearing)
+    return None
+
+
+def save_v2_trial_session(trial_session: V2TrialSession) -> None:
+    save_case_state(trial_session.case)
+    _snapshot_v2_trial_session(trial_session)
+
+
+def load_v2_trial_session(case_id: str) -> V2TrialSession | None:
+    path = _case_dir(case_id) / "hearing_v2.json"
+    if path.exists():
+        return V2TrialSession.model_validate(_read_json(path))
+
+    sample_trial = _load_fixture("sample_case_01.v2_trial_session.json")
+    if sample_trial.get("case", {}).get("case_id") == case_id:
+        return V2TrialSession.model_validate(sample_trial)
     return None
 
 

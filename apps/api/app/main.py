@@ -29,6 +29,7 @@ from .case_store import (
     load_markdown_report,
     load_review_record,
     load_simulation_response,
+    load_v2_trial_session,
     list_cases,
     save_case_state,
     save_hearing_session,
@@ -37,6 +38,7 @@ from .case_store import (
     save_markdown_report,
     save_review_record,
     save_simulation_response,
+    save_v2_trial_session,
     store_uploaded_attachment_file,
 )
 from packages.orchestration.python.ai_court_orchestration.service import (
@@ -45,6 +47,10 @@ from packages.orchestration.python.ai_court_orchestration.service import (
 from packages.orchestration.python.ai_court_orchestration.v1_service import (
     HearingRuntimeError,
     get_courtroom_v1_runtime_service,
+)
+from packages.orchestration.python.ai_court_orchestration.v2_service import (
+    TrialRuntimeError,
+    get_courtroom_v2_runtime_service,
 )
 from packages.reporting.python.ai_court_reporting.service import (
     get_html_report_service,
@@ -75,12 +81,15 @@ from packages.shared.python.ai_court_shared.schemas import (
     HumanReviewRecord,
     HumanReviewRequest,
     HumanReviewResponse,
+    HumanReviewMode,
     LegalSearchRequest,
     LegalSearchResponse,
     MarkdownReportResponse,
     ParseCaseResponse,
     ReportResponse,
     SimulationResponse,
+    V2TrialAdvanceRequest,
+    V2TrialSession,
 )
 from packages.verification.python.ai_court_verification.service import (
     get_verification_service,
@@ -315,6 +324,52 @@ def get_v1_hearing(case_id: str) -> HearingSession:
     if hearing_session is None:
         raise HTTPException(status_code=404, detail=f"V1 hearing session not found: {case_id}")
     return hearing_session
+
+
+@app.post("/api/v1/cases/{case_id}/trial-v2/start", response_model=V2TrialSession)
+def start_v2_trial(
+    case_id: str,
+    human_review_mode: HumanReviewMode = HumanReviewMode.OPTIONAL,
+) -> V2TrialSession:
+    case_state = load_case_state(case_id)
+    if case_state is None:
+        raise HTTPException(status_code=404, detail=f"Parsed case state not found: {case_id}")
+
+    trial_session = get_courtroom_v2_runtime_service().start(
+        case_state,
+        human_review_mode=human_review_mode,
+    )
+    save_v2_trial_session(trial_session)
+    return trial_session
+
+
+@app.post("/api/v1/cases/{case_id}/trial-v2/advance", response_model=V2TrialSession)
+def advance_v2_trial(
+    case_id: str,
+    request: V2TrialAdvanceRequest | None = None,
+) -> V2TrialSession:
+    trial_session = load_v2_trial_session(case_id)
+    if trial_session is None:
+        raise HTTPException(status_code=404, detail=f"V2 trial session not found: {case_id}")
+
+    try:
+        updated = get_courtroom_v2_runtime_service().advance(
+            trial_session,
+            expected_stage=request.expected_stage if request is not None else None,
+        )
+    except TrialRuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    save_v2_trial_session(updated)
+    return updated
+
+
+@app.get("/api/v1/cases/{case_id}/trial-v2", response_model=V2TrialSession)
+def get_v2_trial(case_id: str) -> V2TrialSession:
+    trial_session = load_v2_trial_session(case_id)
+    if trial_session is None:
+        raise HTTPException(status_code=404, detail=f"V2 trial session not found: {case_id}")
+    return trial_session
 
 
 @app.get("/api/v1/cases/{case_id}/evidence/challenges", response_model=HearingEvidenceChallengesResponse)
