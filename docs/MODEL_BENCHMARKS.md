@@ -49,6 +49,12 @@ OpenRouter winner: `inclusionai/ring-2.6-1t:free`
 
 Groq winner: `qwen/qwen3-32b`
 
+## Ollama Cloud
+
+| Model | Provider smoke | Simulation quality | Latency | Notes |
+| --- | --- | --- | --- | --- |
+| `deepseek-v4-flash:cloud` | Fail on tested key | Not ranked | N/A | Official Python SDK integration worked technically, but the tested key returned `403` with `this model requires a subscription, upgrade for access`. |
+
 ## Final Recommendation
 
 Overall winner for the current MVP: `inclusionai/ring-2.6-1t:free` on OpenRouter
@@ -60,6 +66,8 @@ Why:
 - fewer obvious reasoning drifts than the other free models tested
 
 Best Groq option: `qwen/qwen3-32b`
+
+Best Ollama Cloud status on the tested key: no usable benchmark yet because the requested model requires a subscription tier that the tested key does not currently have.
 
 Suggested fallback order:
 
@@ -83,4 +91,11 @@ Groq:
 ```powershell
 $env:AI_COURT_LLM_PROVIDER="groq"
 $env:GROQ_MODEL="qwen/qwen3-32b"
+```
+
+Ollama Cloud:
+
+```powershell
+$env:AI_COURT_LLM_PROVIDER="ollama"
+$env:OLLAMA_MODEL="deepseek-v4-flash:cloud"
 ```

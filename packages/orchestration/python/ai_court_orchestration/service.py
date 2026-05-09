@@ -277,7 +277,7 @@ class CourtroomSimulationService:
             payload = self.llm_service.generate_json(system_prompt, user_prompt)
             message = str(payload.get("message", "")).strip()
             return message or fallback_message
-        except (RuntimeError, httpx.HTTPError, ValueError, KeyError, TypeError):
+        except Exception:
             return fallback_message
 
     def _llm_judge_summary(
@@ -345,7 +345,7 @@ class CourtroomSimulationService:
                 unsupported_claims=fallback_summary.unsupported_claims,
                 recommended_human_review=fallback_summary.recommended_human_review,
             )
-        except (RuntimeError, httpx.HTTPError, ValueError, KeyError, TypeError, ValidationError):
+        except Exception:
             return fallback_summary
 
     def _llm_report_summary(
@@ -384,7 +384,7 @@ class CourtroomSimulationService:
             payload = self.llm_service.generate_json(system_prompt, user_prompt)
             summary = str(payload.get("case_summary", "")).strip()
             return summary or fallback_summary
-        except (RuntimeError, httpx.HTTPError, ValueError, KeyError, TypeError):
+        except Exception:
             return fallback_summary
 
     def _build_plaintiff_claims(self, case: CaseState, issue_citations: dict[str, list[str]]) -> list[Claim]:

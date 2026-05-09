@@ -167,8 +167,21 @@ $env:GROQ_API_KEY="your_key_here"
 $env:GROQ_MODEL="qwen/qwen3-32b"
 ```
 
+Ollama Cloud setup:
+
+```powershell
+$env:AI_COURT_LLM_PROVIDER="ollama"
+$env:OLLAMA_API_KEY="your_key_here"
+$env:OLLAMA_MODEL="deepseek-v4-flash:cloud"
+```
+
+Some Ollama Cloud models require an eligible subscription tier. In testing, `deepseek-v4-flash:cloud`
+returned `403 requires a subscription` on the provided key, so the runtime falls back to the heuristic
+path instead of failing the whole simulation.
+
 If `AI_COURT_LLM_PROVIDER` is left as `auto`, the runtime currently prefers OpenRouter when
-`OPENROUTER_API_KEY` is present, otherwise Groq when `GROQ_API_KEY` is present, and otherwise
+`OPENROUTER_API_KEY` is present, otherwise Groq when `GROQ_API_KEY` is present, otherwise Ollama
+Cloud when `OLLAMA_API_KEY` is present, and otherwise
 falls back to the deterministic heuristic path.
 
 Optional model override:

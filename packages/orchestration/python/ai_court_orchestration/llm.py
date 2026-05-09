@@ -48,11 +48,16 @@ class CourtroomLlmService:
             "https://api.groq.com/openai/v1",
         ).rstrip("/")
         self.groq_model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant").strip()
+        self.ollama_api_key = os.getenv("OLLAMA_API_KEY", "").strip()
+        self.ollama_host = os.getenv("OLLAMA_HOST", "https://ollama.com").rstrip("/")
+        self.ollama_model = os.getenv("OLLAMA_MODEL", "deepseek-v4-flash:cloud").strip()
         if configured_provider == "auto":
             if self.openrouter_api_key:
                 self.provider = "openrouter"
             elif self.groq_api_key:
                 self.provider = "groq"
+            elif self.ollama_api_key:
+                self.provider = "ollama"
             else:
                 self.provider = "heuristic"
         else:
@@ -63,6 +68,8 @@ class CourtroomLlmService:
             return bool(self.openrouter_api_key)
         if self.provider == "groq":
             return bool(self.groq_api_key)
+        if self.provider == "ollama":
+            return bool(self.ollama_api_key)
         return False
 
     def provider_label(self) -> str:
@@ -70,6 +77,8 @@ class CourtroomLlmService:
             return f"openrouter:{self.openrouter_model}"
         if self.provider == "groq" and self.is_enabled():
             return f"groq:{self.groq_model}"
+        if self.provider == "ollama" and self.is_enabled():
+            return f"ollama:{self.ollama_model}"
         return "heuristic"
 
     def _request_chat_completion(
@@ -130,10 +139,27 @@ class CourtroomLlmService:
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
             )
+        elif self.provider == "ollama":
+            from ollama import Client
+
+            client = Client(
+                host=self.ollama_host,
+                headers={"Authorization": f"Bearer {self.ollama_api_key}"},
+            )
+            data = client.chat(
+                model=self.ollama_model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+            )
         else:
             raise RuntimeError(f"Unsupported LLM provider: {self.provider}")
 
-        content = data["choices"][0]["message"]["content"]
+        if self.provider == "ollama":
+            content = data["message"]["content"]
+        else:
+            content = data["choices"][0]["message"]["content"]
         if isinstance(content, list):
             joined = []
             for item in content:
