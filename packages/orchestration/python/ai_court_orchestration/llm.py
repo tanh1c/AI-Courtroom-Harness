@@ -62,6 +62,12 @@ class CourtroomLlmService:
             "https://api.groq.com/openai/v1",
         ).rstrip("/")
         self.groq_model = os.getenv("GROQ_MODEL", "qwen/qwen3-32b").strip()
+        self.deepseek_api_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
+        self.deepseek_base_url = os.getenv(
+            "DEEPSEEK_BASE_URL",
+            "https://api.deepseek.com",
+        ).rstrip("/")
+        self.deepseek_model = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-pro").strip()
         self.ninerouter_api_key = os.getenv("NINEROUTER_KEY", "").strip()
         self.ninerouter_base_url = os.getenv(
             "NINEROUTER_URL",
@@ -93,6 +99,8 @@ class CourtroomLlmService:
             return f"openrouter:{self.openrouter_model}"
         if self.provider == "groq" and self._provider_available("groq"):
             return f"groq:{self.groq_model}"
+        if self.provider == "deepseek" and self._provider_available("deepseek"):
+            return f"deepseek:{self.deepseek_model}"
         if self.provider == "9router" and self._provider_available("9router"):
             return f"9router:{self.ninerouter_model}"
         if self.provider == "nvidia" and self._provider_available("nvidia"):
@@ -110,6 +118,8 @@ class CourtroomLlmService:
             return bool(self.openrouter_api_key)
         if provider == "groq":
             return bool(self.groq_api_key)
+        if provider == "deepseek":
+            return bool(self.deepseek_api_key)
         if provider == "9router":
             return bool(self.ninerouter_api_key) and bool(self.ninerouter_base_url)
         if provider == "nvidia":
@@ -123,6 +133,8 @@ class CourtroomLlmService:
             return f"openrouter:{self.openrouter_model}"
         if provider == "groq":
             return f"groq:{self.groq_model}"
+        if provider == "deepseek":
+            return f"deepseek:{self.deepseek_model}"
         if provider == "9router":
             return f"9router:{self.ninerouter_model}"
         if provider == "nvidia":
@@ -162,6 +174,7 @@ class CourtroomLlmService:
         system_prompt: str,
         user_prompt: str,
         extra_headers: dict[str, str] | None = None,
+        extra_payload: dict[str, Any] | None = None,
     ) -> dict:
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
         if extra_headers:
@@ -174,6 +187,8 @@ class CourtroomLlmService:
                 {"role": "user", "content": user_prompt},
             ],
         }
+        if extra_payload:
+            payload.update(extra_payload)
 
         with httpx.Client(timeout=self.timeout_seconds) as client:
             response = client.post(
@@ -212,6 +227,18 @@ class CourtroomLlmService:
                 model=self.groq_model,
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
+            )
+        if provider == "deepseek":
+            return self._request_chat_completion(
+                base_url=self.deepseek_base_url,
+                api_key=self.deepseek_api_key,
+                model=self.deepseek_model,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                extra_payload={
+                    "response_format": {"type": "json_object"},
+                    "max_tokens": 4096,
+                },
             )
         if provider == "9router":
             return self._request_chat_completion(

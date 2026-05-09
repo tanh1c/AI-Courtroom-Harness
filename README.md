@@ -103,7 +103,7 @@ The only major MVP lane still pending is the real frontend in `apps/web`.
 - `BM25 + remote vector fusion`: legal retrieval baseline
 - `SQLite + JSON snapshots`: local persistence for cases and reports
 - `Verification layer`: unsupported-claim checks, citation verification, contradiction flags, review gating
-- `Provider abstraction`: OpenRouter, Groq, NVIDIA NIM, 9Router, Ollama Cloud, plus heuristic fallback
+- `Provider abstraction`: OpenRouter, Groq, DeepSeek, NVIDIA NIM, 9Router, Ollama Cloud, plus heuristic fallback
 
 ## What Gets Generated
 
@@ -308,6 +308,20 @@ $env:GROQ_API_KEY="your_key_here"
 $env:GROQ_MODEL="qwen/qwen3-32b"
 ```
 
+DeepSeek setup:
+
+```powershell
+$env:AI_COURT_LLM_PROVIDER="deepseek"
+$env:DEEPSEEK_API_KEY="your_key_here"
+$env:DEEPSEEK_MODEL="deepseek-v4-pro"
+```
+
+The DeepSeek integration uses the OpenAI-compatible endpoint at `https://api.deepseek.com`
+and enables JSON output mode for the repo's strict structured-generation contract. The
+current `deepseek-v4-pro` discount is applied by DeepSeek billing when this model is used
+through their API; there is no repo-side discount flag to set. Check the official pricing
+page before paid runs: `https://api-docs.deepseek.com/quick_start/pricing/`.
+
 NVIDIA NIM setup:
 
 ```powershell
@@ -345,8 +359,8 @@ If `AI_COURT_LLM_PROVIDER` is left as `auto`, the runtime currently prefers Open
 `OPENROUTER_API_KEY` is present, otherwise Groq when `GROQ_API_KEY` is present, and otherwise
 falls back to the deterministic heuristic path.
 
-`nvidia`, `9router`, and `ollama` are supported as explicit providers, but they are not part of
-the default MVP auto-chain.
+`deepseek`, `nvidia`, `9router`, and `ollama` are supported as explicit providers, but they are
+not part of the default MVP auto-chain.
 
 Recommended MVP fallback chain:
 
@@ -365,7 +379,8 @@ Optional model override:
 $env:OPENROUTER_MODEL="tencent/hy3-preview"
 ```
 
-The runtime does not persist API keys. Keep them in the current shell only.
+For one-off tests, keep API keys in the current shell. For repeat local runs, use
+`scripts/setup/configure_provider_cli.py`; it writes keys only to ignored `.env.local`.
 
 Quick provider smoke:
 
@@ -379,6 +394,7 @@ Benchmark notes and recommended models:
 - MVP default pair:
   - OpenRouter: `inclusionai/ring-2.6-1t:free`
   - Groq: `qwen/qwen3-32b`
+  - Optional paid provider: `deepseek / deepseek-v4-pro`
   - Optional detailed-but-slower provider: `nvidia / z-ai/glm4.7`
   - Optional explicit provider: `9router / cx/gpt-5.2`
 

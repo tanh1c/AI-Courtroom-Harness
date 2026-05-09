@@ -8,10 +8,10 @@ Current scope:
 - legal retrieval handoff into argument generation
 - structured plaintiff, defense, judge, and clerk turns
 - runtime state transitions for `/simulate`
-- OpenRouter-, Groq-, NVIDIA NIM-, 9Router-, or Ollama Cloud-backed text generation with heuristic fallback
+- OpenRouter-, Groq-, DeepSeek-, NVIDIA NIM-, 9Router-, or Ollama Cloud-backed text generation with heuristic fallback
 
 The runtime is still schema-first and retrieval-grounded. When `AI_COURT_LLM_PROVIDER` is set to
-`openrouter`, `groq`, `nvidia`, `9router`, or `ollama`, the package upgrades role messages and summaries with a live provider-backed model.
+`openrouter`, `groq`, `deepseek`, `nvidia`, `9router`, or `ollama`, the package upgrades role messages and summaries with a live provider-backed model.
 In `auto` mode, it prefers OpenRouter when that key is available, otherwise Groq.
 If the provider is missing, rate-limited, or unavailable, it falls back to the deterministic heuristic path.
 
@@ -20,6 +20,9 @@ The recommended MVP chain is:
 - primary: `openrouter / inclusionai/ring-2.6-1t:free`
 - fallback: `groq / qwen/qwen3-32b`
 - final: heuristic runtime text
+
+`deepseek / deepseek-v4-pro` is supported as an explicit paid provider through the official
+OpenAI-compatible DeepSeek API with JSON output mode enabled.
 
 `nvidia / z-ai/glm4.7` is supported as an explicit provider for higher-detail generations, but it
 is much slower than the default MVP pair and is not part of the default fallback chain.

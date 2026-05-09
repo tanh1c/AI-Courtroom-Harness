@@ -51,6 +51,15 @@ Retest note: quality remains the best, but the free route showed intermittent `4
 Groq winner: `qwen/qwen3-32b`
 Retest note: this model remained stable on both provider smoke and courtroom simulation retests.
 
+## DeepSeek
+
+| Model | Provider smoke | Simulation quality | Latency | Notes |
+| --- | --- | --- | --- | --- |
+| `deepseek-v4-pro` | Pass | Strong but slow | ~218.1s simulation | Official DeepSeek API route passed strict JSON mode and produced formal, role-consistent Vietnamese courtroom output. It was far slower than the current MVP pair, so it should stay optional rather than replace `ring -> qwen`. |
+
+DeepSeek winner tested: `deepseek-v4-pro`
+Pricing note: DeepSeek's official pricing page lists the active `deepseek-v4-pro` 75% discount through `2026-05-31 15:59 UTC`; selecting `DEEPSEEK_MODEL=deepseek-v4-pro` is enough for the billing-side discount. See `https://api-docs.deepseek.com/quick_start/pricing/`.
+
 ## 9Router
 
 | Model | Provider smoke | Simulation quality | Latency | Notes |
@@ -79,8 +88,9 @@ Latest direct retest on the same simulation flow:
 
 | Provider | Model | Result | Latency | Notes |
 | --- | --- | --- | --- | --- |
-| OpenRouter | `inclusionai/ring-2.6-1t:free` | Pass | ~5.6s | Concise and clean. Best speed-to-quality result in the latest direct side-by-side run, but OpenRouter free still has intermittent `429` risk. |
-| Groq | `qwen/qwen3-32b` | Pass | ~6.1s | Very fast and stable. Good overall, but the defense turn still showed a small role-drift issue in the latest retest. |
+| OpenRouter | `inclusionai/ring-2.6-1t:free` | Pass | ~8.5s | Concise and clean. Best speed-to-quality result in the latest direct side-by-side run, but OpenRouter free still has intermittent `429` risk. |
+| Groq | `qwen/qwen3-32b` | Pass | ~9.0s | Very fast and stable. Good overall, but the defense turn is more template-like than `ring` or DeepSeek. |
+| DeepSeek | `deepseek-v4-pro` | Pass | ~218.1s | Formal and role-consistent, but not better enough to justify replacing the much faster MVP pair for routine demos. |
 | NVIDIA NIM | `z-ai/glm4.7` | Pass | ~185.3s | Most detailed and legally specific output in the latest retest, but much too slow for the default MVP lane. |
 
 Best quality when available: `inclusionai/ring-2.6-1t:free` on OpenRouter
@@ -92,6 +102,7 @@ Why:
 - fewer obvious reasoning drifts than the other free models tested
 
 Best Groq option: `qwen/qwen3-32b`
+Best DeepSeek option tested: `deepseek-v4-pro`
 Best 9Router option tested: `cx/gpt-5.2`
 Best NVIDIA option tested: `z-ai/glm4.7`
 
@@ -99,6 +110,7 @@ MVP default pair:
 
 - OpenRouter: `inclusionai/ring-2.6-1t:free`
 - Groq: `qwen/qwen3-32b`
+- Optional paid provider: `deepseek / deepseek-v4-pro`
 - Optional detailed-but-slower provider: `nvidia / z-ai/glm4.7`
 - Optional explicit provider: `9router / cx/gpt-5.2`
 
@@ -106,6 +118,7 @@ Operational note:
 
 - Use `ring` as the preferred OpenRouter model for quality.
 - Keep `qwen` on Groq as the most reliable alternate path when OpenRouter free capacity is rate-limited.
+- Use `deepseek-v4-pro` when you want to spend paid DeepSeek credits for long-context or higher-quality experiments; do not put it in the default free MVP chain yet.
 - Use `z-ai/glm4.7` on NVIDIA only when you explicitly want richer courtroom phrasing and are willing to trade about three minutes of latency for it.
 - The current MVP fallback chain is `openrouter/ring -> groq/qwen -> heuristic`.
 - `9router / cx/gpt-5.2` is a strong local-gateway option when you explicitly want to route through your own 9Router instance.
@@ -114,6 +127,7 @@ Direct comparison summary:
 
 - `openrouter/ring`: best quality when available, but free-tier availability is the least stable.
 - `groq/qwen`: best stability-to-speed tradeoff for everyday MVP runs.
+- `deepseek/deepseek-v4-pro`: strong paid option with discounted official pricing, but slow in the current simulation smoke.
 - `nvidia/z-ai-glm4.7`: richest and most legally specific output in the latest retest, but much too slow to replace the default MVP pair.
 - `9router/cx-gpt-5.2`: strong courtroom reasoning and summaries, but noticeably slower than `groq/qwen`.
 
@@ -141,6 +155,13 @@ Groq:
 ```powershell
 $env:AI_COURT_LLM_PROVIDER="groq"
 $env:GROQ_MODEL="qwen/qwen3-32b"
+```
+
+DeepSeek:
+
+```powershell
+$env:AI_COURT_LLM_PROVIDER="deepseek"
+$env:DEEPSEEK_MODEL="deepseek-v4-pro"
 ```
 
 NVIDIA NIM:

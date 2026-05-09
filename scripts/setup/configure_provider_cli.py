@@ -19,6 +19,7 @@ PROVIDER_OPTIONS = [
     "auto",
     "openrouter",
     "groq",
+    "deepseek",
     "nvidia",
     "9router",
     "ollama",
@@ -35,6 +36,11 @@ CONFIG_SECTIONS: dict[str, dict[str, str]] = {
         "GROQ_API_KEY": "",
         "GROQ_MODEL": "qwen/qwen3-32b",
         "GROQ_BASE_URL": "https://api.groq.com/openai/v1",
+    },
+    "deepseek": {
+        "DEEPSEEK_API_KEY": "",
+        "DEEPSEEK_MODEL": "deepseek-v4-pro",
+        "DEEPSEEK_BASE_URL": "https://api.deepseek.com",
     },
     "nvidia": {
         "NVIDIA_API_KEY": "",
@@ -141,12 +147,12 @@ def configure_fallback_chain(env_path: Path) -> None:
     current = load_current_env(env_path)
     primary = prompt_choice(
         "Select the primary provider for auto mode:",
-        ["openrouter", "groq", "nvidia", "9router", "ollama"],
+        ["openrouter", "groq", "deepseek", "nvidia", "9router", "ollama"],
         current.get("AI_COURT_LLM_PRIMARY_PROVIDER", BASE_ENV_DEFAULTS["AI_COURT_LLM_PRIMARY_PROVIDER"]),
     )
     fallback = prompt_choice(
         "Select the fallback provider for auto mode:",
-        ["openrouter", "groq", "nvidia", "9router", "ollama", "heuristic"],
+        ["openrouter", "groq", "deepseek", "nvidia", "9router", "ollama", "heuristic"],
         current.get("AI_COURT_LLM_FALLBACK_PROVIDER", BASE_ENV_DEFAULTS["AI_COURT_LLM_FALLBACK_PROVIDER"]),
     )
     enabled = prompt_choice(
@@ -215,6 +221,7 @@ def main() -> None:
         ("Set auto fallback chain", configure_fallback_chain),
         ("Configure OpenRouter", lambda path: configure_provider(path, "openrouter")),
         ("Configure Groq", lambda path: configure_provider(path, "groq")),
+        ("Configure DeepSeek", lambda path: configure_provider(path, "deepseek")),
         ("Configure NVIDIA NIM", lambda path: configure_provider(path, "nvidia")),
         ("Configure 9Router", lambda path: configure_provider(path, "9router")),
         ("Configure Ollama Cloud", lambda path: configure_provider(path, "ollama")),
