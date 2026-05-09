@@ -34,11 +34,24 @@ Mermaid source for the current MVP architecture lives in:
 
 - `docs/architecture/MVP_ARCHITECTURE.md`
 
-GitHub image placeholder for a rendered diagram:
+```mermaid
+flowchart TD
+    U[User or Demo Script] --> API[FastAPI API Layer]
+    API --> INTAKE[Case Intake and Parsing]
+    INTAKE --> STATE[(SQLite and JSON Case State)]
+    STATE --> RETRIEVAL[Legal Retrieval]
+    STATE --> RUNTIME[Courtroom Runtime]
+    RETRIEVAL --> RUNTIME
+    RUNTIME --> VERIFY[Verification and Human Review]
+    VERIFY --> REPORT[Markdown Report and HTML Preview]
 
-![Current MVP Architecture](docs/architecture/assets/mvp-architecture.png)
+    subgraph Providers[LLM and Search Backends]
+        RETRIEVAL --> SEARCHBACK[BM25 plus Optional Remote Vector]
+        RUNTIME --> LLMBACK[Provider Abstraction plus Heuristic Fallback]
+    end
 
-If the image does not exist yet, render the Mermaid diagram and place the exported PNG at `docs/architecture/assets/mvp-architecture.png`.
+    REPORT --> OUTPUT[Demo Artifacts]
+```
 
 ## What The Harness Does
 
