@@ -7,7 +7,7 @@ V2 starts after the backend MVP and V1 procedural harness are stable. The goal i
 - [x] V2 Phase 0 trial-flow contracts are defined.
 - [x] V2 Phase 1 full trial procedure runtime is implemented.
 - [x] V2 Phase 2 courtroom dialogue layer is implemented.
-- [ ] V2 Phase 3 deliberation and simulation-safe verdict guard is implemented.
+- [x] V2 Phase 3 deliberation and simulation-safe verdict guard is implemented.
 - [ ] V2 Phase 4 formal trial record and simulated outcome export are implemented.
 - [ ] V2 Phase 5 evaluation, demo fixtures, and UI hooks are implemented.
 
@@ -157,6 +157,10 @@ Acceptance:
 
 ### V2-M5. Deliberation And Decision Guard
 
+Status:
+
+- [x] Completed for V2 Phase 3
+
 Create a guarded deliberation layer:
 
 - Summarize established facts.
@@ -178,10 +182,10 @@ Allowed outcome types:
 
 Acceptance:
 
-- [ ] A simulated decision can be generated in demo mode even when human review is recommended.
-- [ ] If facts are unresolved, the output labels the decision as risky or limited and explains why.
-- [ ] The system never uses official wording like "the court orders".
-- [ ] Human review can be enabled later to approve, revise, or block the decision.
+- [x] A simulated decision can be generated in demo mode even when human review is recommended.
+- [x] If facts are unresolved, the output labels the decision as risky or limited and explains why.
+- [x] The system never uses official wording like "the court orders".
+- [x] Human review can be enabled later to approve, revise, or block the decision.
 
 ### V2-M6. Formal Trial Record Export
 
@@ -246,10 +250,10 @@ Acceptance:
 
 ### Phase 3. Deliberation And Simulated Decision
 
-- [ ] Implement deliberation record.
-- [ ] Implement demo-mode decision guard.
-- [ ] Add simulated outcome generation.
-- [ ] Add risky-decision, no-decision, and adjournment paths.
+- [x] Implement deliberation record.
+- [x] Implement demo-mode decision guard.
+- [x] Add simulated outcome generation.
+- [x] Add risky-decision, no-decision, and adjournment paths.
 
 ### Phase 4. Formal Export
 

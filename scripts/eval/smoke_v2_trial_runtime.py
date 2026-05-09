@@ -21,10 +21,13 @@ from apps.api.app.main import app
 from packages.orchestration.python.ai_court_orchestration.v2_service import (
     TrialRuntimeError,
     get_courtroom_v2_runtime_service,
+    official_judgment_language_hits,
 )
 from packages.shared.python.ai_court_shared.schemas import (
     AgentName,
     CaseState,
+    Citation,
+    EffectiveStatus,
     HumanReviewMode,
     TrialProcedureStage,
 )
@@ -143,6 +146,32 @@ def main() -> None:
     assert required_review_session.simulated_decision is not None
     assert required_review_session.simulated_decision.disposition.value == "adjourned_for_review"
     assert required_review_session.human_review.blocked is True
+    no_citation_case = CaseState.model_validate_json(
+        (ROOT_DIR / "packages/shared/fixtures/sample_case_01.parse.json").read_text(encoding="utf-8")
+    )
+    no_citation_case.citations = [
+        Citation(
+            citation_id="LAW_EXPIRED_001",
+            doc_id="EXPIRED",
+            title="Expired test citation",
+            article="Điều test",
+            content="Expired citation used to exercise no-active-citation decision path.",
+            retrieval_score=0.1,
+            effective_status=EffectiveStatus.EXPIRED,
+            source="fixture",
+        )
+    ]
+    no_citation_case.claims = []
+    no_citation_session = service.run_all(
+        no_citation_case,
+        human_review_mode=HumanReviewMode.OFF,
+    )
+    assert no_citation_session.simulated_decision is not None
+    assert no_citation_session.simulated_decision.disposition.value in {
+        "requires_more_evidence",
+        "no_simulated_decision",
+    }
+    assert official_judgment_language_hits("Tòa tuyên buộc bị đơn thanh toán.") != []
 
     while session["current_stage"] != "closing_record":
         next_stage = session["stage_order"][session["stage_order"].index(session["current_stage"]) + 1]
@@ -180,8 +209,20 @@ def main() -> None:
     assert persisted["deliberation"] is not None
     assert persisted["decision_guard"] is not None
     assert persisted["decision_guard"]["allowed_to_emit"] is True
+    assert persisted["decision_guard"]["recommended_disposition"] == "simulated_risky_requires_review"
+    assert persisted["decision_guard"]["grounded_claim_ids"], "Expected grounded claim IDs."
+    assert persisted["decision_guard"]["official_language_hits"] == []
     assert persisted["simulated_decision"] is not None
     assert persisted["simulated_decision"]["non_binding_disclaimer"]
+    assert persisted["simulated_decision"]["citation_ids"], "Expected citations in simulated decision."
+    decision_text = (
+        persisted["simulated_decision"]["summary"]
+        + " "
+        + persisted["simulated_decision"]["relief_or_next_step"]
+        + " "
+        + " ".join(persisted["simulated_decision"]["rationale"])
+    )
+    assert official_judgment_language_hits(decision_text) == []
     assert persisted["human_review"]["blocked"] is False
     quality = persisted["dialogue_quality"]
     assert quality["max_utterance_chars"] == 280
@@ -197,6 +238,7 @@ def main() -> None:
     print("invalid_stage_guard:", invalid_advance_response.status_code)
     print("invalid_speaker_guard:", invalid_speaker_guard)
     print("required_mode_safe_stop:", required_review_session.simulated_decision.disposition.value)
+    print("no_citation_decision:", no_citation_session.simulated_decision.disposition.value)
     print("appearance_count:", len(persisted["appearances"]))
     print("procedural_act_count:", len(persisted["procedural_acts"]))
     print("evidence_examination_count:", len(persisted["evidence_examinations"]))
@@ -209,6 +251,9 @@ def main() -> None:
     print("dialogue_ungrounded_count:", len(quality["ungrounded_turn_ids"]))
     print("role_drift_warning_count:", len(quality["role_drift_warnings"]))
     print("decision_disposition:", persisted["simulated_decision"]["disposition"])
+    print("decision_grounded_claim_count:", len(persisted["decision_guard"]["grounded_claim_ids"]))
+    print("decision_citation_count:", len(persisted["simulated_decision"]["citation_ids"]))
+    print("official_language_hit_count:", len(persisted["decision_guard"]["official_language_hits"]))
     print("decision_risk:", persisted["simulated_decision"]["risk_level"])
     print("human_review_mode:", persisted["human_review_mode"])
     print("human_review_blocked:", persisted["human_review"]["blocked"])

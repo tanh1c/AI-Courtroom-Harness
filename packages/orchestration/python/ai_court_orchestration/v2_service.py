@@ -2,13 +2,18 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+from packages.retrieval.python.ai_court_retrieval.service import (
+    get_local_legal_retrieval_service,
+)
 from packages.shared.python.ai_court_shared.schemas import (
     AgentName,
     AppearanceRecord,
     AppearanceStatus,
     CaseState,
     CaseStatus,
+    Citation,
     CitationVerificationResult,
+    Claim,
     ClaimConfidence,
     CourtroomDialogueTurn,
     DebateRound,
@@ -21,6 +26,8 @@ from packages.shared.python.ai_court_shared.schemas import (
     FinalStatement,
     HumanReviewGate,
     HumanReviewMode,
+    LegalSearchFilter,
+    LegalSearchRequest,
     ProceduralAct,
     SimulatedDecision,
     SimulatedDecisionDisposition,
@@ -132,6 +139,11 @@ def contains_official_judgment_language(text: str) -> bool:
     return any(marker in lowered for marker in OFFICIAL_JUDGMENT_MARKERS)
 
 
+def official_judgment_language_hits(text: str) -> list[str]:
+    lowered = text.lower()
+    return [marker for marker in OFFICIAL_JUDGMENT_MARKERS if marker in lowered]
+
+
 def compact_utterance(text: str, limit: int = MAX_UTTERANCE_CHARS) -> tuple[str, bool]:
     normalized = " ".join(text.split())
     if len(normalized) <= limit:
@@ -155,6 +167,9 @@ def is_party_grounded(turn: CourtroomDialogueTurn) -> bool:
 
 
 class CourtroomV2RuntimeService:
+    def __init__(self) -> None:
+        self.retrieval_service = get_local_legal_retrieval_service()
+
     def start(
         self,
         case_state: CaseState,
@@ -162,6 +177,7 @@ class CourtroomV2RuntimeService:
         human_review_mode: HumanReviewMode = HumanReviewMode.OPTIONAL,
     ) -> V2TrialSession:
         case = clone_case(case_state)
+        self._ensure_trial_grounding(case)
         case.status = CaseStatus.SIMULATED
         session = V2TrialSession(
             session_id=f"TRIAL_{case.case_id}",
@@ -187,6 +203,55 @@ class CourtroomV2RuntimeService:
             related_turn_ids=["TURN_001"],
         )
         return session
+
+    def _ensure_trial_grounding(self, case: CaseState) -> None:
+        if not case.citations:
+            case.citations = self._retrieve_trial_citations(case)
+        if not case.claims:
+            evidence_ids = [evidence.evidence_id for evidence in case.evidence]
+            citation_ids = [citation.citation_id for citation in case.citations]
+            plaintiff_citations = citation_ids[:2]
+            defense_citations = citation_ids[-2:] if len(citation_ids) > 1 else citation_ids
+            case.claims = [
+                Claim(
+                    claim_id="CLAIM_001",
+                    speaker=AgentName.PLAINTIFF_AGENT,
+                    content="Nguyên đơn cho rằng bị đơn vi phạm nghĩa vụ giao tài sản đúng thời hạn.",
+                    evidence_ids=evidence_ids[:2],
+                    citation_ids=plaintiff_citations,
+                    confidence=ClaimConfidence.HIGH if evidence_ids and plaintiff_citations else ClaimConfidence.MEDIUM,
+                ),
+                Claim(
+                    claim_id="CLAIM_002",
+                    speaker=AgentName.DEFENSE_AGENT,
+                    content="Bị đơn yêu cầu làm rõ điều kiện thanh toán còn lại trước khi kết luận vi phạm.",
+                    evidence_ids=evidence_ids[:1],
+                    citation_ids=defense_citations,
+                    confidence=ClaimConfidence.MEDIUM,
+                ),
+            ]
+
+    def _retrieve_trial_citations(self, case: CaseState) -> list[Citation]:
+        retrieved: list[Citation] = []
+        queries = [
+            f"{issue.title}. {issue.description}"
+            for issue in case.legal_issues
+        ] or [
+            "nghĩa vụ giao tài sản đúng thời hạn trong hợp đồng mua bán",
+            "điều kiện thanh toán còn lại trong hợp đồng mua bán",
+        ]
+        for query in queries:
+            response = self.retrieval_service.search(
+                LegalSearchRequest(
+                    query=query,
+                    top_k=2,
+                    filters=LegalSearchFilter(),
+                )
+            )
+            for citation in response.citations:
+                if citation.citation_id not in {item.citation_id for item in retrieved}:
+                    retrieved.append(citation)
+        return retrieved
 
     def advance(
         self,
@@ -710,17 +775,9 @@ class CourtroomV2RuntimeService:
         disputed = self._unresolved_items(session)
         session.deliberation = DeliberationRecord(
             deliberation_id="DELIB_001",
-            established_facts=[
-                fact.content
-                for fact in session.case.facts
-                if fact.confidence in {ClaimConfidence.HIGH, ClaimConfidence.MEDIUM}
-            ][:4],
+            established_facts=self._established_facts(session),
             disputed_facts=disputed,
-            legal_reasoning=[
-                "Nghĩa vụ giao tài sản được xem xét dựa trên hợp đồng và citation đã truy xuất.",
-                "Điều kiện thanh toán còn lại cần được đọc theo chứng cứ hợp đồng.",
-                "Bồi thường chỉ nên mô phỏng ở mức thận trọng nếu thiếu chứng cứ định lượng.",
-            ],
+            legal_reasoning=self._legal_reasoning(session, citation_verification.accepted_citations),
             risk_level=fact_check.risk_level,
             related_claim_ids=[claim.claim_id for claim in session.case.claims],
             related_evidence_ids=self._evidence_ids(session),
@@ -747,34 +804,57 @@ class CourtroomV2RuntimeService:
             raise TrialRuntimeError("Cannot emit simulated decision before deliberation.")
         unresolved = self._unresolved_items(session)
         risk = session.deliberation.risk_level
-        should_adjourn = session.human_review_mode == HumanReviewMode.REQUIRED and bool(unresolved)
+        accepted_citations = (
+            session.citation_verification.accepted_citations
+            if session.citation_verification is not None
+            else self._citation_ids(session)
+        )
+        grounded_claim_ids = self._grounded_claim_ids(session, accepted_citations)
+        disposition = self._recommend_disposition(
+            session,
+            risk=risk,
+            unresolved=unresolved,
+            grounded_claim_ids=grounded_claim_ids,
+            accepted_citations=accepted_citations,
+        )
         guard = DecisionGuardResult(
             guard_id="GUARD_001",
             human_review_mode=session.human_review_mode,
-            allowed_to_emit=True,
+            allowed_to_emit=disposition != SimulatedDecisionDisposition.NO_SIMULATED_DECISION,
             risk_level=risk,
             blocked_official_language=True,
+            recommended_disposition=disposition,
+            grounded_claim_ids=grounded_claim_ids,
             unresolved_items=unresolved,
             warnings=[
                 "Decision must remain simulated and non-binding.",
                 "Do not use official judgment language.",
             ],
         )
-        if should_adjourn:
-            disposition = SimulatedDecisionDisposition.ADJOURNED_FOR_REVIEW
+        if disposition == SimulatedDecisionDisposition.ADJOURNED_FOR_REVIEW:
             summary = "Phiên mô phỏng dừng ở hướng hoãn để review vì human review đang ở chế độ bắt buộc."
             relief = "Chuyển hồ sơ sang review trước khi mô phỏng kết quả sâu hơn."
             status = TurnStatus.NEEDS_REVIEW
-        elif risk == ClaimConfidence.LOW:
-            disposition = SimulatedDecisionDisposition.SIMULATED_PLAINTIFF_FAVORED
+        elif disposition == SimulatedDecisionDisposition.SIMULATED_PLAINTIFF_FAVORED:
             summary = "Kết quả mô phỏng nghiêng về việc nguyên đơn có căn cứ yêu cầu giao tài sản hoặc hoàn trả tiền."
             relief = "Mô phỏng hướng xử lý: giao tài sản theo hợp đồng hoặc hoàn trả khoản tiền đã nhận."
             status = TurnStatus.OK
-        else:
-            disposition = SimulatedDecisionDisposition.SIMULATED_RISKY_REQUIRES_REVIEW
+        elif disposition == SimulatedDecisionDisposition.SIMULATED_PARTIAL_RELIEF:
+            summary = "Kết quả mô phỏng chỉ ghi nhận một phần yêu cầu có căn cứ, các phần còn lại cần bổ sung chứng cứ."
+            relief = "Mô phỏng hướng xử lý: xem xét phần giao tài sản hoặc hoàn trả tiền, chưa mô phỏng phần bồi thường."
+            status = TurnStatus.NEEDS_REVIEW
+        elif disposition == SimulatedDecisionDisposition.SIMULATED_RISKY_REQUIRES_REVIEW:
             summary = "Kết quả mô phỏng nghiêng về yêu cầu chính của nguyên đơn nhưng còn rủi ro chứng cứ."
             relief = "Mô phỏng hướng xử lý: ưu tiên giao tài sản hoặc hoàn trả tiền; phần bồi thường cần chứng cứ bổ sung."
             status = TurnStatus.NEEDS_REVIEW
+        elif disposition == SimulatedDecisionDisposition.REQUIRES_MORE_EVIDENCE:
+            summary = "Chưa đủ căn cứ để mô phỏng kết quả theo hướng một bên thắng rõ ràng."
+            relief = "Cần bổ sung chứng cứ hoặc citation trước khi dùng kết quả ngoài demo."
+            status = TurnStatus.NEEDS_REVIEW
+        else:
+            summary = "Không tạo kết quả mô phỏng vì decision guard chưa cho phép emit."
+            relief = "Cần bổ sung căn cứ hoặc reviewer trước khi export."
+            status = TurnStatus.REJECTED
         decision = SimulatedDecision(
             decision_id="SDEC_001",
             disposition=disposition,
@@ -787,14 +867,16 @@ class CourtroomV2RuntimeService:
             ],
             risk_level=risk,
             non_binding_disclaimer=SIMULATED_DECISION_DISCLAIMER,
-            supported_claim_ids=self._claim_ids_for(session, AgentName.PLAINTIFF_AGENT),
-            evidence_ids=self._evidence_ids(session)[:2],
-            citation_ids=(session.citation_verification.accepted_citations if session.citation_verification else self._citation_ids(session)),
+            supported_claim_ids=grounded_claim_ids,
+            evidence_ids=self._grounded_evidence_ids(session, grounded_claim_ids),
+            citation_ids=accepted_citations,
             requires_human_review=session.human_review_mode == HumanReviewMode.REQUIRED,
         )
         decision_text = f"{decision.summary} {decision.relief_or_next_step} {' '.join(decision.rationale)}"
-        if contains_official_judgment_language(decision_text):
+        official_hits = official_judgment_language_hits(decision_text)
+        if official_hits:
             guard.allowed_to_emit = False
+            guard.official_language_hits = official_hits
             guard.warnings.append("Official judgment language was detected and blocked.")
             decision.disposition = SimulatedDecisionDisposition.NO_SIMULATED_DECISION
             decision.summary = "Không tạo kết quả mô phỏng vì guard phát hiện ngôn ngữ dễ nhầm với phán quyết chính thức."
@@ -814,6 +896,84 @@ class CourtroomV2RuntimeService:
             status=status,
             risk_notes=guard.unresolved_items + guard.warnings,
         )
+
+    def _established_facts(self, session: V2TrialSession) -> list[str]:
+        established = [
+            fact.content
+            for fact in session.case.facts
+            if fact.confidence == ClaimConfidence.HIGH
+        ]
+        if not established:
+            established = [
+                fact.content
+                for fact in session.case.facts
+                if fact.confidence == ClaimConfidence.MEDIUM
+            ]
+        return established[:5]
+
+    def _legal_reasoning(self, session: V2TrialSession, accepted_citations: list[str]) -> list[str]:
+        reasoning = [
+            "Established facts are separated from disputed or review-pending facts before any simulated outcome.",
+            "Only active or accepted citations are carried into the simulated decision guard.",
+        ]
+        if accepted_citations:
+            reasoning.append("The main delivery-duty claim is mapped to accepted citations and contract/payment evidence.")
+        else:
+            reasoning.append("No accepted citation is available, so the decision path must require more evidence.")
+        if self._has_disputed_evidence(session):
+            reasoning.append("Disputed evidence may inform risk notes but cannot be the sole basis for a simulated result.")
+        return reasoning
+
+    def _grounded_claim_ids(self, session: V2TrialSession, accepted_citations: list[str]) -> list[str]:
+        accepted = set(accepted_citations)
+        return [
+            claim.claim_id
+            for claim in session.case.claims
+            if claim.evidence_ids and any(citation_id in accepted for citation_id in claim.citation_ids)
+        ]
+
+    def _grounded_evidence_ids(self, session: V2TrialSession, grounded_claim_ids: list[str]) -> list[str]:
+        return dedupe(
+            [
+                evidence_id
+                for claim in session.case.claims
+                if claim.claim_id in grounded_claim_ids
+                for evidence_id in claim.evidence_ids
+            ]
+        )
+
+    def _recommend_disposition(
+        self,
+        session: V2TrialSession,
+        *,
+        risk: ClaimConfidence,
+        unresolved: list[str],
+        grounded_claim_ids: list[str],
+        accepted_citations: list[str],
+    ) -> SimulatedDecisionDisposition:
+        if session.human_review_mode == HumanReviewMode.REQUIRED and unresolved:
+            return SimulatedDecisionDisposition.ADJOURNED_FOR_REVIEW
+        if not session.deliberation or not session.deliberation.established_facts:
+            return SimulatedDecisionDisposition.NO_SIMULATED_DECISION
+        if not accepted_citations or not grounded_claim_ids:
+            return SimulatedDecisionDisposition.REQUIRES_MORE_EVIDENCE
+        plaintiff_grounded = any(
+            claim.claim_id in grounded_claim_ids and claim.speaker == AgentName.PLAINTIFF_AGENT
+            for claim in session.case.claims
+        )
+        defense_grounded = any(
+            claim.claim_id in grounded_claim_ids and claim.speaker == AgentName.DEFENSE_AGENT
+            for claim in session.case.claims
+        )
+        if risk != ClaimConfidence.LOW and plaintiff_grounded:
+            return SimulatedDecisionDisposition.SIMULATED_RISKY_REQUIRES_REVIEW
+        if risk == ClaimConfidence.LOW and plaintiff_grounded and not defense_grounded:
+            return SimulatedDecisionDisposition.SIMULATED_PLAINTIFF_FAVORED
+        if risk == ClaimConfidence.LOW and defense_grounded and not plaintiff_grounded:
+            return SimulatedDecisionDisposition.SIMULATED_DEFENSE_FAVORED
+        if plaintiff_grounded and defense_grounded:
+            return SimulatedDecisionDisposition.SIMULATED_PARTIAL_RELIEF
+        return SimulatedDecisionDisposition.SIMULATED_RISKY_REQUIRES_REVIEW
 
     def _advance_closing_record(self, session: V2TrialSession) -> None:
         if session.simulated_decision is None:

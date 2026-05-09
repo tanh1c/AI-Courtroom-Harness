@@ -520,6 +520,9 @@ export interface DecisionGuardResult {
   allowed_to_emit: boolean;
   risk_level: ClaimConfidence;
   blocked_official_language: boolean;
+  recommended_disposition?: SimulatedDecisionDisposition | null;
+  grounded_claim_ids: string[];
+  official_language_hits: string[];
   unresolved_items: string[];
   warnings: string[];
 }

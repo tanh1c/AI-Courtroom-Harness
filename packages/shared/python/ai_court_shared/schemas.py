@@ -600,6 +600,9 @@ class DecisionGuardResult(BaseModel):
     allowed_to_emit: bool
     risk_level: ClaimConfidence
     blocked_official_language: bool = True
+    recommended_disposition: SimulatedDecisionDisposition | None = None
+    grounded_claim_ids: list[str] = Field(default_factory=list)
+    official_language_hits: list[str] = Field(default_factory=list)
     unresolved_items: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
 
