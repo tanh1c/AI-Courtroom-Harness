@@ -36,6 +36,7 @@ Evaluation criteria:
 | `tencent/hy3-preview:free` | Fail | Not ranked | N/A | Previously returned `404` on OpenRouter and should not be used. |
 
 OpenRouter winner: `inclusionai/ring-2.6-1t:free`
+Retest note: quality remains the best, but the free route showed intermittent `429` rate limiting during a later retest on the same day.
 
 ## Groq
 
@@ -48,6 +49,7 @@ OpenRouter winner: `inclusionai/ring-2.6-1t:free`
 | `llama-3.1-8b-instant` | Contract issue | Fallback-heavy | ~6.1s | Failed the strict JSON smoke once, so simulation quality is not reliable for structured generation. |
 
 Groq winner: `qwen/qwen3-32b`
+Retest note: this model remained stable on both provider smoke and courtroom simulation retests.
 
 ## Ollama Cloud
 
@@ -66,6 +68,16 @@ Why:
 - fewer obvious reasoning drifts than the other free models tested
 
 Best Groq option: `qwen/qwen3-32b`
+
+MVP default pair:
+
+- OpenRouter: `inclusionai/ring-2.6-1t:free`
+- Groq: `qwen/qwen3-32b`
+
+Operational note:
+
+- Use `ring` as the preferred OpenRouter model for quality.
+- Keep `qwen` on Groq as the most reliable alternate path when OpenRouter free capacity is rate-limited.
 
 Best Ollama Cloud status on the tested key: no usable benchmark yet because the requested model requires a subscription tier that the tested key does not currently have.
 

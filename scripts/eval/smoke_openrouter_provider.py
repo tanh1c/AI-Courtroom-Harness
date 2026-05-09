@@ -33,9 +33,9 @@ def main() -> None:
     )
     print("provider:", service.provider_label())
     if service.provider == "openrouter":
-        print("configured_model:", os.getenv("OPENROUTER_MODEL", "openrouter/free"))
+        print("configured_model:", os.getenv("OPENROUTER_MODEL", "inclusionai/ring-2.6-1t:free"))
     elif service.provider == "groq":
-        print("configured_model:", os.getenv("GROQ_MODEL", "llama-3.1-8b-instant"))
+        print("configured_model:", os.getenv("GROQ_MODEL", "qwen/qwen3-32b"))
     elif service.provider == "ollama":
         print("configured_model:", os.getenv("OLLAMA_MODEL", "deepseek-v4-flash:cloud"))
     print("message:", payload.get("message"))

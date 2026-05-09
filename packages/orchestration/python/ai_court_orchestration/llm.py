@@ -39,7 +39,7 @@ class CourtroomLlmService:
             "OPENROUTER_BASE_URL",
             "https://openrouter.ai/api/v1",
         ).rstrip("/")
-        self.openrouter_model = os.getenv("OPENROUTER_MODEL", "openrouter/free").strip()
+        self.openrouter_model = os.getenv("OPENROUTER_MODEL", "inclusionai/ring-2.6-1t:free").strip()
         self.http_referer = os.getenv("OPENROUTER_HTTP_REFERER", "").strip()
         self.x_title = os.getenv("OPENROUTER_X_TITLE", "AI Courtroom Harness").strip()
         self.groq_api_key = os.getenv("GROQ_API_KEY", "").strip()
@@ -47,7 +47,7 @@ class CourtroomLlmService:
             "GROQ_BASE_URL",
             "https://api.groq.com/openai/v1",
         ).rstrip("/")
-        self.groq_model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant").strip()
+        self.groq_model = os.getenv("GROQ_MODEL", "qwen/qwen3-32b").strip()
         self.ollama_api_key = os.getenv("OLLAMA_API_KEY", "").strip()
         self.ollama_host = os.getenv("OLLAMA_HOST", "https://ollama.com").rstrip("/")
         self.ollama_model = os.getenv("OLLAMA_MODEL", "deepseek-v4-flash:cloud").strip()

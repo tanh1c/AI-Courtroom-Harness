@@ -201,6 +201,9 @@ Quick provider smoke:
 Benchmark notes and recommended models:
 
 - `docs/MODEL_BENCHMARKS.md`
+- MVP default pair:
+  - OpenRouter: `inclusionai/ring-2.6-1t:free`
+  - Groq: `qwen/qwen3-32b`
 
 ## Phase 4 Safety Check
 
