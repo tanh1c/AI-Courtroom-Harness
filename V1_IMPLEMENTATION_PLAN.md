@@ -4,6 +4,16 @@ This plan starts **after the MVP frontend is complete** and `Milestone F` is clo
 
 The MVP proves the core harness path. V1 expands it into a fuller courtroom-simulation harness with clearer procedure, explicit verification agents, evidence challenge flow, and a non-binding proposed outcome.
 
+## 0. Progress Snapshot
+
+- [x] V1 Phase 0 contract expansion is complete.
+- [x] Python Pydantic schemas include the V1 hearing session surface.
+- [x] TypeScript shared types mirror the V1 schema surface.
+- [x] A complete V1 hearing session fixture exists.
+- [x] Migration notes explain how V1 extends MVP contracts without breaking current flows.
+- [ ] V1 runtime implementation has not started.
+- [ ] V1 report/UI integration has not started.
+
 ## 1. V1 Decision
 
 V1 scope:
@@ -65,7 +75,7 @@ Create or upload case
 
 Status:
 
-- [ ] Planned
+- [x] Completed for V1 Phase 0
 
 Add schemas for:
 
@@ -82,9 +92,9 @@ Add schemas for:
 
 Acceptance:
 
-- [ ] Python and TypeScript contracts stay aligned.
-- [ ] Fixtures include at least one complete V1 hearing session.
-- [ ] Existing MVP fixtures remain compatible or have migration notes.
+- [x] Python and TypeScript contracts stay aligned.
+- [x] Fixtures include at least one complete V1 hearing session.
+- [x] Existing MVP fixtures remain compatible or have migration notes.
 
 ### V1-M2. Stage-Based Courtroom Runtime
 
@@ -282,14 +292,14 @@ Goal:
 
 Tasks:
 
-- [ ] Add new Pydantic schemas.
-- [ ] Mirror TypeScript types.
-- [ ] Add V1 fixture shape.
-- [ ] Add migration notes for MVP outputs.
+- [x] Add new Pydantic schemas.
+- [x] Mirror TypeScript types.
+- [x] Add V1 fixture shape.
+- [x] Add migration notes for MVP outputs.
 
 Exit criteria:
 
-- [ ] Backend, frontend, and report renderer can consume V1 fixture JSON.
+- [x] V1 fixture validates against the Python source of truth, and TypeScript mirror types are available for frontend work.
 
 ### V1 Phase 1. Procedural Runtime
 

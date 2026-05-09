@@ -14,6 +14,11 @@ export type EvidenceType =
   | "other";
 
 export type EvidenceStatus = "uncontested" | "disputed" | "rejected";
+export type EvidenceAdmissibility =
+  | "admitted"
+  | "disputed"
+  | "rejected"
+  | "needs_review";
 export type ClaimConfidence = "low" | "medium" | "high";
 export type EffectiveStatus = "active" | "expired" | "unknown";
 export type RetrievalStrategy = "bm25_local" | "hybrid" | "vector_only";
@@ -27,6 +32,21 @@ export type AgentName =
   | "legal_retrieval_agent"
   | "fact_check_agent"
   | "citation_verifier_agent";
+
+export type HearingStage =
+  | "opening"
+  | "evidence_presentation"
+  | "legal_retrieval"
+  | "plaintiff_argument"
+  | "defense_argument"
+  | "evidence_challenge"
+  | "judge_questions"
+  | "party_responses"
+  | "fact_check"
+  | "citation_verification"
+  | "preliminary_assessment"
+  | "human_review"
+  | "closing_record";
 
 export type TurnStatus =
   | "ok"
@@ -43,6 +63,13 @@ export type AuditStage =
   | "human_review";
 
 export type HumanReviewDecision = "approve" | "reject";
+export type OutcomeDisposition =
+  | "likely_plaintiff_favored"
+  | "likely_defense_favored"
+  | "split_or_uncertain"
+  | "requires_more_evidence";
+
+export type HarnessAction = "allow" | "block" | "repair" | "human_review";
 
 export type AttachmentParseStatus =
   | "metadata_only"
@@ -179,6 +206,89 @@ export interface AgentTurn {
   status: TurnStatus;
 }
 
+export interface V1AgentTurn extends AgentTurn {
+  hearing_stage: HearingStage;
+  tool_call_ids: string[];
+}
+
+export interface RolePermission {
+  permission_id: string;
+  hearing_stage: HearingStage;
+  agent: AgentName;
+  allowed: boolean;
+  allowed_evidence_ids: string[];
+  allowed_citation_ids: string[];
+  requires_evidence: boolean;
+  requires_citation: boolean;
+  action_on_violation: HarnessAction;
+  notes?: string | null;
+}
+
+export interface EvidenceChallenge {
+  challenge_id: string;
+  evidence_id: string;
+  raised_by: AgentName;
+  reason: string;
+  admissibility: EvidenceAdmissibility;
+  affected_claim_ids: string[];
+  resolved_by?: AgentName | null;
+  resolution_notes?: string | null;
+}
+
+export interface ClarificationQuestion {
+  question_id: string;
+  asked_by: AgentName;
+  question: string;
+  target_agents: AgentName[];
+  related_claim_ids: string[];
+  related_evidence_ids: string[];
+  related_citation_ids: string[];
+  status: TurnStatus;
+}
+
+export interface PartyResponse {
+  response_id: string;
+  question_id: string;
+  responder: AgentName;
+  content: string;
+  evidence_ids: string[];
+  citation_ids: string[];
+  status: TurnStatus;
+}
+
+export interface OutcomeCandidate {
+  outcome_id: string;
+  disposition: OutcomeDisposition;
+  rationale: string;
+  supported_claim_ids: string[];
+  evidence_ids: string[];
+  citation_ids: string[];
+  risk_level: ClaimConfidence;
+  requires_human_review: boolean;
+  disclaimer: string;
+}
+
+export interface AgentToolCall {
+  tool_call_id: string;
+  turn_id: string;
+  agent: AgentName;
+  tool_name: string;
+  input_summary: string;
+  output_refs: string[];
+  status: TurnStatus;
+}
+
+export interface HarnessViolation {
+  violation_id: string;
+  hearing_stage: HearingStage;
+  agent: AgentName;
+  rule: string;
+  message: string;
+  severity: ClaimConfidence;
+  action: HarnessAction;
+  related_turn_id?: string | null;
+}
+
 export interface FactCheckResult {
   unsupported_claims: string[];
   contradictions: string[];
@@ -280,6 +390,26 @@ export interface SimulationResponse {
   judge_summary: JudgeSummary;
   trial_minutes: TrialMinutes;
   final_report: FinalReport;
+}
+
+export interface HearingSession {
+  session_id: string;
+  case: CaseState;
+  current_stage: HearingStage;
+  stage_order: HearingStage[];
+  role_permissions: RolePermission[];
+  turns: V1AgentTurn[];
+  tool_calls: AgentToolCall[];
+  evidence_challenges: EvidenceChallenge[];
+  clarification_questions: ClarificationQuestion[];
+  party_responses: PartyResponse[];
+  fact_check?: FactCheckResult | null;
+  citation_verification?: CitationVerificationResult | null;
+  outcome_candidates: OutcomeCandidate[];
+  harness_violations: HarnessViolation[];
+  audit_trail: AuditEvent[];
+  human_review: HumanReviewGate;
+  status: CaseStatus;
 }
 
 export interface AuditTrailResponse {

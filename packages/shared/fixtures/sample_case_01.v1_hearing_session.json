@@ -1,0 +1,415 @@
+{
+  "session_id": "HEARING_001",
+  "case": {
+    "case_id": "CASE_001",
+    "title": "Tranh chấp hợp đồng mua bán xe máy",
+    "case_type": "civil_contract_dispute",
+    "attachment_parses": [],
+    "facts": [
+      {
+        "fact_id": "FACT_001",
+        "content": "Ngày 05/03/2026, ông B ký hợp đồng mua xe máy của ông A với giá 40.000.000 đồng.",
+        "source": "narrative",
+        "confidence": "high"
+      },
+      {
+        "fact_id": "FACT_002",
+        "content": "Ông B đã thanh toán trước 28.000.000 đồng, tương đương 70% giá trị hợp đồng.",
+        "source": "narrative",
+        "confidence": "high"
+      },
+      {
+        "fact_id": "FACT_003",
+        "content": "Hạn giao xe là ngày 12/03/2026 nhưng ông A chưa giao xe.",
+        "source": "narrative",
+        "confidence": "medium"
+      }
+    ],
+    "evidence": [
+      {
+        "evidence_id": "EVID_001",
+        "type": "contract",
+        "content": "Hợp đồng mua bán xe máy trị giá 40.000.000 đồng, thanh toán 70% khi ký và giao xe ngày 12/03/2026.",
+        "source": "attachment:ATT_001",
+        "status": "disputed",
+        "used_by": [
+          "plaintiff_agent",
+          "defense_agent"
+        ],
+        "challenged_by": [
+          "defense_agent"
+        ]
+      },
+      {
+        "evidence_id": "EVID_002",
+        "type": "payment_receipt",
+        "content": "Biên nhận hoặc sao kê thể hiện khoản thanh toán 28.000.000 đồng.",
+        "source": "narrative",
+        "status": "uncontested",
+        "used_by": [
+          "plaintiff_agent"
+        ],
+        "challenged_by": []
+      }
+    ],
+    "legal_issues": [
+      {
+        "issue_id": "ISSUE_001",
+        "title": "Nghĩa vụ giao tài sản đúng hạn",
+        "description": "Xác định bên bán có vi phạm thời hạn giao xe theo hợp đồng hay không.",
+        "tags": [
+          "delivery",
+          "contract"
+        ]
+      },
+      {
+        "issue_id": "ISSUE_002",
+        "title": "Điều kiện thanh toán phần còn lại",
+        "description": "Làm rõ khoản thanh toán 30% còn lại có phải điều kiện giao xe hay không.",
+        "tags": [
+          "payment",
+          "condition"
+        ]
+      }
+    ],
+    "claims": [
+      {
+        "claim_id": "CLAIM_001",
+        "speaker": "plaintiff_agent",
+        "content": "Nguyên đơn cho rằng bị đơn vi phạm nghĩa vụ giao xe đúng hạn.",
+        "evidence_ids": [
+          "EVID_001",
+          "EVID_002"
+        ],
+        "citation_ids": [
+          "LAW_CHUNK_95942_528"
+        ],
+        "confidence": "high"
+      },
+      {
+        "claim_id": "CLAIM_002",
+        "speaker": "defense_agent",
+        "content": "Bị đơn yêu cầu làm rõ nghĩa vụ thanh toán 30% còn lại trước khi xác định vi phạm.",
+        "evidence_ids": [
+          "EVID_001"
+        ],
+        "citation_ids": [
+          "LAW_CHUNK_95942_410"
+        ],
+        "confidence": "medium"
+      }
+    ],
+    "citations": [
+      {
+        "citation_id": "LAW_CHUNK_95942_528",
+        "doc_id": "95942",
+        "title": "Dân sự",
+        "article": "Điều 434",
+        "clause": null,
+        "content": "Bên bán phải giao tài sản cho bên mua đúng thời hạn đã thoả thuận.",
+        "retrieval_score": 0.91,
+        "effective_status": "active",
+        "source": "vbpl.vn"
+      },
+      {
+        "citation_id": "LAW_CHUNK_95942_410",
+        "doc_id": "95942",
+        "title": "Dân sự",
+        "article": "Điều 332",
+        "clause": null,
+        "content": "Quyền đòi lại tài sản trong trường hợp bên mua không hoàn thành nghĩa vụ thanh toán.",
+        "retrieval_score": 0.74,
+        "effective_status": "active",
+        "source": "vbpl.vn"
+      }
+    ],
+    "agent_turns": [],
+    "status": "review_required"
+  },
+  "current_stage": "human_review",
+  "stage_order": [
+    "opening",
+    "evidence_presentation",
+    "legal_retrieval",
+    "plaintiff_argument",
+    "defense_argument",
+    "evidence_challenge",
+    "judge_questions",
+    "party_responses",
+    "fact_check",
+    "citation_verification",
+    "preliminary_assessment",
+    "human_review",
+    "closing_record"
+  ],
+  "role_permissions": [
+    {
+      "permission_id": "PERM_001",
+      "hearing_stage": "plaintiff_argument",
+      "agent": "plaintiff_agent",
+      "allowed": true,
+      "allowed_evidence_ids": [
+        "EVID_001",
+        "EVID_002"
+      ],
+      "allowed_citation_ids": [
+        "LAW_CHUNK_95942_528"
+      ],
+      "requires_evidence": true,
+      "requires_citation": true,
+      "action_on_violation": "human_review",
+      "notes": "Plaintiff argument must cite contract evidence and at least one legal basis."
+    },
+    {
+      "permission_id": "PERM_002",
+      "hearing_stage": "defense_argument",
+      "agent": "defense_agent",
+      "allowed": true,
+      "allowed_evidence_ids": [
+        "EVID_001"
+      ],
+      "allowed_citation_ids": [
+        "LAW_CHUNK_95942_410"
+      ],
+      "requires_evidence": true,
+      "requires_citation": false,
+      "action_on_violation": "human_review",
+      "notes": "Defense may challenge payment-condition interpretation."
+    }
+  ],
+  "turns": [
+    {
+      "turn_id": "TURN_001",
+      "agent": "legal_retrieval_agent",
+      "message": "Bộ phận tra cứu pháp lý xác định các căn cứ liên quan đến nghĩa vụ giao tài sản và điều kiện thanh toán.",
+      "claims": [],
+      "evidence_used": [],
+      "citations_used": [
+        "LAW_CHUNK_95942_528",
+        "LAW_CHUNK_95942_410"
+      ],
+      "status": "ok",
+      "hearing_stage": "legal_retrieval",
+      "tool_call_ids": [
+        "TOOL_001"
+      ]
+    },
+    {
+      "turn_id": "TURN_002",
+      "agent": "plaintiff_agent",
+      "message": "Nguyên đơn trình bày rằng bên bán chưa giao xe đúng hạn dù đã nhận 70% giá trị hợp đồng.",
+      "claims": [
+        "CLAIM_001"
+      ],
+      "evidence_used": [
+        "EVID_001",
+        "EVID_002"
+      ],
+      "citations_used": [
+        "LAW_CHUNK_95942_528"
+      ],
+      "status": "ok",
+      "hearing_stage": "plaintiff_argument",
+      "tool_call_ids": []
+    },
+    {
+      "turn_id": "TURN_003",
+      "agent": "defense_agent",
+      "message": "Bị đơn đối đáp rằng cần làm rõ điều kiện thanh toán 30% còn lại trước khi kết luận vi phạm.",
+      "claims": [
+        "CLAIM_002"
+      ],
+      "evidence_used": [
+        "EVID_001"
+      ],
+      "citations_used": [
+        "LAW_CHUNK_95942_410"
+      ],
+      "status": "needs_fact_check",
+      "hearing_stage": "defense_argument",
+      "tool_call_ids": []
+    },
+    {
+      "turn_id": "TURN_004",
+      "agent": "judge_agent",
+      "message": "Thẩm phán yêu cầu hai bên làm rõ quan hệ giữa nghĩa vụ thanh toán phần còn lại và nghĩa vụ giao xe.",
+      "claims": [],
+      "evidence_used": [
+        "EVID_001"
+      ],
+      "citations_used": [],
+      "status": "needs_review",
+      "hearing_stage": "judge_questions",
+      "tool_call_ids": []
+    }
+  ],
+  "tool_calls": [
+    {
+      "tool_call_id": "TOOL_001",
+      "turn_id": "TURN_001",
+      "agent": "legal_retrieval_agent",
+      "tool_name": "legal_search",
+      "input_summary": "Search legal basis for delivery deadline and payment condition dispute.",
+      "output_refs": [
+        "LAW_CHUNK_95942_528",
+        "LAW_CHUNK_95942_410"
+      ],
+      "status": "ok"
+    }
+  ],
+  "evidence_challenges": [
+    {
+      "challenge_id": "CHAL_001",
+      "evidence_id": "EVID_001",
+      "raised_by": "defense_agent",
+      "reason": "Bị đơn cho rằng hợp đồng cần được đọc cùng điều kiện thanh toán 30% còn lại.",
+      "admissibility": "needs_review",
+      "affected_claim_ids": [
+        "CLAIM_001",
+        "CLAIM_002"
+      ],
+      "resolved_by": "judge_agent",
+      "resolution_notes": "Cần human review đối chiếu nguyên văn điều khoản hợp đồng."
+    }
+  ],
+  "clarification_questions": [
+    {
+      "question_id": "QUES_001",
+      "asked_by": "judge_agent",
+      "question": "Hợp đồng có quy định thanh toán 30% còn lại trước hay sau khi giao xe không?",
+      "target_agents": [
+        "plaintiff_agent",
+        "defense_agent"
+      ],
+      "related_claim_ids": [
+        "CLAIM_001",
+        "CLAIM_002"
+      ],
+      "related_evidence_ids": [
+        "EVID_001"
+      ],
+      "related_citation_ids": [],
+      "status": "needs_review"
+    }
+  ],
+  "party_responses": [
+    {
+      "response_id": "RESP_001",
+      "question_id": "QUES_001",
+      "responder": "plaintiff_agent",
+      "content": "Nguyên đơn cho rằng thời hạn giao xe đã được xác định độc lập trong hợp đồng.",
+      "evidence_ids": [
+        "EVID_001"
+      ],
+      "citation_ids": [
+        "LAW_CHUNK_95942_528"
+      ],
+      "status": "ok"
+    },
+    {
+      "response_id": "RESP_002",
+      "question_id": "QUES_001",
+      "responder": "defense_agent",
+      "content": "Bị đơn cho rằng cần xem điều khoản thanh toán còn lại trước khi kết luận nghĩa vụ giao xe.",
+      "evidence_ids": [
+        "EVID_001"
+      ],
+      "citation_ids": [],
+      "status": "needs_fact_check"
+    }
+  ],
+  "fact_check": {
+    "unsupported_claims": [],
+    "contradictions": [
+      "Điều kiện thanh toán 30% còn lại vẫn cần được đối chiếu với nguyên văn hợp đồng."
+    ],
+    "citation_mismatches": [],
+    "risk_level": "medium"
+  },
+  "citation_verification": {
+    "accepted_citations": [
+      "LAW_CHUNK_95942_528",
+      "LAW_CHUNK_95942_410"
+    ],
+    "rejected_citations": [],
+    "warnings": [
+      "Cần đối chiếu citation với nguồn văn bản pháp luật chính thức trước khi dùng trong báo cáo."
+    ]
+  },
+  "outcome_candidates": [
+    {
+      "outcome_id": "OUTCOME_001",
+      "disposition": "split_or_uncertain",
+      "rationale": "Có căn cứ sơ bộ cho nghĩa vụ giao xe đúng hạn, nhưng điều kiện thanh toán còn lại vẫn chưa rõ.",
+      "supported_claim_ids": [
+        "CLAIM_001",
+        "CLAIM_002"
+      ],
+      "evidence_ids": [
+        "EVID_001",
+        "EVID_002"
+      ],
+      "citation_ids": [
+        "LAW_CHUNK_95942_528",
+        "LAW_CHUNK_95942_410"
+      ],
+      "risk_level": "medium",
+      "requires_human_review": true,
+      "disclaimer": "This is a non-binding proposed outcome for simulation and review support only."
+    }
+  ],
+  "harness_violations": [
+    {
+      "violation_id": "VIOL_001",
+      "hearing_stage": "defense_argument",
+      "agent": "defense_agent",
+      "rule": "requires_support_for_payment_condition",
+      "message": "Defense argument depends on payment-condition interpretation that needs source confirmation.",
+      "severity": "medium",
+      "action": "human_review",
+      "related_turn_id": "TURN_003"
+    }
+  ],
+  "audit_trail": [
+    {
+      "event_id": "AUDIT_001",
+      "stage": "retrieval",
+      "severity": "low",
+      "message": "Retrieved legal basis for V1 hearing fixture.",
+      "related_claim_ids": [],
+      "related_citation_ids": [
+        "LAW_CHUNK_95942_528",
+        "LAW_CHUNK_95942_410"
+      ],
+      "related_evidence_ids": []
+    },
+    {
+      "event_id": "AUDIT_002",
+      "stage": "human_review",
+      "severity": "medium",
+      "message": "Human review required before exporting non-binding proposed outcome.",
+      "related_claim_ids": [
+        "CLAIM_001",
+        "CLAIM_002"
+      ],
+      "related_citation_ids": [],
+      "related_evidence_ids": [
+        "EVID_001"
+      ]
+    }
+  ],
+  "human_review": {
+    "required": true,
+    "blocked": true,
+    "reasons": [
+      "Evidence challenge remains unresolved.",
+      "Non-binding proposed outcome requires reviewer approval."
+    ],
+    "checklist": [
+      "Đối chiếu nguyên văn hợp đồng.",
+      "Kiểm tra điều kiện thanh toán 30% còn lại.",
+      "Xác minh citation từ nguồn chính thức."
+    ]
+  },
+  "status": "review_required"
+}

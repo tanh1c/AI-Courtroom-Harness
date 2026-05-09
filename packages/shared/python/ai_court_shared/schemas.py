@@ -31,6 +31,13 @@ class EvidenceStatus(str, Enum):
     REJECTED = "rejected"
 
 
+class EvidenceAdmissibility(str, Enum):
+    ADMITTED = "admitted"
+    DISPUTED = "disputed"
+    REJECTED = "rejected"
+    NEEDS_REVIEW = "needs_review"
+
+
 class ClaimConfidence(str, Enum):
     LOW = "low"
     MEDIUM = "medium"
@@ -60,6 +67,22 @@ class AgentName(str, Enum):
     CITATION_VERIFIER_AGENT = "citation_verifier_agent"
 
 
+class HearingStage(str, Enum):
+    OPENING = "opening"
+    EVIDENCE_PRESENTATION = "evidence_presentation"
+    LEGAL_RETRIEVAL = "legal_retrieval"
+    PLAINTIFF_ARGUMENT = "plaintiff_argument"
+    DEFENSE_ARGUMENT = "defense_argument"
+    EVIDENCE_CHALLENGE = "evidence_challenge"
+    JUDGE_QUESTIONS = "judge_questions"
+    PARTY_RESPONSES = "party_responses"
+    FACT_CHECK = "fact_check"
+    CITATION_VERIFICATION = "citation_verification"
+    PRELIMINARY_ASSESSMENT = "preliminary_assessment"
+    HUMAN_REVIEW = "human_review"
+    CLOSING_RECORD = "closing_record"
+
+
 class TurnStatus(str, Enum):
     OK = "ok"
     NEEDS_FACT_CHECK = "needs_fact_check"
@@ -79,6 +102,20 @@ class AuditStage(str, Enum):
 class HumanReviewDecision(str, Enum):
     APPROVE = "approve"
     REJECT = "reject"
+
+
+class OutcomeDisposition(str, Enum):
+    LIKELY_PLAINTIFF_FAVORED = "likely_plaintiff_favored"
+    LIKELY_DEFENSE_FAVORED = "likely_defense_favored"
+    SPLIT_OR_UNCERTAIN = "split_or_uncertain"
+    REQUIRES_MORE_EVIDENCE = "requires_more_evidence"
+
+
+class HarnessAction(str, Enum):
+    ALLOW = "allow"
+    BLOCK = "block"
+    REPAIR = "repair"
+    HUMAN_REVIEW = "human_review"
 
 
 class AttachmentParseStatus(str, Enum):
@@ -233,6 +270,89 @@ class AgentTurn(BaseModel):
     status: TurnStatus
 
 
+class V1AgentTurn(AgentTurn):
+    hearing_stage: HearingStage
+    tool_call_ids: list[str] = Field(default_factory=list)
+
+
+class RolePermission(BaseModel):
+    permission_id: str
+    hearing_stage: HearingStage
+    agent: AgentName
+    allowed: bool = True
+    allowed_evidence_ids: list[str] = Field(default_factory=list)
+    allowed_citation_ids: list[str] = Field(default_factory=list)
+    requires_evidence: bool = False
+    requires_citation: bool = False
+    action_on_violation: HarnessAction = HarnessAction.HUMAN_REVIEW
+    notes: str | None = None
+
+
+class EvidenceChallenge(BaseModel):
+    challenge_id: str
+    evidence_id: str
+    raised_by: AgentName
+    reason: str
+    admissibility: EvidenceAdmissibility
+    affected_claim_ids: list[str] = Field(default_factory=list)
+    resolved_by: AgentName | None = None
+    resolution_notes: str | None = None
+
+
+class ClarificationQuestion(BaseModel):
+    question_id: str
+    asked_by: AgentName
+    question: str
+    target_agents: list[AgentName] = Field(default_factory=list)
+    related_claim_ids: list[str] = Field(default_factory=list)
+    related_evidence_ids: list[str] = Field(default_factory=list)
+    related_citation_ids: list[str] = Field(default_factory=list)
+    status: TurnStatus = TurnStatus.NEEDS_REVIEW
+
+
+class PartyResponse(BaseModel):
+    response_id: str
+    question_id: str
+    responder: AgentName
+    content: str
+    evidence_ids: list[str] = Field(default_factory=list)
+    citation_ids: list[str] = Field(default_factory=list)
+    status: TurnStatus = TurnStatus.OK
+
+
+class OutcomeCandidate(BaseModel):
+    outcome_id: str
+    disposition: OutcomeDisposition
+    rationale: str
+    supported_claim_ids: list[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
+    citation_ids: list[str] = Field(default_factory=list)
+    risk_level: ClaimConfidence
+    requires_human_review: bool = True
+    disclaimer: str
+
+
+class AgentToolCall(BaseModel):
+    tool_call_id: str
+    turn_id: str
+    agent: AgentName
+    tool_name: str
+    input_summary: str
+    output_refs: list[str] = Field(default_factory=list)
+    status: TurnStatus = TurnStatus.OK
+
+
+class HarnessViolation(BaseModel):
+    violation_id: str
+    hearing_stage: HearingStage
+    agent: AgentName
+    rule: str
+    message: str
+    severity: ClaimConfidence
+    action: HarnessAction
+    related_turn_id: str | None = None
+
+
 class FactCheckResult(BaseModel):
     unsupported_claims: list[str] = Field(default_factory=list)
     contradictions: list[str] = Field(default_factory=list)
@@ -336,6 +456,28 @@ class SimulationResponse(BaseModel):
     judge_summary: JudgeSummary
     trial_minutes: TrialMinutes
     final_report: FinalReport
+
+
+class HearingSession(BaseModel):
+    session_id: str
+    case: CaseState
+    current_stage: HearingStage
+    stage_order: list[HearingStage] = Field(default_factory=list)
+    role_permissions: list[RolePermission] = Field(default_factory=list)
+    turns: list[V1AgentTurn] = Field(default_factory=list)
+    tool_calls: list[AgentToolCall] = Field(default_factory=list)
+    evidence_challenges: list[EvidenceChallenge] = Field(default_factory=list)
+    clarification_questions: list[ClarificationQuestion] = Field(default_factory=list)
+    party_responses: list[PartyResponse] = Field(default_factory=list)
+    fact_check: FactCheckResult | None = None
+    citation_verification: CitationVerificationResult | None = None
+    outcome_candidates: list[OutcomeCandidate] = Field(default_factory=list)
+    harness_violations: list[HarnessViolation] = Field(default_factory=list)
+    audit_trail: list[AuditEvent] = Field(default_factory=list)
+    human_review: HumanReviewGate = Field(
+        default_factory=lambda: HumanReviewGate(required=True, blocked=True)
+    )
+    status: CaseStatus
 
 
 class AuditTrailResponse(BaseModel):
