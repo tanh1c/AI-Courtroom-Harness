@@ -53,25 +53,33 @@ def render_turn_transcript_lines(
     accepted_citation_ids: set[str],
 ) -> list[str]:
     visible_citations = [citation_id for citation_id in turn.citations_used if citation_id in accepted_citation_ids]
-    lines = [
-        f"### {hearing_stage_label(turn.agent)} - {agent_label(turn.agent)}",
-        "",
-        f"- Turn ID: `{turn.turn_id}`",
-        f"- Status: `{turn.status.value}`",
+    metadata_items = [
+        f"<li><strong>Mã lượt:</strong> <code>{escape(turn.turn_id)}</code></li>",
+        f"<li><strong>Trạng thái:</strong> <code>{escape(turn.status.value)}</code></li>",
     ]
     if turn.claims:
-        lines.append(f"- Related claims: {', '.join(turn.claims)}")
+        metadata_items.append(
+            f"<li><strong>Yêu cầu liên quan:</strong> {escape(', '.join(turn.claims))}</li>"
+        )
     if turn.evidence_used:
-        lines.append(f"- Evidence used: {', '.join(turn.evidence_used)}")
+        metadata_items.append(
+            f"<li><strong>Chứng cứ sử dụng:</strong> {escape(', '.join(turn.evidence_used))}</li>"
+        )
     if visible_citations:
-        lines.append(f"- Accepted citations used: {', '.join(visible_citations)}")
-    lines.extend(
-        [
-            "",
-            f"> {turn.message}",
-            "",
-        ]
-    )
+        metadata_items.append(
+            f"<li><strong>Căn cứ pháp lý được giữ lại:</strong> {escape(', '.join(visible_citations))}</li>"
+        )
+    lines = [
+        '<section class="transcript-turn">',
+        '  <div class="transcript-turn-header">',
+        f'    <span class="transcript-stage">{escape(hearing_stage_label(turn.agent))}</span>',
+        f'    <h3>{escape(agent_label(turn.agent))}</h3>',
+        "  </div>",
+        f'  <ul class="transcript-meta">{"".join(metadata_items)}</ul>',
+        f'  <div class="transcript-speech"><span class="transcript-speech-label">Nội dung ghi nhận</span><p>{escape(turn.message)}</p></div>',
+        "</section>",
+        "",
+    ]
     return lines
 
 
@@ -477,6 +485,61 @@ class HtmlReportService:
       word-break: normal;
       overflow-wrap: anywhere;
     }}
+    .transcript-turn {{
+      margin: 1rem 0 1.35rem;
+      padding: 1rem 1.1rem 1.15rem;
+      border: 1px solid var(--line);
+      background: #fbfbfa;
+    }}
+    .transcript-turn-header {{
+      display: flex;
+      align-items: baseline;
+      gap: 0.7rem;
+      margin-bottom: 0.7rem;
+      padding-bottom: 0.55rem;
+      border-bottom: 1px solid var(--line);
+    }}
+    .transcript-turn-header h3 {{
+      margin: 0;
+      font-size: 1.02rem;
+    }}
+    .transcript-stage {{
+      display: inline-block;
+      padding: 0.12rem 0.45rem;
+      border: 1px solid var(--strong-line);
+      font-size: 0.82rem;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: #f3f3f0;
+      font-family: "Segoe UI", Arial, sans-serif;
+    }}
+    .transcript-meta {{
+      margin: 0 0 0.75rem;
+      padding-left: 1.15rem;
+    }}
+    .transcript-meta li {{
+      margin-top: 0.15rem;
+      line-height: 1.65;
+    }}
+    .transcript-speech {{
+      padding: 0.85rem 0.95rem;
+      border-left: 3px solid var(--strong-line);
+      background: #ffffff;
+    }}
+    .transcript-speech-label {{
+      display: block;
+      margin-bottom: 0.45rem;
+      font-size: 0.84rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-family: "Segoe UI", Arial, sans-serif;
+    }}
+    .transcript-speech p {{
+      margin: 0;
+      text-align: left;
+    }}
     @media print {{
       body {{
         background: #fff;
@@ -512,6 +575,12 @@ class HtmlReportService:
         display: block;
         margin-top: 0.35rem;
         text-align: left;
+      }}
+      .transcript-turn-header {{
+        display: block;
+      }}
+      .transcript-stage {{
+        margin-bottom: 0.45rem;
       }}
     }}
   </style>
