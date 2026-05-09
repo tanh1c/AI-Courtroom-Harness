@@ -212,7 +212,7 @@ class HtmlReportService:
         )
         safe_title = escape(title)
         return f"""<!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -220,94 +220,114 @@ class HtmlReportService:
   <style>
     :root {{
       color-scheme: light;
-      --bg: #f6f1e8;
-      --paper: #fffdf8;
-      --ink: #1e1a17;
-      --muted: #6e6257;
-      --line: #d9cfc2;
-      --accent: #8d2b1e;
-      --accent-soft: #f2ddd8;
-      --code: #f3eee6;
-      --shadow: rgba(30, 26, 23, 0.12);
+      --page: #f4f4f1;
+      --paper: #ffffff;
+      --ink: #171717;
+      --muted: #5f5f5f;
+      --line: #d7d7d2;
+      --strong-line: #a8a8a1;
+      --section: #242424;
+      --code: #f7f7f5;
     }}
     * {{
       box-sizing: border-box;
     }}
+    html {{
+      font-size: 16px;
+    }}
     body {{
       margin: 0;
-      font-family: Georgia, "Times New Roman", serif;
-      background:
-        radial-gradient(circle at top, #fff7ef 0%, transparent 38%),
-        linear-gradient(180deg, #efe5d7 0%, var(--bg) 100%);
+      font-family: "Times New Roman", "Palatino Linotype", "Book Antiqua", "Noto Serif", "DejaVu Serif", serif;
+      background: var(--page);
       color: var(--ink);
     }}
-    main {{
+    .page {{
       max-width: 920px;
-      margin: 32px auto;
-      padding: 40px 48px;
+      margin: 0 auto;
+      padding: 40px 24px 64px;
+    }}
+    main {{
+      margin: 0 auto;
+      padding: 44px 52px 56px;
       background: var(--paper);
       border: 1px solid var(--line);
-      border-radius: 18px;
-      box-shadow: 0 24px 60px var(--shadow);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
     }}
     h1, h2, h3 {{
-      line-height: 1.2;
-      margin-top: 1.6em;
+      line-height: 1.3;
+      margin-top: 1.8em;
       margin-bottom: 0.6em;
+      font-weight: 700;
     }}
     h1 {{
       margin-top: 0;
       font-size: 2rem;
-      border-bottom: 3px solid var(--accent);
-      padding-bottom: 0.4rem;
+      padding-bottom: 0.65rem;
+      border-bottom: 2px solid var(--strong-line);
+      letter-spacing: 0.01em;
     }}
     h2 {{
-      font-size: 1.35rem;
-      color: var(--accent);
+      font-size: 1.2rem;
+      color: var(--section);
+      border-top: 1px solid var(--line);
+      padding-top: 1rem;
     }}
     h3 {{
-      font-size: 1.05rem;
+      font-size: 1rem;
     }}
     p, li {{
       font-size: 1rem;
-      line-height: 1.72;
+      line-height: 1.8;
+    }}
+    p {{
+      margin: 0.7rem 0;
+      text-align: justify;
     }}
     ul {{
-      padding-left: 1.4rem;
+      margin: 0.4rem 0 1rem;
+      padding-left: 1.3rem;
+    }}
+    li + li {{
+      margin-top: 0.35rem;
+    }}
+    strong {{
+      font-weight: 700;
     }}
     code {{
       font-family: Consolas, "Courier New", monospace;
       background: var(--code);
-      padding: 0.1rem 0.35rem;
-      border-radius: 6px;
+      border: 1px solid var(--line);
+      padding: 0.08rem 0.32rem;
+      border-radius: 3px;
+      font-size: 0.94em;
     }}
     pre {{
       overflow-x: auto;
-      padding: 1rem;
-      border-radius: 12px;
+      padding: 1rem 1.1rem;
       background: var(--code);
       border: 1px solid var(--line);
     }}
     blockquote {{
       margin: 1rem 0;
-      padding: 0.2rem 1rem;
-      border-left: 4px solid var(--accent);
-      background: var(--accent-soft);
+      padding: 0.2rem 0 0.2rem 1rem;
+      border-left: 3px solid var(--strong-line);
       color: var(--muted);
     }}
     table {{
       width: 100%;
       border-collapse: collapse;
-      margin: 1rem 0;
+      margin: 1rem 0 1.25rem;
+      font-size: 0.96rem;
     }}
     th, td {{
       border: 1px solid var(--line);
-      padding: 0.7rem;
+      padding: 0.7rem 0.75rem;
       text-align: left;
       vertical-align: top;
     }}
     th {{
-      background: #f8f2ea;
+      background: #f5f5f2;
+      font-weight: 700;
     }}
     hr {{
       border: 0;
@@ -315,28 +335,76 @@ class HtmlReportService:
       margin: 2rem 0;
     }}
     .report-meta {{
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.9rem;
+      border-bottom: 1px solid var(--line);
       color: var(--muted);
-      font-size: 0.95rem;
-      margin-bottom: 1.2rem;
+      font-family: "Segoe UI", Arial, sans-serif;
+      font-size: 0.88rem;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }}
+    .report-meta span:last-child {{
+      text-align: right;
+    }}
+    .report-body {{
+      word-break: normal;
+      overflow-wrap: anywhere;
+    }}
+    @media print {{
+      body {{
+        background: #fff;
+      }}
+      .page {{
+        padding: 0;
+      }}
+      main {{
+        box-shadow: none;
+        border: 0;
+        padding: 0;
+      }}
     }}
     @media (max-width: 720px) {{
+      .page {{
+        padding: 0;
+      }}
       main {{
         margin: 0;
         min-height: 100vh;
-        border-radius: 0;
-        padding: 24px 18px 36px;
+        padding: 28px 20px 40px;
+        box-shadow: none;
+        border-left: 0;
+        border-right: 0;
       }}
       h1 {{
-        font-size: 1.6rem;
+        font-size: 1.55rem;
+      }}
+      .report-meta {{
+        display: block;
+      }}
+      .report-meta span:last-child {{
+        display: block;
+        margin-top: 0.35rem;
+        text-align: left;
       }}
     }}
   </style>
 </head>
 <body>
-  <main>
-    <div class="report-meta">AI Courtroom Harness HTML Preview</div>
-    {body}
-  </main>
+  <div class="page">
+    <main>
+      <div class="report-meta">
+        <span>AI Courtroom Harness</span>
+        <span>Formal Report Preview</span>
+      </div>
+      <div class="report-body">
+        {body}
+      </div>
+    </main>
+  </div>
 </body>
 </html>
 """
