@@ -29,6 +29,7 @@ export type AgentName =
   | "defense_agent"
   | "judge_agent"
   | "clerk_agent"
+  | "evidence_agent"
   | "legal_retrieval_agent"
   | "fact_check_agent"
   | "citation_verifier_agent";
@@ -410,6 +411,10 @@ export interface HearingSession {
   audit_trail: AuditEvent[];
   human_review: HumanReviewGate;
   status: CaseStatus;
+}
+
+export interface HearingAdvanceRequest {
+  expected_stage?: HearingStage | null;
 }
 
 export interface AuditTrailResponse {

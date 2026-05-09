@@ -62,6 +62,7 @@ class AgentName(str, Enum):
     DEFENSE_AGENT = "defense_agent"
     JUDGE_AGENT = "judge_agent"
     CLERK_AGENT = "clerk_agent"
+    EVIDENCE_AGENT = "evidence_agent"
     LEGAL_RETRIEVAL_AGENT = "legal_retrieval_agent"
     FACT_CHECK_AGENT = "fact_check_agent"
     CITATION_VERIFIER_AGENT = "citation_verifier_agent"
@@ -478,6 +479,10 @@ class HearingSession(BaseModel):
         default_factory=lambda: HumanReviewGate(required=True, blocked=True)
     )
     status: CaseStatus
+
+
+class HearingAdvanceRequest(BaseModel):
+    expected_stage: HearingStage | None = None
 
 
 class AuditTrailResponse(BaseModel):

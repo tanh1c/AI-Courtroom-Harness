@@ -16,6 +16,7 @@ from packages.shared.python.ai_court_shared.schemas import (
     CaseRecord,
     CaseState,
     CaseStatus,
+    HearingSession,
     HumanReviewRecord,
     MarkdownReportResponse,
     SimulationResponse,
@@ -128,6 +129,13 @@ def _snapshot_simulation_response(simulation_response: SimulationResponse) -> No
     _write_json(
         _case_dir(simulation_response.case.case_id) / "simulation.json",
         simulation_response.model_dump(mode="json"),
+    )
+
+
+def _snapshot_hearing_session(hearing_session: HearingSession) -> None:
+    _write_json(
+        _case_dir(hearing_session.case.case_id) / "hearing_v1.json",
+        hearing_session.model_dump(mode="json"),
     )
 
 
@@ -339,6 +347,22 @@ def load_simulation_response(case_id: str) -> SimulationResponse | None:
     sample_simulation = _load_fixture("sample_case_01.simulation.json")
     if sample_simulation.get("case", {}).get("case_id") == case_id:
         return SimulationResponse.model_validate(sample_simulation)
+    return None
+
+
+def save_hearing_session(hearing_session: HearingSession) -> None:
+    save_case_state(hearing_session.case)
+    _snapshot_hearing_session(hearing_session)
+
+
+def load_hearing_session(case_id: str) -> HearingSession | None:
+    path = _case_dir(case_id) / "hearing_v1.json"
+    if path.exists():
+        return HearingSession.model_validate(_read_json(path))
+
+    sample_hearing = _load_fixture("sample_case_01.v1_hearing_session.json")
+    if sample_hearing.get("case", {}).get("case_id") == case_id:
+        return HearingSession.model_validate(sample_hearing)
     return None
 
 

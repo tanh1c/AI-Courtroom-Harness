@@ -169,6 +169,9 @@ docs/
 - `GET /api/v1/cases/{case_id}/audit`
 - `POST /api/v1/legal-search`
 - `POST /api/v1/cases/{case_id}/simulate`
+- `POST /api/v1/cases/{case_id}/hearing/start`
+- `POST /api/v1/cases/{case_id}/hearing/advance`
+- `GET /api/v1/cases/{case_id}/hearing`
 - `POST /api/v1/cases/{case_id}/review`
 - `GET /api/v1/reports/{case_id}`
 - `POST /api/v1/reports/{case_id}/markdown`
@@ -182,6 +185,9 @@ docs/
 - `GET /api/v1/cases/{case_id}/state` returns the stored parsed case state for frontend consumption
 - `GET /api/v1/cases/{case_id}/audit` returns the persisted audit trail and human review gate
 - `POST /api/v1/cases/{case_id}/simulate` now runs a LangGraph-based courtroom simulation flow over the parsed case state
+- `POST /api/v1/cases/{case_id}/hearing/start` starts the V1 stage-based hearing runtime over the parsed case state
+- `POST /api/v1/cases/{case_id}/hearing/advance` advances the V1 hearing by one validated procedural stage
+- `GET /api/v1/cases/{case_id}/hearing` returns the persisted V1 hearing session snapshot
 - `POST /api/v1/cases/{case_id}/review` resolves the human review gate and can move a case from `review_required` to `report_ready`
 - `GET /api/v1/reports/{case_id}` now returns the latest stored simulation report when available, and falls back to the fixture only for the sample case without a local simulation snapshot
 - `POST /api/v1/reports/{case_id}/markdown` exports a persisted markdown report once the case is `report_ready`
@@ -383,6 +389,16 @@ The same simulation smoke now also verifies:
 - audit trail creation
 - unsupported claim and citation checks
 - human review gate activation
+
+## V1 Hearing Runtime Smoke
+
+The V1 procedural runtime is CPU-only and advances a parsed case through stage-based hearing steps:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\eval\smoke_v1_hearing_runtime.py
+```
+
+This verifies `hearing/start -> hearing/advance -> hearing` and persists `data/processed/cases/<case_id>/hearing_v1.json`.
 - report status transitioning to `review_required` when risks remain
 
 ## Phase 5 Backend Check

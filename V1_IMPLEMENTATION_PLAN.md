@@ -11,7 +11,7 @@ The MVP proves the core harness path. V1 expands it into a fuller courtroom-simu
 - [x] TypeScript shared types mirror the V1 schema surface.
 - [x] A complete V1 hearing session fixture exists.
 - [x] Migration notes explain how V1 extends MVP contracts without breaking current flows.
-- [ ] V1 runtime implementation has not started.
+- [x] V1 Phase 1 procedural runtime is complete with stage-based start, advance, guard, and persistence.
 - [ ] V1 report/UI integration has not started.
 
 ## 1. V1 Decision
@@ -309,14 +309,14 @@ Goal:
 
 Tasks:
 
-- [ ] Add `HearingSession`.
-- [ ] Add stage enum and transition table.
-- [ ] Add runtime guard for invalid turn order.
-- [ ] Persist stage-by-stage transcript.
+- [x] Add `HearingSession`.
+- [x] Add stage enum and transition table.
+- [x] Add runtime guard for invalid turn order.
+- [x] Persist stage-by-stage transcript.
 
 Exit criteria:
 
-- [ ] One demo case runs through all V1 stages.
+- [x] One demo case runs through all V1 stages.
 
 ### V1 Phase 2. Evidence And Verification Agents
 
