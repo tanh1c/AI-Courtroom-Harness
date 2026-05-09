@@ -77,6 +77,16 @@ def normalize_role_text(text: str) -> str:
     return ROLE_DRIFT_SPACE_PATTERN.sub(" ", text).strip().lower()
 
 
+def clamp_words(text: str, max_words: int) -> str:
+    words = text.strip().split()
+    if len(words) <= max_words:
+        return text.strip()
+    trimmed = " ".join(words[:max_words]).rstrip(",;:-")
+    if not trimmed.endswith("."):
+        trimmed += "..."
+    return trimmed
+
+
 def confidence_rank(value: ClaimConfidence) -> int:
     order = {
         ClaimConfidence.LOW: 0,
@@ -293,9 +303,10 @@ class CourtroomSimulationService:
         citations: list[Citation],
     ) -> str:
         if not self.llm_service.is_enabled():
-            return fallback_message
+            return clamp_words(fallback_message, self._role_message_max_words(role))
 
         role_instruction = self._role_instruction(role)
+        max_words = self._role_message_max_words(role)
         system_prompt = (
             "You are helping a Vietnamese legal courtroom simulation. "
             "Return strict JSON only with shape {\"message\": string}. "
@@ -320,7 +331,7 @@ class CourtroomSimulationService:
                 "citations": self._citation_context_payload(citations),
                 "requirements": [
                     "Use only the supplied facts, evidence, and citations.",
-                    "Keep the message under 90 words.",
+                    f"Keep the message under {max_words} words.",
                     "Sound like a courtroom participant, not a chatbot.",
                     self._role_requirement(role),
                 ],
@@ -332,12 +343,12 @@ class CourtroomSimulationService:
             payload = self.llm_service.generate_json(system_prompt, user_prompt)
             message = str(payload.get("message", "")).strip()
             if not message:
-                return fallback_message
+                return clamp_words(fallback_message, max_words)
             if not self._role_message_is_valid(role, message):
-                return fallback_message
-            return message
+                return clamp_words(fallback_message, max_words)
+            return clamp_words(message, max_words)
         except Exception:
-            return fallback_message
+            return clamp_words(fallback_message, max_words)
 
     def _role_instruction(self, role: str) -> str:
         if role == "plaintiff":
@@ -362,6 +373,13 @@ class CourtroomSimulationService:
                 "or compensate; instead ask the court to clarify terms, limit liability, or reject premature conclusions."
             )
         return "Remain consistent with the assigned side."
+
+    def _role_message_max_words(self, role: str) -> int:
+        if role == "plaintiff":
+            return 52
+        if role == "defense":
+            return 42
+        return 60
 
     def _role_message_is_valid(self, role: str, message: str) -> bool:
         normalized = normalize_role_text(message)
@@ -554,8 +572,7 @@ class CourtroomSimulationService:
         )
         self._mark_evidence_usage(case, evidence_used, used_by=AgentName.PLAINTIFF_AGENT)
         fallback_message = (
-            "Nguyên đơn cho rằng bị đơn đã chậm giao xe trái với thỏa thuận trong hợp đồng, "
-            "đề nghị Tòa buộc giao xe hoặc hoàn trả khoản 28.000.000 đồng đã nhận và xem xét bồi thường thiệt hại."
+            "Nguyên đơn cho rằng bị đơn chậm giao xe trái hợp đồng, đề nghị Tòa buộc giao xe hoặc hoàn trả 28.000.000 đồng và xem xét bồi thường."
         )
         message = self._llm_role_message(
             role="plaintiff",
@@ -625,8 +642,7 @@ class CourtroomSimulationService:
         self._mark_evidence_usage(case, evidence_used, challenged_by=AgentName.DEFENSE_AGENT)
         status = TurnStatus.NEEDS_FACT_CHECK if any(item.status != "uncontested" for item in case.evidence) else TurnStatus.OK
         fallback_message = (
-            "Bị đơn đề nghị Tòa làm rõ điều khoản thanh toán 30% còn lại, giá trị chứng minh của các chứng cứ narrative, "
-            "và khẳng định chưa đủ căn cứ để kết luận bị đơn vi phạm nghĩa vụ giao tài sản ngay ở thời điểm này."
+            "Bị đơn đề nghị Tòa làm rõ điều khoản thanh toán 30% còn lại và giá trị chứng minh của các chứng cứ narrative; hiện chưa đủ căn cứ kết luận bị đơn vi phạm."
         )
         message = self._llm_role_message(
             role="defense",
