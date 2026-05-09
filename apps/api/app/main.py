@@ -61,7 +61,9 @@ from packages.shared.python.ai_court_shared.schemas import (
     ClaimConfidence,
     HumanReviewGate,
     HearingAdvanceRequest,
+    HearingEvidenceChallengesResponse,
     HearingSession,
+    HearingVerificationResponse,
     HumanReviewRecord,
     HumanReviewRequest,
     HumanReviewResponse,
@@ -305,6 +307,49 @@ def get_v1_hearing(case_id: str) -> HearingSession:
     if hearing_session is None:
         raise HTTPException(status_code=404, detail=f"V1 hearing session not found: {case_id}")
     return hearing_session
+
+
+@app.get("/api/v1/cases/{case_id}/evidence/challenges", response_model=HearingEvidenceChallengesResponse)
+def get_v1_evidence_challenges(case_id: str) -> HearingEvidenceChallengesResponse:
+    hearing_session = load_hearing_session(case_id)
+    if hearing_session is None:
+        raise HTTPException(status_code=404, detail=f"V1 hearing session not found: {case_id}")
+    evidence_agent_turns = [
+        turn for turn in hearing_session.turns if turn.agent.value == "evidence_agent"
+    ]
+    return HearingEvidenceChallengesResponse(
+        case_id=case_id,
+        challenges=hearing_session.evidence_challenges,
+        evidence_agent_turns=evidence_agent_turns,
+    )
+
+
+@app.get("/api/v1/cases/{case_id}/verification", response_model=HearingVerificationResponse)
+def get_v1_verification(case_id: str) -> HearingVerificationResponse:
+    hearing_session = load_hearing_session(case_id)
+    if hearing_session is None:
+        raise HTTPException(status_code=404, detail=f"V1 hearing session not found: {case_id}")
+    verification_turns = [
+        turn
+        for turn in hearing_session.turns
+        if turn.agent.value in {"fact_check_agent", "citation_verifier_agent"}
+    ]
+    verification_tool_call_ids = {
+        tool_call_id
+        for turn in verification_turns
+        for tool_call_id in turn.tool_call_ids
+    }
+    return HearingVerificationResponse(
+        case_id=case_id,
+        fact_check=hearing_session.fact_check,
+        citation_verification=hearing_session.citation_verification,
+        verification_turns=verification_turns,
+        tool_calls=[
+            tool_call
+            for tool_call in hearing_session.tool_calls
+            if tool_call.tool_call_id in verification_tool_call_ids
+        ],
+    )
 
 
 @app.post("/api/v1/cases/{case_id}/review", response_model=HumanReviewResponse)

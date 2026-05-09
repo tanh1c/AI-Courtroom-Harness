@@ -19,6 +19,7 @@ from packages.shared.python.ai_court_shared.schemas import (
     ClarificationQuestion,
     EvidenceAdmissibility,
     EvidenceChallenge,
+    EvidenceStatus,
     FactCheckResult,
     HarnessAction,
     HarnessViolation,
@@ -209,16 +210,47 @@ class CourtroomV1RuntimeService:
 
     def _advance_evidence_presentation(self, session: HearingSession) -> None:
         evidence_ids = [item.evidence_id for item in session.case.evidence]
+        disputed_ids = [
+            item.evidence_id for item in session.case.evidence if item.status != EvidenceStatus.UNCONTESTED
+        ]
+        turn_id = self._next_turn_id(session)
+        tool_call = AgentToolCall(
+            tool_call_id=self._next_tool_call_id(session),
+            turn_id=turn_id,
+            agent=AgentName.EVIDENCE_AGENT,
+            tool_name="evidence_registry",
+            input_summary=f"Inspect {len(evidence_ids)} evidence items and flag disputed records.",
+            output_refs=evidence_ids,
+        )
+        session.tool_calls.append(tool_call)
         self._append_turn(
             session,
             hearing_stage=HearingStage.EVIDENCE_PRESENTATION,
             agent=AgentName.EVIDENCE_AGENT,
             message=(
                 f"Evidence Agent trình bày {len(evidence_ids)} chứng cứ đã được trích xuất "
-                "và chuyển các mục disputed sang human review khi cần."
+                f"và đánh dấu {len(disputed_ids)} mục cần theo dõi/challenge."
             ),
             evidence_used=evidence_ids,
+            status=TurnStatus.NEEDS_REVIEW if disputed_ids else TurnStatus.OK,
+            tool_call_ids=[tool_call.tool_call_id],
         )
+        if disputed_ids:
+            self._append_audit(
+                session,
+                stage=AuditStage.VERIFICATION,
+                severity=ClaimConfidence.MEDIUM,
+                message="Evidence Agent flagged disputed evidence for the V1 challenge flow.",
+                related_evidence_ids=disputed_ids,
+            )
+        else:
+            self._append_audit(
+                session,
+                stage=AuditStage.VERIFICATION,
+                severity=ClaimConfidence.LOW,
+                message="Evidence Agent found no disputed evidence at presentation stage.",
+                related_evidence_ids=evidence_ids,
+            )
 
     def _advance_legal_retrieval(self, session: HearingSession) -> None:
         retrieved: list[Citation] = []
@@ -316,6 +348,10 @@ class CourtroomV1RuntimeService:
         if not disputed and session.case.evidence:
             disputed = [session.case.evidence[0]]
         for evidence in disputed[:2]:
+            if AgentName.DEFENSE_AGENT.value not in evidence.challenged_by:
+                evidence.challenged_by.append(AgentName.DEFENSE_AGENT.value)
+            if evidence.status == EvidenceStatus.UNCONTESTED:
+                evidence.status = EvidenceStatus.DISPUTED
             challenge = EvidenceChallenge(
                 challenge_id=f"CHAL_{len(session.evidence_challenges) + 1:03d}",
                 evidence_id=evidence.evidence_id,
@@ -327,6 +363,16 @@ class CourtroomV1RuntimeService:
                 resolution_notes="Chuyển sang human review trước khi dùng làm căn cứ kết luận.",
             )
             session.evidence_challenges.append(challenge)
+        turn_id = self._next_turn_id(session)
+        tool_call = AgentToolCall(
+            tool_call_id=self._next_tool_call_id(session),
+            turn_id=turn_id,
+            agent=AgentName.EVIDENCE_AGENT,
+            tool_name="evidence_challenge_registry",
+            input_summary=f"Register {len(session.evidence_challenges)} evidence challenges.",
+            output_refs=[challenge.challenge_id for challenge in session.evidence_challenges],
+        )
+        session.tool_calls.append(tool_call)
         self._append_turn(
             session,
             hearing_stage=HearingStage.EVIDENCE_CHALLENGE,
@@ -341,7 +387,23 @@ class CourtroomV1RuntimeService:
                 ]
             ),
             status=TurnStatus.NEEDS_REVIEW if session.evidence_challenges else TurnStatus.OK,
+            tool_call_ids=[tool_call.tool_call_id],
         )
+        if session.evidence_challenges:
+            self._append_audit(
+                session,
+                stage=AuditStage.VERIFICATION,
+                severity=ClaimConfidence.MEDIUM,
+                message="Evidence challenges were persisted and linked to affected claims.",
+                related_claim_ids=dedupe(
+                    [
+                        claim_id
+                        for challenge in session.evidence_challenges
+                        for claim_id in challenge.affected_claim_ids
+                    ]
+                ),
+                related_evidence_ids=[challenge.evidence_id for challenge in session.evidence_challenges],
+            )
 
     def _advance_judge_questions(self, session: HearingSession) -> None:
         question = ClarificationQuestion(
@@ -399,51 +461,103 @@ class CourtroomV1RuntimeService:
         )
 
     def _advance_fact_check(self, session: HearingSession) -> None:
+        citation_ids = {citation.citation_id for citation in session.case.citations}
         unsupported = [
             claim.claim_id
             for claim in session.case.claims
             if not claim.evidence_ids and not claim.citation_ids
+        ]
+        citation_mismatches = [
+            claim.claim_id
+            for claim in session.case.claims
+            if any(citation_id not in citation_ids for citation_id in claim.citation_ids)
         ]
         contradictions = []
         if session.evidence_challenges:
             contradictions.append("Có chứng cứ đang bị challenge và cần human review.")
         if any(response.status == TurnStatus.NEEDS_FACT_CHECK for response in session.party_responses):
             contradictions.append("Có phản hồi của bên tham gia cần fact-check thêm.")
-        risk = ClaimConfidence.HIGH if unsupported else ClaimConfidence.MEDIUM if contradictions else ClaimConfidence.LOW
+        risk = ClaimConfidence.HIGH if unsupported or citation_mismatches else ClaimConfidence.MEDIUM if contradictions else ClaimConfidence.LOW
         session.fact_check = FactCheckResult(
             unsupported_claims=unsupported,
             contradictions=contradictions,
-            citation_mismatches=[],
+            citation_mismatches=citation_mismatches,
             risk_level=risk,
         )
+        turn_id = self._next_turn_id(session)
+        tool_call = AgentToolCall(
+            tool_call_id=self._next_tool_call_id(session),
+            turn_id=turn_id,
+            agent=AgentName.FACT_CHECK_AGENT,
+            tool_name="claim_support_check",
+            input_summary=f"Check {len(session.case.claims)} claims against evidence and citations.",
+            output_refs=dedupe(unsupported + citation_mismatches),
+            status=TurnStatus.NEEDS_REVIEW if risk != ClaimConfidence.LOW else TurnStatus.OK,
+        )
+        session.tool_calls.append(tool_call)
         self._append_turn(
             session,
             hearing_stage=HearingStage.FACT_CHECK,
             agent=AgentName.FACT_CHECK_AGENT,
-            message=f"Fact-check Agent ghi nhận mức rủi ro `{risk.value}` cho phiên mô phỏng.",
-            claims=unsupported,
+            message=(
+                f"Fact-check Agent kiểm tra {len(session.case.claims)} claim, "
+                f"phát hiện {len(unsupported)} claim thiếu support và {len(citation_mismatches)} citation mismatch."
+            ),
+            claims=dedupe(unsupported + citation_mismatches),
             evidence_used=[challenge.evidence_id for challenge in session.evidence_challenges],
             status=TurnStatus.NEEDS_REVIEW if risk != ClaimConfidence.LOW else TurnStatus.OK,
+            tool_call_ids=[tool_call.tool_call_id],
+        )
+        self._append_audit(
+            session,
+            stage=AuditStage.VERIFICATION,
+            severity=risk,
+            message=f"Fact-check Agent completed with risk level {risk.value}.",
+            related_claim_ids=dedupe(unsupported + citation_mismatches),
+            related_evidence_ids=[challenge.evidence_id for challenge in session.evidence_challenges],
         )
 
     def _advance_citation_verification(self, session: HearingSession) -> None:
         accepted = [citation.citation_id for citation in session.case.citations if citation.effective_status.value == "active"]
         rejected = [citation.citation_id for citation in session.case.citations if citation.effective_status.value == "expired"]
+        unknown = [citation.citation_id for citation in session.case.citations if citation.effective_status.value == "unknown"]
         session.citation_verification = CitationVerificationResult(
             accepted_citations=accepted,
             rejected_citations=rejected,
-            warnings=["Cần đối chiếu citation với nguồn văn bản chính thức trước khi xuất báo cáo V1."],
+            warnings=dedupe(
+                ["Cần đối chiếu citation với nguồn văn bản chính thức trước khi xuất báo cáo V1."]
+                + (["Có citation chưa xác định rõ trạng thái hiệu lực."] if unknown else [])
+            ),
         )
+        turn_id = self._next_turn_id(session)
+        tool_call = AgentToolCall(
+            tool_call_id=self._next_tool_call_id(session),
+            turn_id=turn_id,
+            agent=AgentName.CITATION_VERIFIER_AGENT,
+            tool_name="citation_status_check",
+            input_summary=f"Verify status for {len(session.case.citations)} retrieved citations.",
+            output_refs=dedupe(accepted + rejected + unknown),
+            status=TurnStatus.NEEDS_REVIEW if rejected or unknown else TurnStatus.OK,
+        )
+        session.tool_calls.append(tool_call)
         self._append_turn(
             session,
             hearing_stage=HearingStage.CITATION_VERIFICATION,
             agent=AgentName.CITATION_VERIFIER_AGENT,
             message=(
                 f"Citation Verifier giữ lại {len(accepted)} citation active "
-                f"và reject {len(rejected)} citation không phù hợp."
+                f"reject {len(rejected)} citation không phù hợp và flag {len(unknown)} citation unknown."
             ),
             citations_used=accepted,
-            status=TurnStatus.NEEDS_REVIEW if rejected else TurnStatus.OK,
+            status=TurnStatus.NEEDS_REVIEW if rejected or unknown else TurnStatus.OK,
+            tool_call_ids=[tool_call.tool_call_id],
+        )
+        self._append_audit(
+            session,
+            stage=AuditStage.VERIFICATION,
+            severity=ClaimConfidence.MEDIUM if rejected or unknown else ClaimConfidence.LOW,
+            message="Citation Verifier completed citation status checks.",
+            related_citation_ids=dedupe(accepted + rejected + unknown),
         )
 
     def _advance_preliminary_assessment(self, session: HearingSession) -> None:

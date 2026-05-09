@@ -485,6 +485,20 @@ class HearingAdvanceRequest(BaseModel):
     expected_stage: HearingStage | None = None
 
 
+class HearingEvidenceChallengesResponse(BaseModel):
+    case_id: str
+    challenges: list[EvidenceChallenge] = Field(default_factory=list)
+    evidence_agent_turns: list[V1AgentTurn] = Field(default_factory=list)
+
+
+class HearingVerificationResponse(BaseModel):
+    case_id: str
+    fact_check: FactCheckResult | None = None
+    citation_verification: CitationVerificationResult | None = None
+    verification_turns: list[V1AgentTurn] = Field(default_factory=list)
+    tool_calls: list[AgentToolCall] = Field(default_factory=list)
+
+
 class AuditTrailResponse(BaseModel):
     case_id: str
     audit_trail: list[AuditEvent] = Field(default_factory=list)

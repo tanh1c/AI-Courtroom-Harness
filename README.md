@@ -172,6 +172,8 @@ docs/
 - `POST /api/v1/cases/{case_id}/hearing/start`
 - `POST /api/v1/cases/{case_id}/hearing/advance`
 - `GET /api/v1/cases/{case_id}/hearing`
+- `GET /api/v1/cases/{case_id}/evidence/challenges`
+- `GET /api/v1/cases/{case_id}/verification`
 - `POST /api/v1/cases/{case_id}/review`
 - `GET /api/v1/reports/{case_id}`
 - `POST /api/v1/reports/{case_id}/markdown`

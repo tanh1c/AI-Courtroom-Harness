@@ -417,6 +417,20 @@ export interface HearingAdvanceRequest {
   expected_stage?: HearingStage | null;
 }
 
+export interface HearingEvidenceChallengesResponse {
+  case_id: string;
+  challenges: EvidenceChallenge[];
+  evidence_agent_turns: V1AgentTurn[];
+}
+
+export interface HearingVerificationResponse {
+  case_id: string;
+  fact_check?: FactCheckResult | null;
+  citation_verification?: CitationVerificationResult | null;
+  verification_turns: V1AgentTurn[];
+  tool_calls: AgentToolCall[];
+}
+
 export interface AuditTrailResponse {
   case_id: string;
   audit_trail: AuditEvent[];

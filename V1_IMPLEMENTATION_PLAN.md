@@ -12,6 +12,7 @@ The MVP proves the core harness path. V1 expands it into a fuller courtroom-simu
 - [x] A complete V1 hearing session fixture exists.
 - [x] Migration notes explain how V1 extends MVP contracts without breaking current flows.
 - [x] V1 Phase 1 procedural runtime is complete with stage-based start, advance, guard, and persistence.
+- [x] V1 Phase 2 evidence and verification agents are complete with explicit turns, tool traces, challenge endpoint, and verification endpoint.
 - [ ] V1 report/UI integration has not started.
 
 ## 1. V1 Decision
@@ -100,7 +101,7 @@ Acceptance:
 
 Status:
 
-- [ ] Planned
+- [x] Completed for V1 Phase 1
 
 Replace the current mostly linear runtime with stage-aware orchestration:
 
@@ -120,9 +121,9 @@ Replace the current mostly linear runtime with stage-aware orchestration:
 
 Acceptance:
 
-- [ ] Every agent turn has a `hearing_stage`.
-- [ ] Turn order is enforced by the runtime.
-- [ ] Invalid agent-stage combinations are rejected or flagged.
+- [x] Every agent turn has a `hearing_stage`.
+- [x] Turn order is enforced by the runtime.
+- [x] Invalid agent-stage combinations are rejected or flagged.
 
 ### V1-M3. Role Permission Manager
 
@@ -149,7 +150,7 @@ Acceptance:
 
 Status:
 
-- [ ] Planned
+- [x] Completed for V1 Phase 2
 
 Add explicit evidence handling:
 
@@ -160,15 +161,15 @@ Add explicit evidence handling:
 
 Acceptance:
 
-- [ ] Each evidence item has status and source.
-- [ ] Each challenge records party, reason, and affected claim IDs.
-- [ ] Disputed evidence raises review priority.
+- [x] Each evidence item has status and source.
+- [x] Each challenge records party, reason, and affected claim IDs.
+- [x] Disputed evidence raises review priority.
 
 ### V1-M5. Explicit Verification Agents
 
 Status:
 
-- [ ] Planned
+- [x] Completed for V1 Phase 2
 
 Promote current backend checks into visible transcript turns:
 
@@ -180,9 +181,9 @@ Promote current backend checks into visible transcript turns:
 
 Acceptance:
 
-- [ ] Verification results appear in transcript and report.
-- [ ] Invalid citation is rejected before report finalization.
-- [ ] Unsupported claims are visible to human reviewer.
+- [x] Verification results appear in transcript and V1 verification API response.
+- [x] Invalid/expired citation IDs are separated before V1 finalization.
+- [x] Unsupported claims are visible to human reviewer through `fact_check` and verification turns.
 
 ### V1-M6. Clarification Round
 
@@ -326,14 +327,18 @@ Goal:
 
 Tasks:
 
-- [ ] Add Evidence Agent.
-- [ ] Add evidence challenge round.
-- [ ] Add explicit Fact-check Agent turn.
-- [ ] Add explicit Citation Verifier Agent turn.
+- [x] Add Evidence Agent.
+- [x] Add evidence challenge round.
+- [x] Add explicit Fact-check Agent turn.
+- [x] Add explicit Citation Verifier Agent turn.
 
 Exit criteria:
 
-- [ ] Report and API expose evidence challenges and verification agent turns.
+- [x] API exposes evidence challenges and verification agent turns through dedicated V1 endpoints.
+
+Note:
+
+- Full V1 hearing-record rendering remains in V1 Phase 5 with the report/UI hooks.
 
 ### V1 Phase 3. Clarification Round
 

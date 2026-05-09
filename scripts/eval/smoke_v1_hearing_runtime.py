@@ -121,6 +121,29 @@ def main() -> None:
     persisted_response.raise_for_status()
     persisted = persisted_response.json()
 
+    challenges_response = client.get(f"/api/v1/cases/{case_id}/evidence/challenges")
+    challenges_response.raise_for_status()
+    challenges = challenges_response.json()
+
+    verification_response = client.get(f"/api/v1/cases/{case_id}/verification")
+    verification_response.raise_for_status()
+    verification = verification_response.json()
+
+    agents_by_stage = {
+        turn["hearing_stage"]: turn["agent"]
+        for turn in persisted["turns"]
+    }
+    assert agents_by_stage["evidence_presentation"] == "evidence_agent"
+    assert agents_by_stage["evidence_challenge"] == "evidence_agent"
+    assert agents_by_stage["fact_check"] == "fact_check_agent"
+    assert agents_by_stage["citation_verification"] == "citation_verifier_agent"
+    assert challenges["challenges"], "Expected at least one evidence challenge."
+    assert challenges["evidence_agent_turns"], "Expected evidence agent turns in challenge endpoint."
+    assert verification["fact_check"] is not None, "Expected fact-check result."
+    assert verification["citation_verification"] is not None, "Expected citation verification result."
+    assert len(verification["verification_turns"]) == 2, "Expected fact-check and citation verifier turns."
+    assert verification["tool_calls"], "Expected verification tool call trace."
+
     print("case_id:", case_id)
     print("session_id:", persisted["session_id"])
     print("current_stage:", persisted["current_stage"])
@@ -132,6 +155,8 @@ def main() -> None:
     print("challenge_count:", len(persisted["evidence_challenges"]))
     print("question_count:", len(persisted["clarification_questions"]))
     print("response_count:", len(persisted["party_responses"]))
+    print("verification_turn_count:", len(verification["verification_turns"]))
+    print("verification_tool_call_count:", len(verification["tool_calls"]))
     print("human_review_blocked:", persisted["human_review"]["blocked"])
 
 
