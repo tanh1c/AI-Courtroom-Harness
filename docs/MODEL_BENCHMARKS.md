@@ -51,6 +51,14 @@ Retest note: quality remains the best, but the free route showed intermittent `4
 Groq winner: `qwen/qwen3-32b`
 Retest note: this model remained stable on both provider smoke and courtroom simulation retests.
 
+## 9Router
+
+| Model | Provider smoke | Simulation quality | Latency | Notes |
+| --- | --- | --- | --- | --- |
+| `cx/gpt-5.2` | Pass | Strong | ~47.9s simulation | Good courtroom tone, balanced plaintiff/defense reasoning, and detailed judge/report summaries. Slower than Groq and not part of the default MVP fallback chain. |
+
+9Router winner: `cx/gpt-5.2`
+
 ## Ollama Cloud
 
 | Model | Provider smoke | Simulation quality | Latency | Notes |
@@ -68,17 +76,20 @@ Why:
 - fewer obvious reasoning drifts than the other free models tested
 
 Best Groq option: `qwen/qwen3-32b`
+Best 9Router option tested: `cx/gpt-5.2`
 
 MVP default pair:
 
 - OpenRouter: `inclusionai/ring-2.6-1t:free`
 - Groq: `qwen/qwen3-32b`
+- Optional explicit provider: `9router / cx/gpt-5.2`
 
 Operational note:
 
 - Use `ring` as the preferred OpenRouter model for quality.
 - Keep `qwen` on Groq as the most reliable alternate path when OpenRouter free capacity is rate-limited.
 - The current MVP fallback chain is `openrouter/ring -> groq/qwen -> heuristic`.
+- `9router / cx/gpt-5.2` is a strong local-gateway option when you explicitly want to route through your own 9Router instance.
 
 Best Ollama Cloud status on the tested key: no usable benchmark yet because the requested model requires a subscription tier that the tested key does not currently have.
 
@@ -104,6 +115,14 @@ Groq:
 ```powershell
 $env:AI_COURT_LLM_PROVIDER="groq"
 $env:GROQ_MODEL="qwen/qwen3-32b"
+```
+
+9Router:
+
+```powershell
+$env:AI_COURT_LLM_PROVIDER="9router"
+$env:NINEROUTER_URL="http://localhost:20128"
+$env:NINEROUTER_MODEL="cx/gpt-5.2"
 ```
 
 Ollama Cloud:

@@ -167,6 +167,15 @@ $env:GROQ_API_KEY="your_key_here"
 $env:GROQ_MODEL="qwen/qwen3-32b"
 ```
 
+9Router setup:
+
+```powershell
+$env:AI_COURT_LLM_PROVIDER="9router"
+$env:NINEROUTER_URL="http://localhost:20128"
+$env:NINEROUTER_KEY="your_key_here"
+$env:NINEROUTER_MODEL="cx/gpt-5.2"
+```
+
 Ollama Cloud setup:
 
 ```powershell
@@ -215,6 +224,7 @@ Benchmark notes and recommended models:
 - MVP default pair:
   - OpenRouter: `inclusionai/ring-2.6-1t:free`
   - Groq: `qwen/qwen3-32b`
+  - Optional explicit provider: `9router / cx/gpt-5.2`
 
 ## Phase 4 Safety Check
 

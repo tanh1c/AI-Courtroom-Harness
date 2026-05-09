@@ -57,6 +57,12 @@ class CourtroomLlmService:
             "https://api.groq.com/openai/v1",
         ).rstrip("/")
         self.groq_model = os.getenv("GROQ_MODEL", "qwen/qwen3-32b").strip()
+        self.ninerouter_api_key = os.getenv("NINEROUTER_KEY", "").strip()
+        self.ninerouter_base_url = os.getenv(
+            "NINEROUTER_URL",
+            "http://localhost:20128",
+        ).rstrip("/")
+        self.ninerouter_model = os.getenv("NINEROUTER_MODEL", "cx/gpt-5.2").strip()
         self.ollama_api_key = os.getenv("OLLAMA_API_KEY", "").strip()
         self.ollama_host = os.getenv("OLLAMA_HOST", "https://ollama.com").rstrip("/")
         self.ollama_model = os.getenv("OLLAMA_MODEL", "deepseek-v4-flash:cloud").strip()
@@ -89,6 +95,8 @@ class CourtroomLlmService:
             return bool(self.openrouter_api_key)
         if provider == "groq":
             return bool(self.groq_api_key)
+        if provider == "9router":
+            return bool(self.ninerouter_api_key) and bool(self.ninerouter_base_url)
         if provider == "ollama":
             return bool(self.ollama_api_key)
         return False
@@ -98,6 +106,8 @@ class CourtroomLlmService:
             return f"openrouter:{self.openrouter_model}"
         if provider == "groq":
             return f"groq:{self.groq_model}"
+        if provider == "9router":
+            return f"9router:{self.ninerouter_model}"
         if provider == "ollama":
             return f"ollama:{self.ollama_model}"
         return "heuristic"
@@ -181,6 +191,14 @@ class CourtroomLlmService:
                 base_url=self.groq_base_url,
                 api_key=self.groq_api_key,
                 model=self.groq_model,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+            )
+        if provider == "9router":
+            return self._request_chat_completion(
+                base_url=f"{self.ninerouter_base_url}/v1",
+                api_key=self.ninerouter_api_key,
+                model=self.ninerouter_model,
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
             )

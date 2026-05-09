@@ -36,6 +36,8 @@ def main() -> None:
         print("configured_model:", os.getenv("OPENROUTER_MODEL", "inclusionai/ring-2.6-1t:free"))
     elif service.provider == "groq":
         print("configured_model:", os.getenv("GROQ_MODEL", "qwen/qwen3-32b"))
+    elif service.provider == "9router":
+        print("configured_model:", os.getenv("NINEROUTER_MODEL", "cx/gpt-5.2"))
     elif service.provider == "ollama":
         print("configured_model:", os.getenv("OLLAMA_MODEL", "deepseek-v4-flash:cloud"))
     print("message:", payload.get("message"))
