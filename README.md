@@ -28,6 +28,18 @@ Backend and harness scope are largely complete for the original MVP plan.
 
 Strictly against `IMPLEMENTATION_PLAN.md`, the repo is **not fully finished** because the UI lane is still open and `Milestone F` remains unchecked. But if you exclude UI, the backend MVP and agent-harness path are already in a usable demo state.
 
+## Architecture Preview
+
+Mermaid source for the current MVP architecture lives in:
+
+- `docs/architecture/MVP_ARCHITECTURE.md`
+
+GitHub image placeholder for a rendered diagram:
+
+![Current MVP Architecture](docs/architecture/assets/mvp-architecture.png)
+
+If the image does not exist yet, render the Mermaid diagram and place the exported PNG at `docs/architecture/assets/mvp-architecture.png`.
+
 ## What The Harness Does
 
 This repo is built as an **agent harness**, not as a free-form legal chatbot.
@@ -57,6 +69,18 @@ case input
 -> markdown report
 -> HTML preview
 ```
+
+## MVP Architecture In Plain Terms
+
+The current repo is organized into four backend planes plus one pending UI lane:
+
+- `Intake plane`: ingest case text and attachments, parse them into facts, evidence, and legal issues, then persist state in SQLite plus JSON snapshots
+- `Retrieval plane`: combine BM25 local legal search with optional remote vector search from Colab
+- `Runtime plane`: run a role-constrained courtroom flow through plaintiff, defense, judge, and clerk
+- `Verification plane`: reject unsupported claims, flag bad citations, record audit events, and block risky cases behind human review
+- `Reporting plane`: export markdown and render a formal HTML preview for demo use
+
+The only major MVP lane still pending is the real frontend in `apps/web`.
 
 ## Agent Harness Tech
 
