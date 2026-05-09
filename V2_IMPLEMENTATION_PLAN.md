@@ -7,7 +7,7 @@ V2 starts after the backend MVP and V1 procedural harness are stable. The goal i
 - [ ] V2 Phase 0 trial-flow contracts are defined.
 - [ ] V2 Phase 1 full trial procedure runtime is implemented.
 - [ ] V2 Phase 2 courtroom dialogue layer is implemented.
-- [ ] V2 Phase 3 deliberation and verdict guard is implemented.
+- [ ] V2 Phase 3 deliberation and simulation-safe verdict guard is implemented.
 - [ ] V2 Phase 4 formal trial record and simulated outcome export are implemented.
 - [ ] V2 Phase 5 evaluation, demo fixtures, and UI hooks are implemented.
 
@@ -31,7 +31,7 @@ Prepare case
 -> Clerk closes the record
 ```
 
-The system may produce a **simulated non-binding decision** only when evidence, citations, and human-review gates allow it. Otherwise, it must end with `requires_more_evidence`, `adjourned_for_review`, or `no_simulated_decision`.
+The system may produce a **simulated non-binding decision** at the end of the demo flow. Human review is optional in V2 demo mode: unresolved evidence, weak citations, or risky claims should not block the transcript, but they must be surfaced in the risk notes, reviewer checklist, and simulated outcome rationale.
 
 ## 2. Product Boundary
 
@@ -43,7 +43,7 @@ The system may produce a **simulated non-binding decision** only when evidence, 
 - Courtroom procedure stages, not only backend harness stages.
 - Evidence examination and party rebuttal rounds.
 - Deliberation summary with strict grounding.
-- Simulated outcome guarded by evidence and citation checks.
+- Simulated outcome guarded by evidence and citation checks, with optional human review notes.
 - HTML and Markdown exports that resemble court minutes.
 
 ### Out Of Scope
@@ -146,24 +146,26 @@ Create a guarded deliberation layer:
 - Summarize established facts.
 - Separate disputed and unproven facts.
 - Map claims to evidence and citations.
-- Decide whether a simulated outcome is allowed.
+- Decide whether the simulated outcome should be confident, limited, or explicitly risky.
 - Block official judgment language.
+- Allow demo-mode continuation even when human review is still recommended.
 
 Allowed outcome types:
 
 - `simulated_plaintiff_favored`
 - `simulated_defense_favored`
 - `simulated_partial_relief`
+- `simulated_risky_requires_review`
 - `adjourned_for_review`
 - `requires_more_evidence`
 - `no_simulated_decision`
 
 Acceptance:
 
-- [ ] A simulated decision is generated only when guard checks pass.
-- [ ] If facts are unresolved, the output says why no decision is reached.
+- [ ] A simulated decision can be generated in demo mode even when human review is recommended.
+- [ ] If facts are unresolved, the output labels the decision as risky or limited and explains why.
 - [ ] The system never uses official wording like "the court orders".
-- [ ] Human review can approve, revise, or block the decision.
+- [ ] Human review can be enabled later to approve, revise, or block the decision.
 
 ### V2-M6. Formal Trial Record Export
 
@@ -178,7 +180,7 @@ Upgrade Markdown and HTML exports into a full trial-style record:
 - Verification findings.
 - Deliberation summary.
 - Simulated decision or no-decision result.
-- Human review checklist.
+- Optional human review checklist and risk notes.
 - Legal disclaimer.
 
 Acceptance:
@@ -229,9 +231,9 @@ Acceptance:
 ### Phase 3. Deliberation And Simulated Decision
 
 - [ ] Implement deliberation record.
-- [ ] Implement decision guard.
+- [ ] Implement demo-mode decision guard.
 - [ ] Add simulated outcome generation.
-- [ ] Add no-decision and adjournment paths.
+- [ ] Add risky-decision, no-decision, and adjournment paths.
 
 ### Phase 4. Formal Export
 
@@ -246,6 +248,7 @@ Acceptance:
 - [ ] Add three stable demo cases.
 - [ ] Add API endpoints for frontend timeline/transcript rendering.
 - [ ] Write frontend handoff notes for trial transcript UI.
+- [ ] Add a config flag for `human_review_mode`: `optional`, `required`, or `off`.
 
 ## 5. Demo-Ready Definition
 
@@ -258,6 +261,5 @@ V2 is demo-ready when one command can produce a complete record with:
 - Debate, rebuttal, and final statements.
 - Deliberation summary.
 - Simulated decision or explicit no-decision outcome.
-- Human review status.
+- Optional human review status, checklist, and risk notes.
 - Formal Markdown and HTML exports.
-
