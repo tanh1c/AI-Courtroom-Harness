@@ -184,6 +184,17 @@ If `AI_COURT_LLM_PROVIDER` is left as `auto`, the runtime currently prefers Open
 Cloud when `OLLAMA_API_KEY` is present, and otherwise
 falls back to the deterministic heuristic path.
 
+Recommended MVP fallback chain:
+
+```text
+primary:   openrouter / inclusionai/ring-2.6-1t:free
+fallback:  groq / qwen/qwen3-32b
+final:     heuristic
+```
+
+The provider layer now retries the Groq fallback automatically when the preferred OpenRouter route
+fails, for example because of `429` rate limiting on the free tier.
+
 Optional model override:
 
 ```powershell

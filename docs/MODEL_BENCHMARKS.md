@@ -78,6 +78,7 @@ Operational note:
 
 - Use `ring` as the preferred OpenRouter model for quality.
 - Keep `qwen` on Groq as the most reliable alternate path when OpenRouter free capacity is rate-limited.
+- The current MVP fallback chain is `openrouter/ring -> groq/qwen -> heuristic`.
 
 Best Ollama Cloud status on the tested key: no usable benchmark yet because the requested model requires a subscription tier that the tested key does not currently have.
 

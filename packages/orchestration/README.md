@@ -14,3 +14,9 @@ The runtime is still schema-first and retrieval-grounded. When `AI_COURT_LLM_PRO
 `openrouter`, `groq`, or `ollama`, the package upgrades role messages and summaries with a live provider-backed model.
 In `auto` mode, it prefers OpenRouter when that key is available, otherwise Groq, otherwise Ollama Cloud.
 If the provider is missing, rate-limited, or unavailable, it falls back to the deterministic heuristic path.
+
+The recommended MVP chain is:
+
+- primary: `openrouter / inclusionai/ring-2.6-1t:free`
+- fallback: `groq / qwen/qwen3-32b`
+- final: heuristic runtime text
