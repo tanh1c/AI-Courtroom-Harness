@@ -167,6 +167,18 @@ $env:GROQ_API_KEY="your_key_here"
 $env:GROQ_MODEL="qwen/qwen3-32b"
 ```
 
+NVIDIA NIM setup:
+
+```powershell
+$env:AI_COURT_LLM_PROVIDER="nvidia"
+$env:NVIDIA_API_KEY="your_key_here"
+$env:NVIDIA_MODEL="z-ai/glm4.7"
+```
+
+The NVIDIA integration uses the official OpenAI-compatible client against
+`https://integrate.api.nvidia.com/v1`. The current repo path uses non-streaming JSON responses
+because the courtroom runtime expects strict structured JSON at each agent step.
+
 9Router setup:
 
 ```powershell
@@ -189,9 +201,11 @@ returned `403 requires a subscription` on the provided key, so the runtime falls
 path instead of failing the whole simulation.
 
 If `AI_COURT_LLM_PROVIDER` is left as `auto`, the runtime currently prefers OpenRouter when
-`OPENROUTER_API_KEY` is present, otherwise Groq when `GROQ_API_KEY` is present, otherwise Ollama
-Cloud when `OLLAMA_API_KEY` is present, and otherwise
+`OPENROUTER_API_KEY` is present, otherwise Groq when `GROQ_API_KEY` is present, and otherwise
 falls back to the deterministic heuristic path.
+
+`nvidia`, `9router`, and `ollama` are supported as explicit providers, but they are not part of
+the default MVP auto-chain.
 
 Recommended MVP fallback chain:
 
@@ -224,6 +238,7 @@ Benchmark notes and recommended models:
 - MVP default pair:
   - OpenRouter: `inclusionai/ring-2.6-1t:free`
   - Groq: `qwen/qwen3-32b`
+  - Optional detailed-but-slower provider: `nvidia / z-ai/glm4.7`
   - Optional explicit provider: `9router / cx/gpt-5.2`
 
 ## Phase 4 Safety Check

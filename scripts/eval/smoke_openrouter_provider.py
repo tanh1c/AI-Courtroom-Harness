@@ -17,7 +17,8 @@ def main() -> None:
     service = get_courtroom_llm_service()
     if not service.is_enabled():
         raise SystemExit(
-            "No provider is enabled. Set OPENROUTER_API_KEY or GROQ_API_KEY, or explicitly set AI_COURT_LLM_PROVIDER."
+            "No provider is enabled. Set OPENROUTER_API_KEY, GROQ_API_KEY, NVIDIA_API_KEY, "
+            "NINEROUTER_KEY, or OLLAMA_API_KEY, or explicitly set AI_COURT_LLM_PROVIDER."
         )
 
     payload = service.generate_json(
@@ -36,6 +37,8 @@ def main() -> None:
         print("configured_model:", os.getenv("OPENROUTER_MODEL", "inclusionai/ring-2.6-1t:free"))
     elif service.provider == "groq":
         print("configured_model:", os.getenv("GROQ_MODEL", "qwen/qwen3-32b"))
+    elif service.provider == "nvidia":
+        print("configured_model:", os.getenv("NVIDIA_MODEL", "z-ai/glm4.7"))
     elif service.provider == "9router":
         print("configured_model:", os.getenv("NINEROUTER_MODEL", "cx/gpt-5.2"))
     elif service.provider == "ollama":

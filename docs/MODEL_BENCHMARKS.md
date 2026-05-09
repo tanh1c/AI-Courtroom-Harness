@@ -59,6 +59,14 @@ Retest note: this model remained stable on both provider smoke and courtroom sim
 
 9Router winner: `cx/gpt-5.2`
 
+## NVIDIA NIM
+
+| Model | Provider smoke | Simulation quality | Latency | Notes |
+| --- | --- | --- | --- | --- |
+| `z-ai/glm4.7` | Pass | Strongest detail | ~185.3s simulation | Best factual detail and the strongest judge questions in this round. Role consistency was good, but latency was far too high for routine MVP demos. |
+
+NVIDIA winner tested: `z-ai/glm4.7`
+
 ## Ollama Cloud
 
 | Model | Provider smoke | Simulation quality | Latency | Notes |
@@ -67,7 +75,15 @@ Retest note: this model remained stable on both provider smoke and courtroom sim
 
 ## Final Recommendation
 
-Overall winner for the current MVP: `inclusionai/ring-2.6-1t:free` on OpenRouter
+Latest direct retest on the same simulation flow:
+
+| Provider | Model | Result | Latency | Notes |
+| --- | --- | --- | --- | --- |
+| OpenRouter | `inclusionai/ring-2.6-1t:free` | Pass | ~5.6s | Concise and clean. Best speed-to-quality result in the latest direct side-by-side run, but OpenRouter free still has intermittent `429` risk. |
+| Groq | `qwen/qwen3-32b` | Pass | ~6.1s | Very fast and stable. Good overall, but the defense turn still showed a small role-drift issue in the latest retest. |
+| NVIDIA NIM | `z-ai/glm4.7` | Pass | ~185.3s | Most detailed and legally specific output in the latest retest, but much too slow for the default MVP lane. |
+
+Best quality when available: `inclusionai/ring-2.6-1t:free` on OpenRouter
 
 Why:
 
@@ -77,17 +93,20 @@ Why:
 
 Best Groq option: `qwen/qwen3-32b`
 Best 9Router option tested: `cx/gpt-5.2`
+Best NVIDIA option tested: `z-ai/glm4.7`
 
 MVP default pair:
 
 - OpenRouter: `inclusionai/ring-2.6-1t:free`
 - Groq: `qwen/qwen3-32b`
+- Optional detailed-but-slower provider: `nvidia / z-ai/glm4.7`
 - Optional explicit provider: `9router / cx/gpt-5.2`
 
 Operational note:
 
 - Use `ring` as the preferred OpenRouter model for quality.
 - Keep `qwen` on Groq as the most reliable alternate path when OpenRouter free capacity is rate-limited.
+- Use `z-ai/glm4.7` on NVIDIA only when you explicitly want richer courtroom phrasing and are willing to trade about three minutes of latency for it.
 - The current MVP fallback chain is `openrouter/ring -> groq/qwen -> heuristic`.
 - `9router / cx/gpt-5.2` is a strong local-gateway option when you explicitly want to route through your own 9Router instance.
 
@@ -95,6 +114,7 @@ Direct comparison summary:
 
 - `openrouter/ring`: best quality when available, but free-tier availability is the least stable.
 - `groq/qwen`: best stability-to-speed tradeoff for everyday MVP runs.
+- `nvidia/z-ai-glm4.7`: richest and most legally specific output in the latest retest, but much too slow to replace the default MVP pair.
 - `9router/cx-gpt-5.2`: strong courtroom reasoning and summaries, but noticeably slower than `groq/qwen`.
 
 Best Ollama Cloud status on the tested key: no usable benchmark yet because the requested model requires a subscription tier that the tested key does not currently have.
@@ -121,6 +141,13 @@ Groq:
 ```powershell
 $env:AI_COURT_LLM_PROVIDER="groq"
 $env:GROQ_MODEL="qwen/qwen3-32b"
+```
+
+NVIDIA NIM:
+
+```powershell
+$env:AI_COURT_LLM_PROVIDER="nvidia"
+$env:NVIDIA_MODEL="z-ai/glm4.7"
 ```
 
 9Router:

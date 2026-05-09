@@ -63,6 +63,12 @@ class CourtroomLlmService:
             "http://localhost:20128",
         ).rstrip("/")
         self.ninerouter_model = os.getenv("NINEROUTER_MODEL", "cx/gpt-5.2").strip()
+        self.nvidia_api_key = os.getenv("NVIDIA_API_KEY", "").strip()
+        self.nvidia_base_url = os.getenv(
+            "NVIDIA_BASE_URL",
+            "https://integrate.api.nvidia.com/v1",
+        ).rstrip("/")
+        self.nvidia_model = os.getenv("NVIDIA_MODEL", "z-ai/glm4.7").strip()
         self.ollama_api_key = os.getenv("OLLAMA_API_KEY", "").strip()
         self.ollama_host = os.getenv("OLLAMA_HOST", "https://ollama.com").rstrip("/")
         self.ollama_model = os.getenv("OLLAMA_MODEL", "deepseek-v4-flash:cloud").strip()
@@ -82,6 +88,10 @@ class CourtroomLlmService:
             return f"openrouter:{self.openrouter_model}"
         if self.provider == "groq" and self._provider_available("groq"):
             return f"groq:{self.groq_model}"
+        if self.provider == "9router" and self._provider_available("9router"):
+            return f"9router:{self.ninerouter_model}"
+        if self.provider == "nvidia" and self._provider_available("nvidia"):
+            return f"nvidia:{self.nvidia_model}"
         if self.provider == "ollama" and self._provider_available("ollama"):
             return f"ollama:{self.ollama_model}"
         if self.provider == "auto":
@@ -97,6 +107,8 @@ class CourtroomLlmService:
             return bool(self.groq_api_key)
         if provider == "9router":
             return bool(self.ninerouter_api_key) and bool(self.ninerouter_base_url)
+        if provider == "nvidia":
+            return bool(self.nvidia_api_key)
         if provider == "ollama":
             return bool(self.ollama_api_key)
         return False
@@ -108,6 +120,8 @@ class CourtroomLlmService:
             return f"groq:{self.groq_model}"
         if provider == "9router":
             return f"9router:{self.ninerouter_model}"
+        if provider == "nvidia":
+            return f"nvidia:{self.nvidia_model}"
         if provider == "ollama":
             return f"ollama:{self.ollama_model}"
         return "heuristic"
@@ -202,6 +216,30 @@ class CourtroomLlmService:
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
             )
+        if provider == "nvidia":
+            from openai import OpenAI
+
+            client = OpenAI(
+                base_url=self.nvidia_base_url,
+                api_key=self.nvidia_api_key,
+            )
+            completion = client.chat.completions.create(
+                model=self.nvidia_model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.2,
+                top_p=1,
+                max_tokens=4096,
+                extra_body={
+                    "chat_template_kwargs": {
+                        "enable_thinking": True,
+                        "clear_thinking": False,
+                    }
+                },
+            )
+            return completion.model_dump()
         if provider == "ollama":
             from ollama import Client
 
