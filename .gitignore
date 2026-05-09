@@ -18,6 +18,8 @@ dist/
 Thumbs.db
 .idea/
 .vscode/
+.env
+.env.local
 
 # Data artifacts
 data/raw/

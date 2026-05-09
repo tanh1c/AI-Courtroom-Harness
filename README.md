@@ -151,6 +151,16 @@ This drives `create -> upload attachment -> parse -> simulate -> report` through
 The courtroom runtime now supports a provider abstraction for text generation in the
 `plaintiff`, `defense`, `judge`, and `clerk` stages while preserving heuristic fallback.
 
+Persistent local provider config:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\setup\configure_provider_cli.py
+```
+
+This menu stores provider settings in repo-local `.env.local`, which is ignored by git.
+The runtime automatically loads `.env.local` before reading provider variables, so you no longer
+need to re-enter `$env:...` values in every new PowerShell window.
+
 OpenRouter setup:
 
 ```powershell
