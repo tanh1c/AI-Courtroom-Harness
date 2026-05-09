@@ -1,30 +1,101 @@
 # AI Courtroom Harness
 
-Phase 0 foundation plus early Phase 1 and Phase 2 baselines for `AI Courtroom Harness`.
+`AI Courtroom Harness` is a Vietnamese legal decision-support and courtroom-simulation MVP.
 
-The goal of this skeleton is to lock down:
+This repo is no longer just a Phase 0 skeleton. It now includes:
 
-- Repo structure
-- Shared domain contracts
-- Mock fixtures
-- Minimal API shape
-- A local retrieval baseline for legal search
-- A CPU-friendly case intake and parsing baseline
+- structured case intake and evidence extraction
+- legal retrieval with BM25 + optional remote vector fusion
+- a multi-agent courtroom runtime
+- verification and human review gates
+- markdown + HTML report export
+- a scripted demo flow that runs end-to-end without a separate frontend
 
-so frontend, backend, retrieval, and orchestration can be developed in parallel.
+The current MVP focus is narrow by design:
+
+- one case family: `civil_contract_dispute`
+- harness-first runtime instead of a generic chatbot
+- evidence-grounded and citation-aware outputs
+- human review before final export
+
+## MVP Status
+
+Backend and harness scope are largely complete for the original MVP plan.
+
+- Done: shared contracts, retrieval baseline, case intake, simulation runtime, verification, review gate, report export, provider abstraction, scripted demo flow
+- Not done: the real frontend workspace in `apps/web`
+- Still optional: PDF export and broader product polish
+
+Strictly against `IMPLEMENTATION_PLAN.md`, the repo is **not fully finished** because the UI lane is still open and `Milestone F` remains unchecked. But if you exclude UI, the backend MVP and agent-harness path are already in a usable demo state.
+
+## What The Harness Does
+
+This repo is built as an **agent harness**, not as a free-form legal chatbot.
+
+The harness enforces:
+
+- fixed agent roles: retrieval, plaintiff, defense, judge, clerk
+- structured claims, evidence links, and citation links
+- verification after simulation, not just raw generation
+- human review before final `report_ready`
+
+That means the system does not simply answer a prompt. It moves a case through a controlled pipeline where each stage leaves inspectable artifacts.
+
+## Courtroom Flow
+
+```text
+case input
+-> attachment parsing
+-> facts + evidence + legal issues
+-> legal retrieval
+-> plaintiff turn
+-> defense turn
+-> judge summary
+-> clerk report draft
+-> verification + audit trail
+-> human review gate
+-> markdown report
+-> HTML preview
+```
+
+## Agent Harness Tech
+
+- `FastAPI`: API surface and local backend runtime
+- `Pydantic`: source-of-truth schemas for contracts and state
+- `LangGraph`: linear multi-agent courtroom orchestration
+- `BM25 + remote vector fusion`: legal retrieval baseline
+- `SQLite + JSON snapshots`: local persistence for cases and reports
+- `Verification layer`: unsupported-claim checks, citation verification, contradiction flags, review gating
+- `Provider abstraction`: OpenRouter, Groq, NVIDIA NIM, 9Router, Ollama Cloud, plus heuristic fallback
+
+## What Gets Generated
+
+For each case, the runtime produces structured artifacts rather than only prose:
+
+- `facts`
+- `evidence`
+- `legal_issues`
+- `claims`
+- `citations`
+- `agent_turns`
+- `judge_summary`
+- `trial_minutes`
+- `audit_trail`
+- `human_review`
+- `final_report`
 
 ## Workspace Layout
 
 ```text
 apps/
-  api/         FastAPI mock API for Phase 0
-  web/         frontend workspace placeholder
+  api/         FastAPI backend for intake, simulation, verification, and reports
+  web/         frontend workspace placeholder, still not implemented
 packages/
   shared/      shared schemas and fixtures
-  retrieval/   retrieval baseline, seed corpus, and ingest helpers
-  orchestration/ orchestration module placeholder
-  verification/ verification module placeholder
-  reporting/   reporting module placeholder
+  retrieval/   retrieval baseline, corpus resources, vector bridge, and ingest helpers
+  orchestration/ LangGraph runtime and provider-aware agent generation
+  verification/ harness checks, audit trail, and human review gating
+  reporting/   markdown and HTML report rendering
 data/
   raw/
   processed/
@@ -38,6 +109,15 @@ docs/
   prompts/
   eval/
 ```
+
+## Core Packages
+
+- `packages/shared/python/ai_court_shared/schemas.py`: canonical domain schema layer
+- `packages/retrieval/python/ai_court_retrieval/service.py`: BM25 + remote vector hybrid retrieval
+- `packages/orchestration/python/ai_court_orchestration/service.py`: courtroom graph runtime
+- `packages/orchestration/python/ai_court_orchestration/llm.py`: provider abstraction and fallback chain
+- `packages/verification/python/ai_court_verification/service.py`: safety and review controls
+- `packages/reporting/python/ai_court_reporting/service.py`: markdown + HTML report rendering
 
 ## FastAPI Endpoints
 
