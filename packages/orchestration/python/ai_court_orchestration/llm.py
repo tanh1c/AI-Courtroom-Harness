@@ -17,11 +17,17 @@ def _extract_json_object(raw_text: str) -> dict:
             lines = lines[:-1]
         text = "\n".join(lines).strip()
 
-    start = text.find("{")
-    end = text.rfind("}")
-    if start == -1 or end == -1 or end < start:
-        raise ValueError("Model response did not contain a JSON object.")
-    return json.loads(text[start : end + 1])
+    decoder = json.JSONDecoder()
+    for index, character in enumerate(text):
+        if character != "{":
+            continue
+        try:
+            payload, _ = decoder.raw_decode(text[index:])
+            if isinstance(payload, dict):
+                return payload
+        except json.JSONDecodeError:
+            continue
+    raise ValueError("Model response did not contain a valid JSON object.")
 
 
 class CourtroomLlmService:
@@ -36,34 +42,51 @@ class CourtroomLlmService:
         self.openrouter_model = os.getenv("OPENROUTER_MODEL", "openrouter/free").strip()
         self.http_referer = os.getenv("OPENROUTER_HTTP_REFERER", "").strip()
         self.x_title = os.getenv("OPENROUTER_X_TITLE", "AI Courtroom Harness").strip()
+        self.groq_api_key = os.getenv("GROQ_API_KEY", "").strip()
+        self.groq_base_url = os.getenv(
+            "GROQ_BASE_URL",
+            "https://api.groq.com/openai/v1",
+        ).rstrip("/")
+        self.groq_model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant").strip()
         if configured_provider == "auto":
-            self.provider = "openrouter" if self.openrouter_api_key else "heuristic"
+            if self.openrouter_api_key:
+                self.provider = "openrouter"
+            elif self.groq_api_key:
+                self.provider = "groq"
+            else:
+                self.provider = "heuristic"
         else:
             self.provider = configured_provider
 
     def is_enabled(self) -> bool:
-        return self.provider == "openrouter" and bool(self.openrouter_api_key)
+        if self.provider == "openrouter":
+            return bool(self.openrouter_api_key)
+        if self.provider == "groq":
+            return bool(self.groq_api_key)
+        return False
 
     def provider_label(self) -> str:
-        if self.is_enabled():
+        if self.provider == "openrouter" and self.is_enabled():
             return f"openrouter:{self.openrouter_model}"
+        if self.provider == "groq" and self.is_enabled():
+            return f"groq:{self.groq_model}"
         return "heuristic"
 
-    def generate_json(self, system_prompt: str, user_prompt: str) -> dict:
-        if not self.is_enabled():
-            raise RuntimeError("OpenRouter provider is not enabled.")
-
-        headers = {
-            "Authorization": f"Bearer {self.openrouter_api_key}",
-            "Content-Type": "application/json",
-        }
-        if self.http_referer:
-            headers["HTTP-Referer"] = self.http_referer
-        if self.x_title:
-            headers["X-Title"] = self.x_title
-
+    def _request_chat_completion(
+        self,
+        *,
+        base_url: str,
+        api_key: str,
+        model: str,
+        system_prompt: str,
+        user_prompt: str,
+        extra_headers: dict[str, str] | None = None,
+    ) -> dict:
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        if extra_headers:
+            headers.update(extra_headers)
         payload = {
-            "model": self.openrouter_model,
+            "model": model,
             "temperature": 0.2,
             "messages": [
                 {"role": "system", "content": system_prompt},
@@ -73,12 +96,42 @@ class CourtroomLlmService:
 
         with httpx.Client(timeout=self.timeout_seconds) as client:
             response = client.post(
-                f"{self.openrouter_base_url}/chat/completions",
+                f"{base_url}/chat/completions",
                 headers=headers,
                 json=payload,
             )
             response.raise_for_status()
             data = response.json()
+        return data
+
+    def generate_json(self, system_prompt: str, user_prompt: str) -> dict:
+        if not self.is_enabled():
+            raise RuntimeError("No LLM provider is enabled.")
+
+        if self.provider == "openrouter":
+            extra_headers: dict[str, str] = {}
+            if self.http_referer:
+                extra_headers["HTTP-Referer"] = self.http_referer
+            if self.x_title:
+                extra_headers["X-Title"] = self.x_title
+            data = self._request_chat_completion(
+                base_url=self.openrouter_base_url,
+                api_key=self.openrouter_api_key,
+                model=self.openrouter_model,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                extra_headers=extra_headers,
+            )
+        elif self.provider == "groq":
+            data = self._request_chat_completion(
+                base_url=self.groq_base_url,
+                api_key=self.groq_api_key,
+                model=self.groq_model,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+            )
+        else:
+            raise RuntimeError(f"Unsupported LLM provider: {self.provider}")
 
         content = data["choices"][0]["message"]["content"]
         if isinstance(content, list):
@@ -88,7 +141,7 @@ class CourtroomLlmService:
                     joined.append(item.get("text", ""))
             content = "\n".join(joined)
         if not isinstance(content, str):
-            raise ValueError("Unexpected OpenRouter response format.")
+            raise ValueError("Unexpected provider response format.")
         return _extract_json_object(content)
 
 

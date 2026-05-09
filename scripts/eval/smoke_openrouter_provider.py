@@ -17,7 +17,7 @@ def main() -> None:
     service = get_courtroom_llm_service()
     if not service.is_enabled():
         raise SystemExit(
-            "OpenRouter is not enabled. Set OPENROUTER_API_KEY first, or explicitly set AI_COURT_LLM_PROVIDER=openrouter."
+            "No provider is enabled. Set OPENROUTER_API_KEY or GROQ_API_KEY, or explicitly set AI_COURT_LLM_PROVIDER."
         )
 
     payload = service.generate_json(
@@ -32,7 +32,10 @@ def main() -> None:
         ),
     )
     print("provider:", service.provider_label())
-    print("configured_model:", os.getenv("OPENROUTER_MODEL", "openrouter/free"))
+    if service.provider == "openrouter":
+        print("configured_model:", os.getenv("OPENROUTER_MODEL", "openrouter/free"))
+    elif service.provider == "groq":
+        print("configured_model:", os.getenv("GROQ_MODEL", "llama-3.1-8b-instant"))
     print("message:", payload.get("message"))
     print("model_hint:", payload.get("model_hint"))
 

@@ -146,36 +146,48 @@ The Phase 3 simulation runtime is also CPU-only. Run:
 
 This drives `create -> upload attachment -> parse -> simulate -> report` through the FastAPI app and verifies that the LangGraph-based multi-agent flow produces structured claims, turns, minutes, and a final report.
 
-## OpenRouter Provider
+## LLM Providers
 
 The courtroom runtime now supports a provider abstraction for text generation in the
 `plaintiff`, `defense`, `judge`, and `clerk` stages while preserving heuristic fallback.
 
-Recommended local setup:
+OpenRouter setup:
 
 ```powershell
+$env:AI_COURT_LLM_PROVIDER="openrouter"
 $env:OPENROUTER_API_KEY="your_key_here"
-$env:OPENROUTER_MODEL="openrouter/free"
+$env:OPENROUTER_MODEL="inclusionai/ring-2.6-1t:free"
 ```
 
-If `OPENROUTER_API_KEY` is present, the runtime now auto-selects OpenRouter. Set
-`AI_COURT_LLM_PROVIDER="heuristic"` only if you want to force the old deterministic path.
+Groq setup:
+
+```powershell
+$env:AI_COURT_LLM_PROVIDER="groq"
+$env:GROQ_API_KEY="your_key_here"
+$env:GROQ_MODEL="qwen/qwen3-32b"
+```
+
+If `AI_COURT_LLM_PROVIDER` is left as `auto`, the runtime currently prefers OpenRouter when
+`OPENROUTER_API_KEY` is present, otherwise Groq when `GROQ_API_KEY` is present, and otherwise
+falls back to the deterministic heuristic path.
 
 Optional model override:
 
 ```powershell
-$env:OPENROUTER_MODEL="tencent/hy3-preview:free"
+$env:OPENROUTER_MODEL="tencent/hy3-preview"
 ```
 
-Use the explicit Tencent override only if it is still available on OpenRouter. The model page
-for `tencent/hy3-preview:free` currently says it is going away on May 8, 2026, so `openrouter/free`
-is the safer default for demos after that date.
+The runtime does not persist API keys. Keep them in the current shell only.
 
 Quick provider smoke:
 
 ```bash
 .\.venv\Scripts\python scripts/eval/smoke_openrouter_provider.py
 ```
+
+Benchmark notes and recommended models:
+
+- `docs/MODEL_BENCHMARKS.md`
 
 ## Phase 4 Safety Check
 
