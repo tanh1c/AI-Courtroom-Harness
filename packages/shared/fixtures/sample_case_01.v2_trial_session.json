@@ -1,0 +1,724 @@
+{
+  "session_id": "TRIAL_V2_001",
+  "case": {
+    "case_id": "CASE_001",
+    "title": "Tranh chấp hợp đồng mua bán xe máy",
+    "case_type": "civil_contract_dispute",
+    "attachment_parses": [],
+    "facts": [
+      {
+        "fact_id": "FACT_001",
+        "content": "Ngày 05/03/2026, ông B ký hợp đồng mua xe máy của ông A với giá 40.000.000 đồng.",
+        "source": "narrative",
+        "confidence": "high"
+      },
+      {
+        "fact_id": "FACT_002",
+        "content": "Ông B đã thanh toán trước 28.000.000 đồng, tương đương 70% giá trị hợp đồng.",
+        "source": "narrative",
+        "confidence": "high"
+      },
+      {
+        "fact_id": "FACT_003",
+        "content": "Hợp đồng ghi thời hạn giao xe là ngày 12/03/2026.",
+        "source": "attachment:ATT_001",
+        "confidence": "high"
+      },
+      {
+        "fact_id": "FACT_004",
+        "content": "Ông A chưa giao xe đúng thời hạn và cho rằng ông B phải thanh toán đủ 100% trước khi giao.",
+        "source": "narrative",
+        "confidence": "medium"
+      }
+    ],
+    "evidence": [
+      {
+        "evidence_id": "EVID_001",
+        "type": "contract",
+        "content": "Hợp đồng mua bán xe máy trị giá 40.000.000 đồng, thanh toán 70% khi ký và giao xe ngày 12/03/2026.",
+        "source": "attachment:ATT_001",
+        "status": "uncontested",
+        "used_by": [
+          "plaintiff_agent",
+          "defense_agent",
+          "judge_agent"
+        ],
+        "challenged_by": []
+      },
+      {
+        "evidence_id": "EVID_002",
+        "type": "payment_receipt",
+        "content": "Biên nhận hoặc sao kê thể hiện khoản thanh toán 28.000.000 đồng.",
+        "source": "narrative",
+        "status": "uncontested",
+        "used_by": [
+          "plaintiff_agent",
+          "judge_agent"
+        ],
+        "challenged_by": []
+      },
+      {
+        "evidence_id": "EVID_003",
+        "type": "message",
+        "content": "Tin nhắn thể hiện bên bán yêu cầu thanh toán đủ 100% trước khi giao xe.",
+        "source": "narrative",
+        "status": "disputed",
+        "used_by": [
+          "plaintiff_agent",
+          "defense_agent"
+        ],
+        "challenged_by": [
+          "defense_agent"
+        ]
+      }
+    ],
+    "legal_issues": [
+      {
+        "issue_id": "ISSUE_001",
+        "title": "Nghĩa vụ giao tài sản đúng hạn",
+        "description": "Xác định bên bán có vi phạm thời hạn giao xe theo hợp đồng hay không.",
+        "tags": [
+          "delivery",
+          "contract"
+        ]
+      },
+      {
+        "issue_id": "ISSUE_002",
+        "title": "Điều kiện thanh toán phần còn lại",
+        "description": "Làm rõ khoản thanh toán 30% còn lại có phải điều kiện giao xe hay không.",
+        "tags": [
+          "payment",
+          "condition"
+        ]
+      }
+    ],
+    "claims": [
+      {
+        "claim_id": "CLAIM_001",
+        "speaker": "plaintiff_agent",
+        "content": "Nguyên đơn cho rằng bị đơn vi phạm nghĩa vụ giao xe đúng hạn.",
+        "evidence_ids": [
+          "EVID_001",
+          "EVID_002"
+        ],
+        "citation_ids": [
+          "LAW_CHUNK_95942_528"
+        ],
+        "confidence": "high"
+      },
+      {
+        "claim_id": "CLAIM_002",
+        "speaker": "defense_agent",
+        "content": "Bị đơn yêu cầu làm rõ nghĩa vụ thanh toán 30% còn lại trước khi xác định vi phạm.",
+        "evidence_ids": [
+          "EVID_001",
+          "EVID_003"
+        ],
+        "citation_ids": [
+          "LAW_CHUNK_95942_410"
+        ],
+        "confidence": "medium"
+      }
+    ],
+    "citations": [
+      {
+        "citation_id": "LAW_CHUNK_95942_528",
+        "doc_id": "95942",
+        "title": "Dân sự",
+        "article": "Điều 434",
+        "clause": null,
+        "content": "Bên bán phải giao tài sản cho bên mua đúng thời hạn đã thoả thuận.",
+        "retrieval_score": 0.91,
+        "effective_status": "active",
+        "source": "vbpl.vn"
+      },
+      {
+        "citation_id": "LAW_CHUNK_95942_410",
+        "doc_id": "95942",
+        "title": "Dân sự",
+        "article": "Điều 332",
+        "clause": null,
+        "content": "Quyền đòi lại tài sản trong trường hợp bên mua không hoàn thành nghĩa vụ thanh toán.",
+        "retrieval_score": 0.74,
+        "effective_status": "active",
+        "source": "vbpl.vn"
+      }
+    ],
+    "agent_turns": [],
+    "status": "simulated"
+  },
+  "current_stage": "closing_record",
+  "stage_order": [
+    "case_preparation",
+    "opening_formalities",
+    "appearance_check",
+    "procedure_explanation",
+    "plaintiff_claim_statement",
+    "defense_response_statement",
+    "evidence_examination",
+    "judge_examination",
+    "plaintiff_debate",
+    "defense_rebuttal",
+    "final_statements",
+    "deliberation",
+    "simulated_decision",
+    "closing_record"
+  ],
+  "human_review_mode": "optional",
+  "appearances": [
+    {
+      "appearance_id": "APP_001",
+      "participant_role": "judge_agent",
+      "display_name": "Thẩm phán chủ tọa",
+      "status": "present",
+      "representative": null,
+      "notes": "Chủ trì phiên mô phỏng."
+    },
+    {
+      "appearance_id": "APP_002",
+      "participant_role": "clerk_agent",
+      "display_name": "Thư ký phiên tòa",
+      "status": "present",
+      "representative": null,
+      "notes": "Ghi nhận diễn biến phiên mô phỏng."
+    },
+    {
+      "appearance_id": "APP_003",
+      "participant_role": "plaintiff_agent",
+      "display_name": "Ông B - nguyên đơn",
+      "status": "present",
+      "representative": null,
+      "notes": "Yêu cầu giao xe hoặc hoàn trả tiền và bồi thường chi phí phát sinh."
+    },
+    {
+      "appearance_id": "APP_004",
+      "participant_role": "defense_agent",
+      "display_name": "Ông A - bị đơn",
+      "status": "present",
+      "representative": null,
+      "notes": "Không đồng ý kết luận vi phạm khi chưa làm rõ điều kiện thanh toán còn lại."
+    }
+  ],
+  "procedural_acts": [
+    {
+      "act_id": "PACT_001",
+      "trial_stage": "opening_formalities",
+      "actor": "clerk_agent",
+      "label": "Mở phiên",
+      "content": "Thư ký công bố mở phiên mô phỏng giải quyết tranh chấp hợp đồng mua bán xe máy.",
+      "required": true,
+      "completed": true,
+      "related_turn_ids": [
+        "TURN_001"
+      ]
+    },
+    {
+      "act_id": "PACT_002",
+      "trial_stage": "appearance_check",
+      "actor": "clerk_agent",
+      "label": "Kiểm tra sự có mặt",
+      "content": "Thư ký ghi nhận thẩm phán, nguyên đơn và bị đơn đều có mặt trong phiên mô phỏng.",
+      "required": true,
+      "completed": true,
+      "related_turn_ids": [
+        "TURN_002"
+      ]
+    },
+    {
+      "act_id": "PACT_003",
+      "trial_stage": "procedure_explanation",
+      "actor": "judge_agent",
+      "label": "Giải thích thủ tục",
+      "content": "Thẩm phán nêu phạm vi mô phỏng, trình tự trình bày, xét hỏi, tranh luận và kết quả không ràng buộc.",
+      "required": true,
+      "completed": true,
+      "related_turn_ids": [
+        "TURN_003"
+      ]
+    },
+    {
+      "act_id": "PACT_004",
+      "trial_stage": "deliberation",
+      "actor": "judge_agent",
+      "label": "Nghị án mô phỏng",
+      "content": "Thẩm phán tổng hợp các sự kiện đã được chứng minh, điểm còn tranh chấp và căn cứ pháp lý.",
+      "required": true,
+      "completed": true,
+      "related_turn_ids": [
+        "TURN_014"
+      ]
+    }
+  ],
+  "dialogue_turns": [
+    {
+      "turn_id": "TURN_001",
+      "trial_stage": "opening_formalities",
+      "speaker": "clerk_agent",
+      "speaker_label": "Thư ký",
+      "utterance": "Thư ký công bố mở phiên mô phỏng về tranh chấp hợp đồng mua bán xe máy giữa ông B và ông A.",
+      "claim_ids": [],
+      "evidence_ids": [],
+      "citation_ids": [],
+      "status": "ok",
+      "risk_notes": []
+    },
+    {
+      "turn_id": "TURN_002",
+      "trial_stage": "appearance_check",
+      "speaker": "clerk_agent",
+      "speaker_label": "Thư ký",
+      "utterance": "Các thành phần tham gia phiên mô phỏng đều có mặt; hồ sơ đã được chuẩn hóa và sẵn sàng xét hỏi.",
+      "claim_ids": [],
+      "evidence_ids": [],
+      "citation_ids": [],
+      "status": "ok",
+      "risk_notes": []
+    },
+    {
+      "turn_id": "TURN_003",
+      "trial_stage": "procedure_explanation",
+      "speaker": "judge_agent",
+      "speaker_label": "Thẩm phán",
+      "utterance": "Phiên này là mô phỏng không ràng buộc. Các bên lần lượt trình bày, đối đáp, kiểm tra chứng cứ, tranh luận và nghe kết quả mô phỏng.",
+      "claim_ids": [],
+      "evidence_ids": [],
+      "citation_ids": [],
+      "status": "ok",
+      "risk_notes": []
+    },
+    {
+      "turn_id": "TURN_004",
+      "trial_stage": "plaintiff_claim_statement",
+      "speaker": "plaintiff_agent",
+      "speaker_label": "Nguyên đơn",
+      "utterance": "Tôi đã thanh toán 28.000.000 đồng và hợp đồng ghi ngày giao xe là 12/03/2026, nhưng bị đơn chưa giao xe đúng hạn.",
+      "claim_ids": [
+        "CLAIM_001"
+      ],
+      "evidence_ids": [
+        "EVID_001",
+        "EVID_002"
+      ],
+      "citation_ids": [
+        "LAW_CHUNK_95942_528"
+      ],
+      "status": "ok",
+      "risk_notes": []
+    },
+    {
+      "turn_id": "TURN_005",
+      "trial_stage": "defense_response_statement",
+      "speaker": "defense_agent",
+      "speaker_label": "Bị đơn",
+      "utterance": "Tôi cho rằng cần làm rõ nghĩa vụ thanh toán 30% còn lại trước khi kết luận tôi vi phạm nghĩa vụ giao xe.",
+      "claim_ids": [
+        "CLAIM_002"
+      ],
+      "evidence_ids": [
+        "EVID_001",
+        "EVID_003"
+      ],
+      "citation_ids": [
+        "LAW_CHUNK_95942_410"
+      ],
+      "status": "needs_fact_check",
+      "risk_notes": [
+        "Tin nhắn về yêu cầu thanh toán đủ 100% vẫn đang bị tranh chấp."
+      ]
+    },
+    {
+      "turn_id": "TURN_006",
+      "trial_stage": "evidence_examination",
+      "speaker": "evidence_agent",
+      "speaker_label": "Bộ phận chứng cứ",
+      "utterance": "Hồ sơ có ba chứng cứ chính: hợp đồng, chứng từ thanh toán và tin nhắn về điều kiện giao xe.",
+      "claim_ids": [],
+      "evidence_ids": [
+        "EVID_001",
+        "EVID_002",
+        "EVID_003"
+      ],
+      "citation_ids": [],
+      "status": "needs_review",
+      "risk_notes": [
+        "EVID_003 cần kiểm tra thêm nguồn gốc."
+      ]
+    },
+    {
+      "turn_id": "TURN_007",
+      "trial_stage": "judge_examination",
+      "speaker": "judge_agent",
+      "speaker_label": "Thẩm phán",
+      "utterance": "Nguyên đơn cho biết căn cứ nào xác định thời hạn giao xe là độc lập với khoản thanh toán còn lại?",
+      "claim_ids": [
+        "CLAIM_001"
+      ],
+      "evidence_ids": [
+        "EVID_001"
+      ],
+      "citation_ids": [],
+      "status": "ok",
+      "risk_notes": []
+    },
+    {
+      "turn_id": "TURN_008",
+      "trial_stage": "judge_examination",
+      "speaker": "plaintiff_agent",
+      "speaker_label": "Nguyên đơn",
+      "utterance": "Hợp đồng ghi rõ ngày giao xe 12/03/2026 và không ghi việc phải thanh toán đủ 100% trước ngày đó.",
+      "claim_ids": [
+        "CLAIM_001"
+      ],
+      "evidence_ids": [
+        "EVID_001"
+      ],
+      "citation_ids": [
+        "LAW_CHUNK_95942_528"
+      ],
+      "status": "ok",
+      "risk_notes": []
+    },
+    {
+      "turn_id": "TURN_009",
+      "trial_stage": "judge_examination",
+      "speaker": "judge_agent",
+      "speaker_label": "Thẩm phán",
+      "utterance": "Bị đơn có chứng cứ nào thể hiện hai bên thỏa thuận thanh toán đủ trước khi giao xe không?",
+      "claim_ids": [
+        "CLAIM_002"
+      ],
+      "evidence_ids": [
+        "EVID_003"
+      ],
+      "citation_ids": [],
+      "status": "ok",
+      "risk_notes": []
+    },
+    {
+      "turn_id": "TURN_010",
+      "trial_stage": "judge_examination",
+      "speaker": "defense_agent",
+      "speaker_label": "Bị đơn",
+      "utterance": "Tôi dựa vào trao đổi giữa hai bên, nhưng thừa nhận cần đối chiếu thêm tính xác thực của tin nhắn.",
+      "claim_ids": [
+        "CLAIM_002"
+      ],
+      "evidence_ids": [
+        "EVID_003"
+      ],
+      "citation_ids": [],
+      "status": "needs_review",
+      "risk_notes": [
+        "Chưa có chứng cứ độc lập xác thực EVID_003."
+      ]
+    },
+    {
+      "turn_id": "TURN_011",
+      "trial_stage": "plaintiff_debate",
+      "speaker": "plaintiff_agent",
+      "speaker_label": "Nguyên đơn tranh luận",
+      "utterance": "Bị đơn đã nhận 70% giá trị hợp đồng và vẫn không giao xe đúng hạn; yêu cầu thanh toán đủ chỉ xuất hiện sau khi đến hạn giao xe.",
+      "claim_ids": [
+        "CLAIM_001"
+      ],
+      "evidence_ids": [
+        "EVID_001",
+        "EVID_002",
+        "EVID_003"
+      ],
+      "citation_ids": [
+        "LAW_CHUNK_95942_528"
+      ],
+      "status": "ok",
+      "risk_notes": [
+        "Một phần lập luận dựa trên EVID_003 đang tranh chấp."
+      ]
+    },
+    {
+      "turn_id": "TURN_012",
+      "trial_stage": "defense_rebuttal",
+      "speaker": "defense_agent",
+      "speaker_label": "Bị đơn đối đáp",
+      "utterance": "Tôi không phủ nhận hợp đồng và khoản tiền đã nhận, nhưng đề nghị không xem tin nhắn chưa xác thực là căn cứ duy nhất để kết luận lỗi.",
+      "claim_ids": [
+        "CLAIM_002"
+      ],
+      "evidence_ids": [
+        "EVID_001",
+        "EVID_003"
+      ],
+      "citation_ids": [
+        "LAW_CHUNK_95942_410"
+      ],
+      "status": "needs_fact_check",
+      "risk_notes": [
+        "Cần kiểm tra mối liên hệ giữa nghĩa vụ thanh toán còn lại và nghĩa vụ giao xe."
+      ]
+    },
+    {
+      "turn_id": "TURN_013",
+      "trial_stage": "final_statements",
+      "speaker": "plaintiff_agent",
+      "speaker_label": "Nguyên đơn nói lời sau cùng",
+      "utterance": "Tôi đề nghị kết quả mô phỏng ghi nhận bị đơn có nghĩa vụ giao xe hoặc hoàn trả tiền đã nhận.",
+      "claim_ids": [
+        "CLAIM_001"
+      ],
+      "evidence_ids": [
+        "EVID_001",
+        "EVID_002"
+      ],
+      "citation_ids": [
+        "LAW_CHUNK_95942_528"
+      ],
+      "status": "ok",
+      "risk_notes": []
+    },
+    {
+      "turn_id": "TURN_014",
+      "trial_stage": "deliberation",
+      "speaker": "judge_agent",
+      "speaker_label": "Thẩm phán nghị án mô phỏng",
+      "utterance": "Các sự kiện về hợp đồng, khoản thanh toán và thời hạn giao xe có mức hỗ trợ cao; vấn đề còn rủi ro là tin nhắn và điều kiện thanh toán còn lại.",
+      "claim_ids": [
+        "CLAIM_001",
+        "CLAIM_002"
+      ],
+      "evidence_ids": [
+        "EVID_001",
+        "EVID_002",
+        "EVID_003"
+      ],
+      "citation_ids": [
+        "LAW_CHUNK_95942_528",
+        "LAW_CHUNK_95942_410"
+      ],
+      "status": "needs_review",
+      "risk_notes": [
+        "Human review optional nhưng được khuyến nghị."
+      ]
+    },
+    {
+      "turn_id": "TURN_015",
+      "trial_stage": "simulated_decision",
+      "speaker": "judge_agent",
+      "speaker_label": "Thẩm phán công bố kết quả mô phỏng",
+      "utterance": "Kết quả mô phỏng không ràng buộc nghiêng về việc nguyên đơn có căn cứ yêu cầu giao xe hoặc hoàn trả tiền; phần bồi thường cần thêm chứng cứ.",
+      "claim_ids": [
+        "CLAIM_001",
+        "CLAIM_002"
+      ],
+      "evidence_ids": [
+        "EVID_001",
+        "EVID_002"
+      ],
+      "citation_ids": [
+        "LAW_CHUNK_95942_528"
+      ],
+      "status": "needs_review",
+      "risk_notes": [
+        "Không phải phán quyết chính thức; cần reviewer nếu dùng ngoài demo."
+      ]
+    },
+    {
+      "turn_id": "TURN_016",
+      "trial_stage": "closing_record",
+      "speaker": "clerk_agent",
+      "speaker_label": "Thư ký",
+      "utterance": "Thư ký ghi nhận phiên mô phỏng đã kết thúc và lưu biên bản đầy đủ.",
+      "claim_ids": [],
+      "evidence_ids": [],
+      "citation_ids": [],
+      "status": "ok",
+      "risk_notes": []
+    }
+  ],
+  "evidence_examinations": [
+    {
+      "examination_id": "EXAM_001",
+      "evidence_id": "EVID_001",
+      "introduced_by": "evidence_agent",
+      "plaintiff_position": "Nguyên đơn sử dụng hợp đồng để chứng minh thời hạn giao xe.",
+      "defense_position": "Bị đơn không phủ nhận hợp đồng nhưng muốn giải thích thêm điều kiện thanh toán.",
+      "admissibility": "admitted",
+      "related_claim_ids": [
+        "CLAIM_001",
+        "CLAIM_002"
+      ],
+      "notes": "Chứng cứ trung tâm của vụ việc."
+    },
+    {
+      "examination_id": "EXAM_002",
+      "evidence_id": "EVID_002",
+      "introduced_by": "plaintiff_agent",
+      "plaintiff_position": "Nguyên đơn dùng chứng từ thanh toán để chứng minh đã thực hiện 70% nghĩa vụ.",
+      "defense_position": "Bị đơn không tranh chấp khoản thanh toán này.",
+      "admissibility": "admitted",
+      "related_claim_ids": [
+        "CLAIM_001"
+      ],
+      "notes": "Không có challenge trong fixture."
+    },
+    {
+      "examination_id": "EXAM_003",
+      "evidence_id": "EVID_003",
+      "introduced_by": "plaintiff_agent",
+      "plaintiff_position": "Nguyên đơn dùng tin nhắn để chứng minh bị đơn đặt thêm điều kiện giao xe.",
+      "defense_position": "Bị đơn yêu cầu kiểm tra tính xác thực và bối cảnh tin nhắn.",
+      "admissibility": "needs_review",
+      "related_claim_ids": [
+        "CLAIM_001",
+        "CLAIM_002"
+      ],
+      "notes": "Không được dùng làm căn cứ duy nhất cho kết quả mô phỏng."
+    }
+  ],
+  "debate_rounds": [
+    {
+      "debate_id": "DEBATE_001",
+      "topic": "Nghĩa vụ giao xe đúng hạn và điều kiện thanh toán còn lại",
+      "plaintiff_turn_ids": [
+        "TURN_011"
+      ],
+      "defense_turn_ids": [
+        "TURN_012"
+      ],
+      "judge_summary": "Tranh luận cho thấy hợp đồng và khoản thanh toán đã rõ, nhưng điều kiện thanh toán còn lại và tin nhắn vẫn cần review.",
+      "unresolved_points": [
+        "Tính xác thực của EVID_003.",
+        "Bồi thường chi phí phát sinh chưa có chứng cứ định lượng."
+      ]
+    }
+  ],
+  "final_statements": [
+    {
+      "statement_id": "FINAL_001",
+      "speaker": "plaintiff_agent",
+      "content": "Nguyên đơn giữ yêu cầu giao xe hoặc hoàn trả tiền đã nhận.",
+      "requested_outcome": "Giao xe hoặc hoàn trả 28.000.000 đồng và xem xét bồi thường nếu có chứng cứ.",
+      "evidence_ids": [
+        "EVID_001",
+        "EVID_002"
+      ],
+      "citation_ids": [
+        "LAW_CHUNK_95942_528"
+      ]
+    },
+    {
+      "statement_id": "FINAL_002",
+      "speaker": "defense_agent",
+      "content": "Bị đơn đề nghị không kết luận lỗi vượt quá phạm vi chứng cứ đã được xác thực.",
+      "requested_outcome": "Ghi nhận cần làm rõ điều kiện thanh toán còn lại và chứng cứ tin nhắn.",
+      "evidence_ids": [
+        "EVID_001",
+        "EVID_003"
+      ],
+      "citation_ids": [
+        "LAW_CHUNK_95942_410"
+      ]
+    }
+  ],
+  "deliberation": {
+    "deliberation_id": "DELIB_001",
+    "established_facts": [
+      "Có hợp đồng mua bán xe máy trị giá 40.000.000 đồng.",
+      "Nguyên đơn đã thanh toán 28.000.000 đồng.",
+      "Hợp đồng ghi ngày giao xe là 12/03/2026."
+    ],
+    "disputed_facts": [
+      "Tin nhắn về yêu cầu thanh toán đủ 100% trước khi giao xe chưa được xác thực đầy đủ.",
+      "Thiệt hại phát sinh chưa có chứng cứ định lượng."
+    ],
+    "legal_reasoning": [
+      "Nghĩa vụ giao tài sản đúng thời hạn được hỗ trợ bởi hợp đồng và citation về nghĩa vụ giao tài sản.",
+      "Lập luận của bị đơn về điều kiện thanh toán còn lại có rủi ro vì chưa có điều khoản rõ trong fixture.",
+      "Phần bồi thường cần chứng cứ bổ sung."
+    ],
+    "risk_level": "medium",
+    "related_claim_ids": [
+      "CLAIM_001",
+      "CLAIM_002"
+    ],
+    "related_evidence_ids": [
+      "EVID_001",
+      "EVID_002",
+      "EVID_003"
+    ],
+    "related_citation_ids": [
+      "LAW_CHUNK_95942_528",
+      "LAW_CHUNK_95942_410"
+    ]
+  },
+  "decision_guard": {
+    "guard_id": "GUARD_001",
+    "human_review_mode": "optional",
+    "allowed_to_emit": true,
+    "risk_level": "medium",
+    "blocked_official_language": true,
+    "unresolved_items": [
+      "EVID_003 needs source review.",
+      "Damages are not quantified."
+    ],
+    "warnings": [
+      "Decision must remain simulated and non-binding.",
+      "Do not use official judgment language."
+    ]
+  },
+  "simulated_decision": {
+    "decision_id": "SDEC_001",
+    "disposition": "simulated_risky_requires_review",
+    "summary": "Kết quả mô phỏng nghiêng về việc nguyên đơn có căn cứ yêu cầu bị đơn giao xe hoặc hoàn trả khoản tiền đã nhận.",
+    "relief_or_next_step": "Ghi nhận hướng xử lý mô phỏng: ưu tiên giao xe theo hợp đồng; nếu không thể giao, xem xét hoàn trả 28.000.000 đồng. Phần bồi thường cần chứng cứ bổ sung.",
+    "rationale": [
+      "Hợp đồng và khoản thanh toán đã được ghi nhận với độ tin cậy cao.",
+      "Thời hạn giao xe 12/03/2026 được hỗ trợ bởi EVID_001.",
+      "Lập luận về điều kiện thanh toán 30% còn lại chưa đủ để phủ nhận nghĩa vụ giao xe trong fixture.",
+      "Tin nhắn và thiệt hại phát sinh vẫn cần review nếu dùng ngoài demo."
+    ],
+    "risk_level": "medium",
+    "non_binding_disclaimer": "Kết quả này chỉ là mô phỏng không ràng buộc, không phải bản án, quyết định của Tòa án hoặc tư vấn pháp lý.",
+    "supported_claim_ids": [
+      "CLAIM_001"
+    ],
+    "evidence_ids": [
+      "EVID_001",
+      "EVID_002"
+    ],
+    "citation_ids": [
+      "LAW_CHUNK_95942_528"
+    ],
+    "requires_human_review": false
+  },
+  "fact_check": {
+    "unsupported_claims": [
+      "Yêu cầu bồi thường chi phí phát sinh chưa có chứng cứ định lượng."
+    ],
+    "contradictions": [
+      "Tin nhắn EVID_003 đang bị tranh chấp về tính xác thực."
+    ],
+    "citation_mismatches": [],
+    "risk_level": "medium"
+  },
+  "citation_verification": {
+    "accepted_citations": [
+      "LAW_CHUNK_95942_528",
+      "LAW_CHUNK_95942_410"
+    ],
+    "rejected_citations": [],
+    "warnings": [
+      "Citation cần được đối chiếu nguồn chính thức nếu dùng ngoài demo."
+    ]
+  },
+  "human_review": {
+    "required": false,
+    "blocked": false,
+    "reasons": [
+      "Human review is optional for V2 demo mode."
+    ],
+    "checklist": [
+      "Kiểm tra tính xác thực của EVID_003 nếu dùng ngoài demo.",
+      "Bổ sung chứng cứ định lượng thiệt hại nếu muốn mô phỏng phần bồi thường."
+    ]
+  },
+  "status": "report_ready"
+}

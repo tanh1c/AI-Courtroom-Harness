@@ -4,7 +4,7 @@ V2 starts after the backend MVP and V1 procedural harness are stable. The goal i
 
 ## 0. Progress Snapshot
 
-- [ ] V2 Phase 0 trial-flow contracts are defined.
+- [x] V2 Phase 0 trial-flow contracts are defined.
 - [ ] V2 Phase 1 full trial procedure runtime is implemented.
 - [ ] V2 Phase 2 courtroom dialogue layer is implemented.
 - [ ] V2 Phase 3 deliberation and simulation-safe verdict guard is implemented.
@@ -59,6 +59,10 @@ The system may produce a **simulated non-binding decision** at the end of the de
 
 ### V2-M1. Trial Flow Contracts
 
+Status:
+
+- [x] Completed for V2 Phase 0
+
 Add shared Python and TypeScript contracts for:
 
 - `TrialProcedureStage`
@@ -74,9 +78,9 @@ Add shared Python and TypeScript contracts for:
 
 Acceptance:
 
-- [ ] Contracts support a complete hearing timeline.
-- [ ] Existing V1 `HearingSession` remains backward compatible.
-- [ ] Fixtures include one complete V2 trial transcript.
+- [x] Contracts support a complete hearing timeline.
+- [x] Existing V1 `HearingSession` remains backward compatible.
+- [x] Fixtures include one complete V2 trial transcript.
 
 ### V2-M2. Full Trial Procedure Runtime
 
@@ -209,10 +213,10 @@ Acceptance:
 
 ### Phase 0. Contracts And Fixtures
 
-- [ ] Add V2 shared schemas.
-- [ ] Add TypeScript type mirrors.
-- [ ] Add a complete V2 fixture.
-- [ ] Add migration notes from V1 to V2.
+- [x] Add V2 shared schemas.
+- [x] Add TypeScript type mirrors.
+- [x] Add a complete V2 fixture.
+- [x] Add migration notes from V1 to V2.
 
 ### Phase 1. Trial Procedure Runtime
 

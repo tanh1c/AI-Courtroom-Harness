@@ -70,6 +70,15 @@ export type OutcomeDisposition =
   | "split_or_uncertain"
   | "requires_more_evidence";
 
+export type SimulatedDecisionDisposition =
+  | "simulated_plaintiff_favored"
+  | "simulated_defense_favored"
+  | "simulated_partial_relief"
+  | "simulated_risky_requires_review"
+  | "adjourned_for_review"
+  | "requires_more_evidence"
+  | "no_simulated_decision";
+
 export type HarnessAction = "allow" | "block" | "repair" | "human_review";
 
 export type AttachmentParseStatus =
@@ -77,6 +86,25 @@ export type AttachmentParseStatus =
   | "text_extracted"
   | "missing_file"
   | "unreadable";
+
+export type TrialProcedureStage =
+  | "case_preparation"
+  | "opening_formalities"
+  | "appearance_check"
+  | "procedure_explanation"
+  | "plaintiff_claim_statement"
+  | "defense_response_statement"
+  | "evidence_examination"
+  | "judge_examination"
+  | "plaintiff_debate"
+  | "defense_rebuttal"
+  | "final_statements"
+  | "deliberation"
+  | "simulated_decision"
+  | "closing_record";
+
+export type AppearanceStatus = "present" | "absent" | "represented" | "unknown";
+export type HumanReviewMode = "optional" | "required" | "off";
 
 export interface CaseAttachment {
   attachment_id: string;
@@ -409,6 +437,124 @@ export interface HearingSession {
   outcome_candidates: OutcomeCandidate[];
   harness_violations: HarnessViolation[];
   audit_trail: AuditEvent[];
+  human_review: HumanReviewGate;
+  status: CaseStatus;
+}
+
+export interface AppearanceRecord {
+  appearance_id: string;
+  participant_role: AgentName;
+  display_name: string;
+  status: AppearanceStatus;
+  representative?: string | null;
+  notes?: string | null;
+}
+
+export interface ProceduralAct {
+  act_id: string;
+  trial_stage: TrialProcedureStage;
+  actor: AgentName;
+  label: string;
+  content: string;
+  required: boolean;
+  completed: boolean;
+  related_turn_ids: string[];
+}
+
+export interface CourtroomDialogueTurn {
+  turn_id: string;
+  trial_stage: TrialProcedureStage;
+  speaker: AgentName;
+  speaker_label: string;
+  utterance: string;
+  claim_ids: string[];
+  evidence_ids: string[];
+  citation_ids: string[];
+  status: TurnStatus;
+  risk_notes: string[];
+}
+
+export interface EvidenceExamination {
+  examination_id: string;
+  evidence_id: string;
+  introduced_by: AgentName;
+  plaintiff_position: string;
+  defense_position: string;
+  admissibility: EvidenceAdmissibility;
+  related_claim_ids: string[];
+  notes?: string | null;
+}
+
+export interface DebateRound {
+  debate_id: string;
+  topic: string;
+  plaintiff_turn_ids: string[];
+  defense_turn_ids: string[];
+  judge_summary: string;
+  unresolved_points: string[];
+}
+
+export interface FinalStatement {
+  statement_id: string;
+  speaker: AgentName;
+  content: string;
+  requested_outcome?: string | null;
+  evidence_ids: string[];
+  citation_ids: string[];
+}
+
+export interface DeliberationRecord {
+  deliberation_id: string;
+  established_facts: string[];
+  disputed_facts: string[];
+  legal_reasoning: string[];
+  risk_level: ClaimConfidence;
+  related_claim_ids: string[];
+  related_evidence_ids: string[];
+  related_citation_ids: string[];
+}
+
+export interface DecisionGuardResult {
+  guard_id: string;
+  human_review_mode: HumanReviewMode;
+  allowed_to_emit: boolean;
+  risk_level: ClaimConfidence;
+  blocked_official_language: boolean;
+  unresolved_items: string[];
+  warnings: string[];
+}
+
+export interface SimulatedDecision {
+  decision_id: string;
+  disposition: SimulatedDecisionDisposition;
+  summary: string;
+  relief_or_next_step: string;
+  rationale: string[];
+  risk_level: ClaimConfidence;
+  non_binding_disclaimer: string;
+  supported_claim_ids: string[];
+  evidence_ids: string[];
+  citation_ids: string[];
+  requires_human_review: boolean;
+}
+
+export interface V2TrialSession {
+  session_id: string;
+  case: CaseState;
+  current_stage: TrialProcedureStage;
+  stage_order: TrialProcedureStage[];
+  human_review_mode: HumanReviewMode;
+  appearances: AppearanceRecord[];
+  procedural_acts: ProceduralAct[];
+  dialogue_turns: CourtroomDialogueTurn[];
+  evidence_examinations: EvidenceExamination[];
+  debate_rounds: DebateRound[];
+  final_statements: FinalStatement[];
+  deliberation?: DeliberationRecord | null;
+  decision_guard?: DecisionGuardResult | null;
+  simulated_decision?: SimulatedDecision | null;
+  fact_check?: FactCheckResult | null;
+  citation_verification?: CitationVerificationResult | null;
   human_review: HumanReviewGate;
   status: CaseStatus;
 }

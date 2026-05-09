@@ -112,6 +112,16 @@ class OutcomeDisposition(str, Enum):
     REQUIRES_MORE_EVIDENCE = "requires_more_evidence"
 
 
+class SimulatedDecisionDisposition(str, Enum):
+    SIMULATED_PLAINTIFF_FAVORED = "simulated_plaintiff_favored"
+    SIMULATED_DEFENSE_FAVORED = "simulated_defense_favored"
+    SIMULATED_PARTIAL_RELIEF = "simulated_partial_relief"
+    SIMULATED_RISKY_REQUIRES_REVIEW = "simulated_risky_requires_review"
+    ADJOURNED_FOR_REVIEW = "adjourned_for_review"
+    REQUIRES_MORE_EVIDENCE = "requires_more_evidence"
+    NO_SIMULATED_DECISION = "no_simulated_decision"
+
+
 class HarnessAction(str, Enum):
     ALLOW = "allow"
     BLOCK = "block"
@@ -124,6 +134,36 @@ class AttachmentParseStatus(str, Enum):
     TEXT_EXTRACTED = "text_extracted"
     MISSING_FILE = "missing_file"
     UNREADABLE = "unreadable"
+
+
+class TrialProcedureStage(str, Enum):
+    CASE_PREPARATION = "case_preparation"
+    OPENING_FORMALITIES = "opening_formalities"
+    APPEARANCE_CHECK = "appearance_check"
+    PROCEDURE_EXPLANATION = "procedure_explanation"
+    PLAINTIFF_CLAIM_STATEMENT = "plaintiff_claim_statement"
+    DEFENSE_RESPONSE_STATEMENT = "defense_response_statement"
+    EVIDENCE_EXAMINATION = "evidence_examination"
+    JUDGE_EXAMINATION = "judge_examination"
+    PLAINTIFF_DEBATE = "plaintiff_debate"
+    DEFENSE_REBUTTAL = "defense_rebuttal"
+    FINAL_STATEMENTS = "final_statements"
+    DELIBERATION = "deliberation"
+    SIMULATED_DECISION = "simulated_decision"
+    CLOSING_RECORD = "closing_record"
+
+
+class AppearanceStatus(str, Enum):
+    PRESENT = "present"
+    ABSENT = "absent"
+    REPRESENTED = "represented"
+    UNKNOWN = "unknown"
+
+
+class HumanReviewMode(str, Enum):
+    OPTIONAL = "optional"
+    REQUIRED = "required"
+    OFF = "off"
 
 
 class CaseAttachment(BaseModel):
@@ -477,6 +517,126 @@ class HearingSession(BaseModel):
     audit_trail: list[AuditEvent] = Field(default_factory=list)
     human_review: HumanReviewGate = Field(
         default_factory=lambda: HumanReviewGate(required=True, blocked=True)
+    )
+    status: CaseStatus
+
+
+class AppearanceRecord(BaseModel):
+    appearance_id: str
+    participant_role: AgentName
+    display_name: str
+    status: AppearanceStatus
+    representative: str | None = None
+    notes: str | None = None
+
+
+class ProceduralAct(BaseModel):
+    act_id: str
+    trial_stage: TrialProcedureStage
+    actor: AgentName
+    label: str
+    content: str
+    required: bool = True
+    completed: bool = True
+    related_turn_ids: list[str] = Field(default_factory=list)
+
+
+class CourtroomDialogueTurn(BaseModel):
+    turn_id: str
+    trial_stage: TrialProcedureStage
+    speaker: AgentName
+    speaker_label: str
+    utterance: str
+    claim_ids: list[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
+    citation_ids: list[str] = Field(default_factory=list)
+    status: TurnStatus = TurnStatus.OK
+    risk_notes: list[str] = Field(default_factory=list)
+
+
+class EvidenceExamination(BaseModel):
+    examination_id: str
+    evidence_id: str
+    introduced_by: AgentName
+    plaintiff_position: str
+    defense_position: str
+    admissibility: EvidenceAdmissibility
+    related_claim_ids: list[str] = Field(default_factory=list)
+    notes: str | None = None
+
+
+class DebateRound(BaseModel):
+    debate_id: str
+    topic: str
+    plaintiff_turn_ids: list[str] = Field(default_factory=list)
+    defense_turn_ids: list[str] = Field(default_factory=list)
+    judge_summary: str
+    unresolved_points: list[str] = Field(default_factory=list)
+
+
+class FinalStatement(BaseModel):
+    statement_id: str
+    speaker: AgentName
+    content: str
+    requested_outcome: str | None = None
+    evidence_ids: list[str] = Field(default_factory=list)
+    citation_ids: list[str] = Field(default_factory=list)
+
+
+class DeliberationRecord(BaseModel):
+    deliberation_id: str
+    established_facts: list[str] = Field(default_factory=list)
+    disputed_facts: list[str] = Field(default_factory=list)
+    legal_reasoning: list[str] = Field(default_factory=list)
+    risk_level: ClaimConfidence
+    related_claim_ids: list[str] = Field(default_factory=list)
+    related_evidence_ids: list[str] = Field(default_factory=list)
+    related_citation_ids: list[str] = Field(default_factory=list)
+
+
+class DecisionGuardResult(BaseModel):
+    guard_id: str
+    human_review_mode: HumanReviewMode = HumanReviewMode.OPTIONAL
+    allowed_to_emit: bool
+    risk_level: ClaimConfidence
+    blocked_official_language: bool = True
+    unresolved_items: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class SimulatedDecision(BaseModel):
+    decision_id: str
+    disposition: SimulatedDecisionDisposition
+    summary: str
+    relief_or_next_step: str
+    rationale: list[str] = Field(default_factory=list)
+    risk_level: ClaimConfidence
+    non_binding_disclaimer: str
+    supported_claim_ids: list[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
+    citation_ids: list[str] = Field(default_factory=list)
+    requires_human_review: bool = False
+
+
+class V2TrialSession(BaseModel):
+    session_id: str
+    case: CaseState
+    current_stage: TrialProcedureStage
+    stage_order: list[TrialProcedureStage] = Field(default_factory=list)
+    human_review_mode: HumanReviewMode = HumanReviewMode.OPTIONAL
+    appearances: list[AppearanceRecord] = Field(default_factory=list)
+    procedural_acts: list[ProceduralAct] = Field(default_factory=list)
+    dialogue_turns: list[CourtroomDialogueTurn] = Field(default_factory=list)
+    evidence_examinations: list[EvidenceExamination] = Field(default_factory=list)
+    debate_rounds: list[DebateRound] = Field(default_factory=list)
+    final_statements: list[FinalStatement] = Field(default_factory=list)
+    deliberation: DeliberationRecord | None = None
+    decision_guard: DecisionGuardResult | None = None
+    simulated_decision: SimulatedDecision | None = None
+    fact_check: FactCheckResult | None = None
+    citation_verification: CitationVerificationResult | None = None
+    human_review: HumanReviewGate = Field(
+        default_factory=lambda: HumanReviewGate(required=False, blocked=False)
     )
     status: CaseStatus
 
