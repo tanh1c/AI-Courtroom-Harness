@@ -6,6 +6,8 @@ from html import escape
 import markdown as markdown_lib
 
 from packages.shared.python.ai_court_shared.schemas import (
+    AgentName,
+    AgentTurn,
     HumanReviewRecord,
     SimulationResponse,
 )
@@ -15,6 +17,101 @@ def bullet_lines(values: list[str], fallback: str = "- None") -> list[str]:
     if not values:
         return [fallback]
     return [f"- {value}" for value in values]
+
+
+def agent_label(agent: AgentName) -> str:
+    labels = {
+        AgentName.LEGAL_RETRIEVAL_AGENT: "Legal Retrieval",
+        AgentName.PLAINTIFF_AGENT: "Plaintiff",
+        AgentName.PROSECUTOR_AGENT: "Prosecutor",
+        AgentName.DEFENSE_AGENT: "Defense",
+        AgentName.JUDGE_AGENT: "Judge",
+        AgentName.CLERK_AGENT: "Clerk",
+        AgentName.FACT_CHECK_AGENT: "Fact Check",
+        AgentName.CITATION_VERIFIER_AGENT: "Citation Verifier",
+    }
+    return labels.get(agent, agent.value)
+
+
+def render_turn_transcript_lines(
+    turn: AgentTurn,
+    *,
+    accepted_citation_ids: set[str],
+) -> list[str]:
+    visible_citations = [citation_id for citation_id in turn.citations_used if citation_id in accepted_citation_ids]
+    lines = [
+        f"### {turn.turn_id} - {agent_label(turn.agent)}",
+        "",
+        f"- Status: `{turn.status.value}`",
+    ]
+    if turn.claims:
+        lines.append(f"- Related claims: {', '.join(turn.claims)}")
+    if turn.evidence_used:
+        lines.append(f"- Evidence used: {', '.join(turn.evidence_used)}")
+    if visible_citations:
+        lines.append(f"- Accepted citations used: {', '.join(visible_citations)}")
+    lines.extend(
+        [
+            "",
+            f"> {turn.message}",
+            "",
+        ]
+    )
+    return lines
+
+
+def render_session_outcome_lines(
+    simulation: SimulationResponse,
+    review_record: HumanReviewRecord | None,
+) -> list[str]:
+    lines = [
+        "## Session Outcome",
+        "",
+        f"- Report status: `{simulation.case.status.value}`",
+        (
+            f"- Human review decision: `{review_record.decision.value}` by {review_record.reviewer_name}"
+            if review_record is not None
+            else f"- Human review blocked: `{simulation.human_review.blocked}`"
+        ),
+        "- End state: the simulated hearing is closed for report export and review tracking.",
+        "- Note: this MVP does not generate an automatic judicial verdict or legally binding judgment.",
+        "",
+    ]
+    return lines
+
+
+def render_hearing_timeline_lines(
+    simulation: SimulationResponse,
+    review_record: HumanReviewRecord | None,
+) -> list[str]:
+    lines = [
+        "## Hearing Timeline",
+        "",
+        "- Case intake and parsing completed.",
+        "- Legal citations were retrieved for the identified issues.",
+        "- Plaintiff presented the initial claim.",
+        "- Defense responded to the disputed obligations.",
+        "- Judge summarized disputed points and follow-up questions.",
+        "- Clerk compiled the structured minutes and draft report.",
+        "- Verification and audit checks were applied.",
+    ]
+    if review_record is not None:
+        lines.append(
+            f"- Human review resolved the session with decision `{review_record.decision.value}`, allowing status `{review_record.status_after.value}`."
+        )
+    else:
+        lines.append(
+            f"- Human review gate status: required=`{simulation.human_review.required}`, blocked=`{simulation.human_review.blocked}`."
+        )
+    lines.extend(["", "## Courtroom Transcript", ""])
+    return lines
+
+
+def render_system_minutes_lines(minutes_markdown: str) -> list[str]:
+    lines = [line for line in minutes_markdown.splitlines() if line.strip()]
+    if lines and lines[0].startswith("## "):
+        lines = lines[1:]
+    return lines or ["- No system minutes captured."]
 
 
 class MarkdownReportService:
@@ -102,6 +199,7 @@ class MarkdownReportService:
 
         lines.extend(
             [
+                *render_session_outcome_lines(simulation, review_record),
                 "## Fact Check",
                 "",
                 f"- Risk level: `{fact_check.risk_level.value}`",
@@ -185,9 +283,22 @@ class MarkdownReportService:
 
         lines.extend(
             [
-                "## Trial Minutes",
+                *render_hearing_timeline_lines(simulation, review_record),
+            ]
+        )
+        for turn in simulation.case.agent_turns:
+            lines.extend(
+                render_turn_transcript_lines(
+                    turn,
+                    accepted_citation_ids=accepted_citation_ids,
+                )
+            )
+
+        lines.extend(
+            [
+                "## System Minutes",
                 "",
-                simulation.trial_minutes.minutes_markdown,
+                *render_system_minutes_lines(simulation.trial_minutes.minutes_markdown),
                 "",
                 "## Disclaimer",
                 "",
