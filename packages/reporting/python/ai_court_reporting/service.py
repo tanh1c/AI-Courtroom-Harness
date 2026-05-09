@@ -21,16 +21,30 @@ def bullet_lines(values: list[str], fallback: str = "- None") -> list[str]:
 
 def agent_label(agent: AgentName) -> str:
     labels = {
-        AgentName.LEGAL_RETRIEVAL_AGENT: "Legal Retrieval",
-        AgentName.PLAINTIFF_AGENT: "Plaintiff",
-        AgentName.PROSECUTOR_AGENT: "Prosecutor",
-        AgentName.DEFENSE_AGENT: "Defense",
-        AgentName.JUDGE_AGENT: "Judge",
-        AgentName.CLERK_AGENT: "Clerk",
-        AgentName.FACT_CHECK_AGENT: "Fact Check",
-        AgentName.CITATION_VERIFIER_AGENT: "Citation Verifier",
+        AgentName.LEGAL_RETRIEVAL_AGENT: "Bộ phận tra cứu pháp lý",
+        AgentName.PLAINTIFF_AGENT: "Nguyên đơn trình bày",
+        AgentName.PROSECUTOR_AGENT: "Kiểm sát viên trình bày",
+        AgentName.DEFENSE_AGENT: "Bị đơn đối đáp",
+        AgentName.JUDGE_AGENT: "Thẩm phán nhận định sơ bộ",
+        AgentName.CLERK_AGENT: "Thư ký ghi nhận",
+        AgentName.FACT_CHECK_AGENT: "Kiểm tra sự kiện",
+        AgentName.CITATION_VERIFIER_AGENT: "Kiểm tra căn cứ pháp lý",
     }
     return labels.get(agent, agent.value)
+
+
+def hearing_stage_label(agent: AgentName) -> str:
+    labels = {
+        AgentName.LEGAL_RETRIEVAL_AGENT: "Mở phiên",
+        AgentName.PLAINTIFF_AGENT: "Tranh tụng",
+        AgentName.PROSECUTOR_AGENT: "Tranh tụng",
+        AgentName.DEFENSE_AGENT: "Tranh tụng",
+        AgentName.JUDGE_AGENT: "Nhận định sơ bộ",
+        AgentName.CLERK_AGENT: "Kết thúc phiên",
+        AgentName.FACT_CHECK_AGENT: "Kiểm tra sau phiên",
+        AgentName.CITATION_VERIFIER_AGENT: "Kiểm tra sau phiên",
+    }
+    return labels.get(agent, "Diễn biến phiên")
 
 
 def render_turn_transcript_lines(
@@ -40,8 +54,9 @@ def render_turn_transcript_lines(
 ) -> list[str]:
     visible_citations = [citation_id for citation_id in turn.citations_used if citation_id in accepted_citation_ids]
     lines = [
-        f"### {turn.turn_id} - {agent_label(turn.agent)}",
+        f"### {hearing_stage_label(turn.agent)} - {agent_label(turn.agent)}",
         "",
+        f"- Turn ID: `{turn.turn_id}`",
         f"- Status: `{turn.status.value}`",
     ]
     if turn.claims:
@@ -87,21 +102,18 @@ def render_hearing_timeline_lines(
     lines = [
         "## Hearing Timeline",
         "",
-        "- Case intake and parsing completed.",
-        "- Legal citations were retrieved for the identified issues.",
-        "- Plaintiff presented the initial claim.",
-        "- Defense responded to the disputed obligations.",
-        "- Judge summarized disputed points and follow-up questions.",
-        "- Clerk compiled the structured minutes and draft report.",
-        "- Verification and audit checks were applied.",
+        "- `Mở phiên`: hệ thống hoàn tất intake hồ sơ, parse nội dung, và tra cứu các căn cứ pháp lý liên quan.",
+        "- `Tranh tụng`: nguyên đơn nêu yêu cầu, sau đó bị đơn đối đáp với các điểm tranh chấp chính.",
+        "- `Nhận định sơ bộ`: thẩm phán tóm tắt disputed points và nêu các câu hỏi cần làm rõ thêm.",
+        "- `Kết thúc phiên`: thư ký ghi nhận biên bản mô phỏng, sau đó hệ thống chạy verification và audit checks.",
     ]
     if review_record is not None:
         lines.append(
-            f"- Human review resolved the session with decision `{review_record.decision.value}`, allowing status `{review_record.status_after.value}`."
+            f"- `Kết thúc phiên`: human review chấp thuận báo cáo với quyết định `{review_record.decision.value}`, đưa hồ sơ sang trạng thái `{review_record.status_after.value}`."
         )
     else:
         lines.append(
-            f"- Human review gate status: required=`{simulation.human_review.required}`, blocked=`{simulation.human_review.blocked}`."
+            f"- `Kết thúc phiên`: human review gate hiện có trạng thái required=`{simulation.human_review.required}`, blocked=`{simulation.human_review.blocked}`."
         )
     lines.extend(["", "## Courtroom Transcript", ""])
     return lines
