@@ -488,6 +488,18 @@ def save_hearing_record_html(case_id: str, html: str) -> str:
     return str(path)
 
 
+def save_v2_trial_record_markdown(case_id: str, markdown: str) -> str:
+    path = _case_dir(case_id) / "hearing_v2_record.md"
+    _write_text(path, markdown)
+    return str(path)
+
+
+def save_v2_trial_record_html(case_id: str, html: str) -> str:
+    path = _case_dir(case_id) / "hearing_v2_record.html"
+    _write_text(path, html)
+    return str(path)
+
+
 def load_hearing_record_markdown(case_id: str) -> MarkdownReportResponse | None:
     hearing_session = load_hearing_session(case_id)
     if hearing_session is None:
@@ -513,6 +525,36 @@ def load_hearing_record_html(case_id: str) -> HtmlReportResponse | None:
     return HtmlReportResponse(
         case_id=case_id,
         report_status=hearing_session.status,
+        html_path=str(path),
+        html=path.read_text(encoding="utf-8"),
+    )
+
+
+def load_v2_trial_record_markdown(case_id: str) -> MarkdownReportResponse | None:
+    trial_session = load_v2_trial_session(case_id)
+    if trial_session is None:
+        return None
+    path = _case_dir(case_id) / "hearing_v2_record.md"
+    if not path.exists():
+        return None
+    return MarkdownReportResponse(
+        case_id=case_id,
+        report_status=trial_session.status,
+        markdown_path=str(path),
+        markdown=path.read_text(encoding="utf-8"),
+    )
+
+
+def load_v2_trial_record_html(case_id: str) -> HtmlReportResponse | None:
+    trial_session = load_v2_trial_session(case_id)
+    if trial_session is None:
+        return None
+    path = _case_dir(case_id) / "hearing_v2_record.html"
+    if not path.exists():
+        return None
+    return HtmlReportResponse(
+        case_id=case_id,
+        report_status=trial_session.status,
         html_path=str(path),
         html=path.read_text(encoding="utf-8"),
     )

@@ -11,6 +11,7 @@ from packages.shared.python.ai_court_shared.schemas import (
     HearingSession,
     HumanReviewRecord,
     SimulationResponse,
+    V2TrialSession,
 )
 
 
@@ -562,6 +563,254 @@ class V1HearingRecordService:
         return "\n".join(lines).strip() + "\n"
 
 
+def render_v2_table(rows: list[tuple[str, str]]) -> list[str]:
+    lines = ["| Mục | Nội dung |", "| --- | --- |"]
+    for key, value in rows:
+        lines.append(f"| {key} | {value or 'Không có'} |")
+    return lines
+
+
+class V2TrialRecordService:
+    def render(self, trial: V2TrialSession) -> str:
+        lines: list[str] = [
+            f"# Biên Bản Phiên Tòa Mô Phỏng V2 - {trial.case.case_id}",
+            "",
+            "> Tài liệu mô phỏng không ràng buộc. Đây không phải bản án, quyết định của Tòa án hoặc tư vấn pháp lý.",
+            "",
+            "## Thông Tin Hồ Sơ",
+            "",
+            *render_v2_table(
+                [
+                    ("Mã hồ sơ", f"`{trial.case.case_id}`"),
+                    ("Mã phiên", f"`{trial.session_id}`"),
+                    ("Loại vụ việc", f"`{trial.case.case_type.value}`"),
+                    ("Trạng thái", f"`{trial.status.value}`"),
+                    ("Giai đoạn hiện tại", f"`{trial.current_stage.value}`"),
+                    ("Human review mode", f"`{trial.human_review_mode.value}`"),
+                ]
+            ),
+            "",
+            "## Thành Phần Tham Gia",
+            "",
+        ]
+        for appearance in trial.appearances:
+            lines.extend(
+                [
+                    f"- `{appearance.appearance_id}` {appearance.display_name}: `{appearance.status.value}`"
+                    + (f" ({appearance.notes})" if appearance.notes else ""),
+                ]
+            )
+        if not trial.appearances:
+            lines.append("- Chưa ghi nhận thành phần tham gia.")
+
+        lines.extend(["", "## Trình Tự Thủ Tục", ""])
+        for index, stage in enumerate(trial.stage_order, start=1):
+            stage_turns = [turn for turn in trial.dialogue_turns if turn.trial_stage == stage]
+            marker = "hoàn tất" if stage_turns else "chưa có lượt"
+            lines.append(f"{index}. `{stage.value}` - {marker} - {len(stage_turns)} lượt")
+
+        lines.extend(["", "## Hành Vi Tố Tụng Đã Ghi Nhận", ""])
+        if not trial.procedural_acts:
+            lines.append("- Không có hành vi tố tụng được ghi nhận.")
+        for act in trial.procedural_acts:
+            lines.extend(
+                [
+                    f"### {act.act_id} - {act.label}",
+                    "",
+                    act.content,
+                    "",
+                    f"- Giai đoạn: `{act.trial_stage.value}`",
+                    f"- Người thực hiện: `{act.actor.value}`",
+                    f"- Lượt liên quan: {', '.join(act.related_turn_ids) if act.related_turn_ids else 'Không có'}",
+                    "",
+                ]
+            )
+
+        lines.extend(["## Transcript Phiên Tòa", ""])
+        for turn in trial.dialogue_turns:
+            lines.extend(
+                [
+                    f"### {turn.turn_id} - `{turn.trial_stage.value}` - {turn.speaker_label}",
+                    "",
+                    turn.utterance,
+                    "",
+                    f"- Trạng thái: `{turn.status.value}`",
+                    f"- Claim: {', '.join(turn.claim_ids) if turn.claim_ids else 'Không có'}",
+                    f"- Chứng cứ: {', '.join(turn.evidence_ids) if turn.evidence_ids else 'Không có'}",
+                    f"- Citation: {', '.join(turn.citation_ids) if turn.citation_ids else 'Không có'}",
+                    f"- Risk notes: {', '.join(turn.risk_notes) if turn.risk_notes else 'Không có'}",
+                    "",
+                ]
+            )
+
+        lines.extend(["## Xét Chứng Cứ", ""])
+        if not trial.evidence_examinations:
+            lines.append("- Chưa có phần xét chứng cứ.")
+        for exam in trial.evidence_examinations:
+            lines.extend(
+                [
+                    f"### {exam.examination_id} - {exam.evidence_id}",
+                    "",
+                    f"- Bên giới thiệu: `{exam.introduced_by.value}`",
+                    f"- Ý kiến nguyên đơn: {exam.plaintiff_position}",
+                    f"- Ý kiến bị đơn: {exam.defense_position}",
+                    f"- Trạng thái xem xét: `{exam.admissibility.value}`",
+                    f"- Claim liên quan: {', '.join(exam.related_claim_ids) if exam.related_claim_ids else 'Không có'}",
+                    f"- Ghi chú: {exam.notes or 'Không có'}",
+                    "",
+                ]
+            )
+
+        lines.extend(["## Tranh Luận Và Đối Đáp", ""])
+        if not trial.debate_rounds:
+            lines.append("- Chưa có vòng tranh luận.")
+        for debate in trial.debate_rounds:
+            lines.extend(
+                [
+                    f"### {debate.debate_id} - {debate.topic}",
+                    "",
+                    f"- Lượt nguyên đơn: {', '.join(debate.plaintiff_turn_ids) if debate.plaintiff_turn_ids else 'Không có'}",
+                    f"- Lượt bị đơn: {', '.join(debate.defense_turn_ids) if debate.defense_turn_ids else 'Không có'}",
+                    f"- Tóm tắt của thẩm phán: {debate.judge_summary}",
+                    f"- Điểm chưa giải quyết: {', '.join(debate.unresolved_points) if debate.unresolved_points else 'Không có'}",
+                    "",
+                ]
+            )
+
+        lines.extend(["## Lời Sau Cùng", ""])
+        for statement in trial.final_statements:
+            lines.extend(
+                [
+                    f"### {statement.statement_id} - {agent_label(statement.speaker)}",
+                    "",
+                    statement.content,
+                    "",
+                    f"- Đề nghị: {statement.requested_outcome or 'Không có'}",
+                    f"- Chứng cứ: {', '.join(statement.evidence_ids) if statement.evidence_ids else 'Không có'}",
+                    f"- Citation: {', '.join(statement.citation_ids) if statement.citation_ids else 'Không có'}",
+                    "",
+                ]
+            )
+        if not trial.final_statements:
+            lines.append("- Chưa có lời sau cùng.")
+
+        lines.extend(["## Nghị Án Mô Phỏng", ""])
+        if trial.deliberation is None:
+            lines.append("- Chưa có bản ghi nghị án.")
+        else:
+            lines.extend(
+                [
+                    f"- Mã nghị án: `{trial.deliberation.deliberation_id}`",
+                    f"- Risk level: `{trial.deliberation.risk_level.value}`",
+                    "",
+                    "### Sự Kiện Đã Được Xác Lập",
+                    "",
+                    *bullet_lines(trial.deliberation.established_facts),
+                    "",
+                    "### Sự Kiện Còn Tranh Chấp",
+                    "",
+                    *bullet_lines(trial.deliberation.disputed_facts),
+                    "",
+                    "### Lập Luận Pháp Lý",
+                    "",
+                    *bullet_lines(trial.deliberation.legal_reasoning),
+                    "",
+                ]
+            )
+
+        lines.extend(["## Kết Quả Mô Phỏng Không Ràng Buộc", ""])
+        if trial.simulated_decision is None:
+            lines.append("- Chưa có kết quả mô phỏng.")
+        else:
+            decision = trial.simulated_decision
+            lines.extend(
+                [
+                    f"- Mã kết quả: `{decision.decision_id}`",
+                    f"- Disposition: `{decision.disposition.value}`",
+                    f"- Risk level: `{decision.risk_level.value}`",
+                    f"- Requires human review: `{decision.requires_human_review}`",
+                    "",
+                    "### Tóm Tắt",
+                    "",
+                    decision.summary,
+                    "",
+                    "### Hướng Xử Lý / Bước Tiếp Theo",
+                    "",
+                    decision.relief_or_next_step,
+                    "",
+                    "### Rationale",
+                    "",
+                    *bullet_lines(decision.rationale),
+                    "",
+                    f"- Claim hỗ trợ: {', '.join(decision.supported_claim_ids) if decision.supported_claim_ids else 'Không có'}",
+                    f"- Chứng cứ: {', '.join(decision.evidence_ids) if decision.evidence_ids else 'Không có'}",
+                    f"- Citation: {', '.join(decision.citation_ids) if decision.citation_ids else 'Không có'}",
+                    f"- Disclaimer: {decision.non_binding_disclaimer}",
+                    "",
+                ]
+            )
+
+        lines.extend(["## Decision Guard", ""])
+        if trial.decision_guard is None:
+            lines.append("- Chưa có guard result.")
+        else:
+            guard = trial.decision_guard
+            lines.extend(
+                [
+                    f"- Guard ID: `{guard.guard_id}`",
+                    f"- Allowed to emit: `{guard.allowed_to_emit}`",
+                    f"- Recommended disposition: `{guard.recommended_disposition.value if guard.recommended_disposition else 'None'}`",
+                    f"- Grounded claims: {', '.join(guard.grounded_claim_ids) if guard.grounded_claim_ids else 'Không có'}",
+                    f"- Official language hits: {', '.join(guard.official_language_hits) if guard.official_language_hits else 'Không có'}",
+                    "",
+                    "### Unresolved Items",
+                    "",
+                    *bullet_lines(guard.unresolved_items),
+                    "",
+                    "### Warnings",
+                    "",
+                    *bullet_lines(guard.warnings),
+                    "",
+                ]
+            )
+
+        lines.extend(
+            [
+                "## Verification",
+                "",
+                f"- Fact-check risk: `{trial.fact_check.risk_level.value if trial.fact_check else 'not_run'}`",
+                f"- Accepted citations: {', '.join(trial.citation_verification.accepted_citations) if trial.citation_verification else 'Không có'}",
+                f"- Rejected citations: {', '.join(trial.citation_verification.rejected_citations) if trial.citation_verification else 'Không có'}",
+                "",
+                "## Dialogue Quality",
+                "",
+                f"- Max utterance chars: `{trial.dialogue_quality.max_utterance_chars}`",
+                f"- Overlong turns: {', '.join(trial.dialogue_quality.overlong_turn_ids) if trial.dialogue_quality.overlong_turn_ids else 'Không có'}",
+                f"- Ungrounded turns: {', '.join(trial.dialogue_quality.ungrounded_turn_ids) if trial.dialogue_quality.ungrounded_turn_ids else 'Không có'}",
+                f"- Role drift warnings: {', '.join(trial.dialogue_quality.role_drift_warnings) if trial.dialogue_quality.role_drift_warnings else 'Không có'}",
+                "",
+                "## Human Review",
+                "",
+                f"- Required: `{trial.human_review.required}`",
+                f"- Blocked: `{trial.human_review.blocked}`",
+                "",
+                "### Reasons",
+                "",
+                *bullet_lines(trial.human_review.reasons),
+                "",
+                "### Checklist",
+                "",
+                *bullet_lines(trial.human_review.checklist),
+                "",
+                "## Disclaimer",
+                "",
+                "Biên bản này là mô phỏng không ràng buộc cho mục đích học tập, demo và hỗ trợ phân tích. Không sử dụng như bản án, quyết định của Tòa án hoặc tư vấn pháp lý.",
+                "",
+            ]
+        )
+        return "\n".join(lines).strip() + "\n"
+
+
 class HtmlReportService:
     def render(self, *, title: str, markdown_text: str) -> str:
         body = markdown_lib.markdown(
@@ -848,3 +1097,8 @@ def get_html_report_service() -> HtmlReportService:
 @lru_cache(maxsize=1)
 def get_v1_hearing_record_service() -> V1HearingRecordService:
     return V1HearingRecordService()
+
+
+@lru_cache(maxsize=1)
+def get_v2_trial_record_service() -> V2TrialRecordService:
+    return V2TrialRecordService()

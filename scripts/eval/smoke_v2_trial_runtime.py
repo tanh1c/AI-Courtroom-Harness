@@ -186,6 +186,14 @@ def main() -> None:
     persisted_response.raise_for_status()
     persisted = persisted_response.json()
 
+    markdown_response = client.post(f"/api/v1/cases/{case_id}/trial-v2/record/markdown")
+    markdown_response.raise_for_status()
+    markdown_record = markdown_response.json()
+
+    html_response = client.post(f"/api/v1/cases/{case_id}/trial-v2/record/html")
+    html_response.raise_for_status()
+    html_record = html_response.json()
+
     stage_turns = {stage: 0 for stage in persisted["stage_order"]}
     for turn in persisted["dialogue_turns"]:
         stage_turns[turn["trial_stage"]] += 1
@@ -229,6 +237,18 @@ def main() -> None:
     assert quality["overlong_turn_ids"] == []
     assert quality["ungrounded_turn_ids"] == []
     assert quality["role_drift_warnings"] == []
+    markdown_text = markdown_record["markdown"]
+    assert "Biên Bản Phiên Tòa Mô Phỏng V2" in markdown_text
+    assert "## Thành Phần Tham Gia" in markdown_text
+    assert "## Transcript Phiên Tòa" in markdown_text
+    assert "## Xét Chứng Cứ" in markdown_text
+    assert "## Tranh Luận Và Đối Đáp" in markdown_text
+    assert "## Nghị Án Mô Phỏng" in markdown_text
+    assert "## Kết Quả Mô Phỏng Không Ràng Buộc" in markdown_text
+    assert persisted["simulated_decision"]["disposition"] in markdown_text
+    assert html_record["html_path"].endswith("hearing_v2_record.html")
+    assert "<html" in html_record["html"].lower()
+    assert "Transcript Phiên Tòa" in html_record["html"]
 
     print("case_id:", case_id)
     print("session_id:", persisted["session_id"])
@@ -257,6 +277,8 @@ def main() -> None:
     print("decision_risk:", persisted["simulated_decision"]["risk_level"])
     print("human_review_mode:", persisted["human_review_mode"])
     print("human_review_blocked:", persisted["human_review"]["blocked"])
+    print("v2_record_markdown_path:", markdown_record["markdown_path"])
+    print("v2_record_html_path:", html_record["html_path"])
 
 
 if __name__ == "__main__":

@@ -29,6 +29,8 @@ from .case_store import (
     load_markdown_report,
     load_review_record,
     load_simulation_response,
+    load_v2_trial_record_html,
+    load_v2_trial_record_markdown,
     load_v2_trial_session,
     list_cases,
     save_case_state,
@@ -38,6 +40,8 @@ from .case_store import (
     save_markdown_report,
     save_review_record,
     save_simulation_response,
+    save_v2_trial_record_html,
+    save_v2_trial_record_markdown,
     save_v2_trial_session,
     store_uploaded_attachment_file,
 )
@@ -56,6 +60,7 @@ from packages.reporting.python.ai_court_reporting.service import (
     get_html_report_service,
     get_markdown_report_service,
     get_v1_hearing_record_service,
+    get_v2_trial_record_service,
 )
 from packages.retrieval.python.ai_court_retrieval.service import (
     get_local_legal_retrieval_service,
@@ -370,6 +375,63 @@ def get_v2_trial(case_id: str) -> V2TrialSession:
     if trial_session is None:
         raise HTTPException(status_code=404, detail=f"V2 trial session not found: {case_id}")
     return trial_session
+
+
+@app.post("/api/v1/cases/{case_id}/trial-v2/record/markdown", response_model=MarkdownReportResponse)
+def export_v2_trial_record_markdown(case_id: str) -> MarkdownReportResponse:
+    trial_session = load_v2_trial_session(case_id)
+    if trial_session is None:
+        raise HTTPException(status_code=404, detail=f"V2 trial session not found: {case_id}")
+    markdown = get_v2_trial_record_service().render(trial_session)
+    markdown_path = save_v2_trial_record_markdown(case_id, markdown)
+    return MarkdownReportResponse(
+        case_id=case_id,
+        report_status=trial_session.status,
+        markdown_path=markdown_path,
+        markdown=markdown,
+    )
+
+
+@app.get("/api/v1/cases/{case_id}/trial-v2/record/markdown", response_model=MarkdownReportResponse)
+def get_v2_trial_record_markdown(case_id: str) -> MarkdownReportResponse:
+    report = load_v2_trial_record_markdown(case_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail=f"V2 trial markdown record not found: {case_id}")
+    return report
+
+
+@app.post("/api/v1/cases/{case_id}/trial-v2/record/html", response_model=HtmlReportResponse)
+def export_v2_trial_record_html(case_id: str) -> HtmlReportResponse:
+    trial_session = load_v2_trial_session(case_id)
+    if trial_session is None:
+        raise HTTPException(status_code=404, detail=f"V2 trial session not found: {case_id}")
+    markdown_report = load_v2_trial_record_markdown(case_id)
+    markdown = (
+        markdown_report.markdown
+        if markdown_report is not None
+        else get_v2_trial_record_service().render(trial_session)
+    )
+    html = get_html_report_service().render(
+        title=f"V2 Simulated Trial Record - {case_id}",
+        markdown_text=markdown,
+    )
+    if markdown_report is None:
+        save_v2_trial_record_markdown(case_id, markdown)
+    html_path = save_v2_trial_record_html(case_id, html)
+    return HtmlReportResponse(
+        case_id=case_id,
+        report_status=trial_session.status,
+        html_path=html_path,
+        html=html,
+    )
+
+
+@app.get("/api/v1/cases/{case_id}/trial-v2/record/html", response_model=HtmlReportResponse)
+def get_v2_trial_record_html(case_id: str) -> HtmlReportResponse:
+    report = load_v2_trial_record_html(case_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail=f"V2 trial HTML record not found: {case_id}")
+    return report
 
 
 @app.get("/api/v1/cases/{case_id}/evidence/challenges", response_model=HearingEvidenceChallengesResponse)

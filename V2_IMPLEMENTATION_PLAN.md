@@ -8,7 +8,7 @@ V2 starts after the backend MVP and V1 procedural harness are stable. The goal i
 - [x] V2 Phase 1 full trial procedure runtime is implemented.
 - [x] V2 Phase 2 courtroom dialogue layer is implemented.
 - [x] V2 Phase 3 deliberation and simulation-safe verdict guard is implemented.
-- [ ] V2 Phase 4 formal trial record and simulated outcome export are implemented.
+- [x] V2 Phase 4 formal trial record and simulated outcome export are implemented.
 - [ ] V2 Phase 5 evaluation, demo fixtures, and UI hooks are implemented.
 
 ## 1. V2 Product Goal
@@ -189,6 +189,10 @@ Acceptance:
 
 ### V2-M6. Formal Trial Record Export
 
+Status:
+
+- [x] Completed for V2 Phase 4
+
 Upgrade Markdown and HTML exports into a full trial-style record:
 
 - Case header and participants.
@@ -205,10 +209,10 @@ Upgrade Markdown and HTML exports into a full trial-style record:
 
 Acceptance:
 
-- [ ] Report reads like formal court minutes.
-- [ ] Vietnamese labels are used in user-facing sections.
-- [ ] HTML preview uses formal, minimal legal styling.
-- [ ] Export remains readable without the frontend.
+- [x] Report reads like formal court minutes.
+- [x] Vietnamese labels are used in user-facing sections.
+- [x] HTML preview uses formal, minimal legal styling.
+- [x] Export remains readable without the frontend.
 
 ### V2-M7. Evaluation And Demo Fixtures
 
@@ -257,10 +261,10 @@ Acceptance:
 
 ### Phase 4. Formal Export
 
-- [ ] Upgrade Markdown report.
-- [ ] Upgrade HTML trial preview.
-- [ ] Add Vietnamese section labels.
-- [ ] Add report completeness checks.
+- [x] Upgrade Markdown report.
+- [x] Upgrade HTML trial preview.
+- [x] Add Vietnamese section labels.
+- [x] Add report completeness checks.
 
 ### Phase 5. Evaluation And UI Handoff
 
