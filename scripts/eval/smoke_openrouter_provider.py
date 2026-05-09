@@ -39,6 +39,7 @@ def main() -> None:
         print("configured_model:", os.getenv("GROQ_MODEL", "qwen/qwen3-32b"))
     elif service.provider == "deepseek":
         print("configured_model:", os.getenv("DEEPSEEK_MODEL", "deepseek-v4-pro"))
+        print("thinking:", os.getenv("DEEPSEEK_THINKING", "disabled"))
     elif service.provider == "nvidia":
         print("configured_model:", os.getenv("NVIDIA_MODEL", "z-ai/glm4.7"))
     elif service.provider == "9router":

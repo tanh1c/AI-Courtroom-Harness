@@ -23,6 +23,8 @@ The recommended MVP chain is:
 
 `deepseek / deepseek-v4-pro` is supported as an explicit paid provider through the official
 OpenAI-compatible DeepSeek API with JSON output mode enabled.
+It defaults to `DEEPSEEK_THINKING=disabled` for MVP latency, because DeepSeek enables thinking
+mode by default and the courtroom runtime already asks for short structured JSON turns.
 
 `nvidia / z-ai/glm4.7` is supported as an explicit provider for higher-detail generations, but it
 is much slower than the default MVP pair and is not part of the default fallback chain.

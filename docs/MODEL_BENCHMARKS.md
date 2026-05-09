@@ -55,7 +55,8 @@ Retest note: this model remained stable on both provider smoke and courtroom sim
 
 | Model | Provider smoke | Simulation quality | Latency | Notes |
 | --- | --- | --- | --- | --- |
-| `deepseek-v4-pro` | Pass | Strong but slow | ~218.1s simulation | Official DeepSeek API route passed strict JSON mode and produced formal, role-consistent Vietnamese courtroom output. It was far slower than the current MVP pair, so it should stay optional rather than replace `ring -> qwen`. |
+| `deepseek-v4-pro` with thinking disabled | Pass | Strong | ~39.9s simulation | Official DeepSeek API route passed strict JSON mode and produced formal, role-consistent Vietnamese courtroom output. Turning off default thinking mode made it about 5.5x faster than the first run. |
+| `deepseek-v4-pro` with default thinking | Pass | Strong but slow | ~218.1s simulation | DeepSeek thinking mode defaults to enabled with high effort, which is too expensive for the repo's short JSON-per-agent MVP calls. |
 
 DeepSeek winner tested: `deepseek-v4-pro`
 Pricing note: DeepSeek's official pricing page lists the active `deepseek-v4-pro` 75% discount through `2026-05-31 15:59 UTC`; selecting `DEEPSEEK_MODEL=deepseek-v4-pro` is enough for the billing-side discount. See `https://api-docs.deepseek.com/quick_start/pricing/`.
@@ -90,7 +91,7 @@ Latest direct retest on the same simulation flow:
 | --- | --- | --- | --- | --- |
 | OpenRouter | `inclusionai/ring-2.6-1t:free` | Pass | ~8.5s | Concise and clean. Best speed-to-quality result in the latest direct side-by-side run, but OpenRouter free still has intermittent `429` risk. |
 | Groq | `qwen/qwen3-32b` | Pass | ~9.0s | Very fast and stable. Good overall, but the defense turn is more template-like than `ring` or DeepSeek. |
-| DeepSeek | `deepseek-v4-pro` | Pass | ~218.1s | Formal and role-consistent, but not better enough to justify replacing the much faster MVP pair for routine demos. |
+| DeepSeek | `deepseek-v4-pro` | Pass | ~39.9s | Formal and role-consistent with thinking disabled, but still slower than the much faster MVP pair for routine demos. |
 | NVIDIA NIM | `z-ai/glm4.7` | Pass | ~185.3s | Most detailed and legally specific output in the latest retest, but much too slow for the default MVP lane. |
 
 Best quality when available: `inclusionai/ring-2.6-1t:free` on OpenRouter
@@ -118,7 +119,7 @@ Operational note:
 
 - Use `ring` as the preferred OpenRouter model for quality.
 - Keep `qwen` on Groq as the most reliable alternate path when OpenRouter free capacity is rate-limited.
-- Use `deepseek-v4-pro` when you want to spend paid DeepSeek credits for long-context or higher-quality experiments; do not put it in the default free MVP chain yet.
+- Use `deepseek-v4-pro` with `DEEPSEEK_THINKING=disabled` when you want to spend paid DeepSeek credits for long-context or higher-quality experiments; do not put it in the default free MVP chain yet.
 - Use `z-ai/glm4.7` on NVIDIA only when you explicitly want richer courtroom phrasing and are willing to trade about three minutes of latency for it.
 - The current MVP fallback chain is `openrouter/ring -> groq/qwen -> heuristic`.
 - `9router / cx/gpt-5.2` is a strong local-gateway option when you explicitly want to route through your own 9Router instance.
@@ -127,7 +128,7 @@ Direct comparison summary:
 
 - `openrouter/ring`: best quality when available, but free-tier availability is the least stable.
 - `groq/qwen`: best stability-to-speed tradeoff for everyday MVP runs.
-- `deepseek/deepseek-v4-pro`: strong paid option with discounted official pricing, but slow in the current simulation smoke.
+- `deepseek/deepseek-v4-pro`: strong paid option with discounted official pricing; thinking-disabled mode is usable, but still slower than Ring/Qwen in this MVP flow.
 - `nvidia/z-ai-glm4.7`: richest and most legally specific output in the latest retest, but much too slow to replace the default MVP pair.
 - `9router/cx-gpt-5.2`: strong courtroom reasoning and summaries, but noticeably slower than `groq/qwen`.
 
@@ -162,6 +163,7 @@ DeepSeek:
 ```powershell
 $env:AI_COURT_LLM_PROVIDER="deepseek"
 $env:DEEPSEEK_MODEL="deepseek-v4-pro"
+$env:DEEPSEEK_THINKING="disabled"
 ```
 
 NVIDIA NIM:

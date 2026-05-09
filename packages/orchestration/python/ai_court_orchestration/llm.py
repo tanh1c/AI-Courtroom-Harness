@@ -68,6 +68,9 @@ class CourtroomLlmService:
             "https://api.deepseek.com",
         ).rstrip("/")
         self.deepseek_model = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-pro").strip()
+        self.deepseek_thinking = os.getenv("DEEPSEEK_THINKING", "disabled").strip().lower()
+        self.deepseek_reasoning_effort = os.getenv("DEEPSEEK_REASONING_EFFORT", "high").strip().lower()
+        self.deepseek_max_tokens = int(os.getenv("DEEPSEEK_MAX_TOKENS", "2048"))
         self.ninerouter_api_key = os.getenv("NINEROUTER_KEY", "").strip()
         self.ninerouter_base_url = os.getenv(
             "NINEROUTER_URL",
@@ -229,16 +232,21 @@ class CourtroomLlmService:
                 user_prompt=user_prompt,
             )
         if provider == "deepseek":
+            extra_payload: dict[str, Any] = {
+                "response_format": {"type": "json_object"},
+                "max_tokens": self.deepseek_max_tokens,
+            }
+            if self.deepseek_thinking in {"enabled", "disabled"}:
+                extra_payload["thinking"] = {"type": self.deepseek_thinking}
+            if self.deepseek_thinking == "enabled" and self.deepseek_reasoning_effort in {"high", "max"}:
+                extra_payload["reasoning_effort"] = self.deepseek_reasoning_effort
             return self._request_chat_completion(
                 base_url=self.deepseek_base_url,
                 api_key=self.deepseek_api_key,
                 model=self.deepseek_model,
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
-                extra_payload={
-                    "response_format": {"type": "json_object"},
-                    "max_tokens": 4096,
-                },
+                extra_payload=extra_payload,
             )
         if provider == "9router":
             return self._request_chat_completion(

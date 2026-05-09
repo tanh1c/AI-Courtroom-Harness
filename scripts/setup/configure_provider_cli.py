@@ -41,6 +41,9 @@ CONFIG_SECTIONS: dict[str, dict[str, str]] = {
         "DEEPSEEK_API_KEY": "",
         "DEEPSEEK_MODEL": "deepseek-v4-pro",
         "DEEPSEEK_BASE_URL": "https://api.deepseek.com",
+        "DEEPSEEK_THINKING": "disabled",
+        "DEEPSEEK_REASONING_EFFORT": "high",
+        "DEEPSEEK_MAX_TOKENS": "2048",
     },
     "nvidia": {
         "NVIDIA_API_KEY": "",

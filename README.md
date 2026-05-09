@@ -314,6 +314,7 @@ DeepSeek setup:
 $env:AI_COURT_LLM_PROVIDER="deepseek"
 $env:DEEPSEEK_API_KEY="your_key_here"
 $env:DEEPSEEK_MODEL="deepseek-v4-pro"
+$env:DEEPSEEK_THINKING="disabled"
 ```
 
 The DeepSeek integration uses the OpenAI-compatible endpoint at `https://api.deepseek.com`
@@ -321,6 +322,11 @@ and enables JSON output mode for the repo's strict structured-generation contrac
 current `deepseek-v4-pro` discount is applied by DeepSeek billing when this model is used
 through their API; there is no repo-side discount flag to set. Check the official pricing
 page before paid runs: `https://api-docs.deepseek.com/quick_start/pricing/`.
+
+For MVP simulations, `DEEPSEEK_THINKING` defaults to `disabled` because DeepSeek enables
+thinking by default and that made the short JSON agent calls much slower. Set
+`DEEPSEEK_THINKING=enabled` and optionally `DEEPSEEK_REASONING_EFFORT=high` or `max` only
+when you want slower, deeper reasoning experiments.
 
 NVIDIA NIM setup:
 
