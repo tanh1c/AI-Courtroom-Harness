@@ -42,6 +42,7 @@ DISCLAIMER = (
     "It does not replace qualified legal professionals."
 )
 CLAIM_NORMALIZE_PATTERN = re.compile(r"\s+")
+ROLE_DRIFT_SPACE_PATTERN = re.compile(r"\s+")
 
 
 class SimulationGraphState(TypedDict):
@@ -70,6 +71,10 @@ def dedupe_preserve(values: list[str]) -> list[str]:
 
 def normalize_claim_text(text: str) -> str:
     return CLAIM_NORMALIZE_PATTERN.sub(" ", text).strip().lower()
+
+
+def normalize_role_text(text: str) -> str:
+    return ROLE_DRIFT_SPACE_PATTERN.sub(" ", text).strip().lower()
 
 
 def confidence_rank(value: ClaimConfidence) -> int:
@@ -290,10 +295,12 @@ class CourtroomSimulationService:
         if not self.llm_service.is_enabled():
             return fallback_message
 
+        role_instruction = self._role_instruction(role)
         system_prompt = (
             "You are helping a Vietnamese legal courtroom simulation. "
             "Return strict JSON only with shape {\"message\": string}. "
-            "Write concise Vietnamese. Do not invent evidence or citations."
+            "Write concise Vietnamese. Do not invent evidence or citations. "
+            f"{role_instruction}"
         )
         user_prompt = json.dumps(
             {
@@ -315,6 +322,7 @@ class CourtroomSimulationService:
                     "Use only the supplied facts, evidence, and citations.",
                     "Keep the message under 90 words.",
                     "Sound like a courtroom participant, not a chatbot.",
+                    self._role_requirement(role),
                 ],
             },
             ensure_ascii=False,
@@ -323,9 +331,73 @@ class CourtroomSimulationService:
         try:
             payload = self.llm_service.generate_json(system_prompt, user_prompt)
             message = str(payload.get("message", "")).strip()
-            return message or fallback_message
+            if not message:
+                return fallback_message
+            if not self._role_message_is_valid(role, message):
+                return fallback_message
+            return message
         except Exception:
             return fallback_message
+
+    def _role_instruction(self, role: str) -> str:
+        if role == "plaintiff":
+            return (
+                "You are speaking for the plaintiff. Advocate for the plaintiff's requests, "
+                "but stay grounded in the supplied evidence and citations."
+            )
+        if role == "defense":
+            return (
+                "You are speaking for the defense. Do not argue that the defendant has already violated "
+                "the contract unless that is explicitly part of the defense claims. Emphasize uncertainty, "
+                "burden of proof, contract interpretation, or reasons the court should not conclude liability yet."
+            )
+        return "Stay consistent with the assigned courtroom role."
+
+    def _role_requirement(self, role: str) -> str:
+        if role == "plaintiff":
+            return "Plaintiff stance only: ask the court to protect the buyer/plaintiff's claim."
+        if role == "defense":
+            return (
+                "Defense stance only: do not ask the court to order the defendant to perform, refund, "
+                "or compensate; instead ask the court to clarify terms, limit liability, or reject premature conclusions."
+            )
+        return "Remain consistent with the assigned side."
+
+    def _role_message_is_valid(self, role: str, message: str) -> bool:
+        normalized = normalize_role_text(message)
+        if role == "defense":
+            invalid_markers = [
+                "bi don da vi pham",
+                "ben ban da vi pham",
+                "ong a da vi pham",
+                "xin toa buoc bi don",
+                "buoc bi don giao xe",
+                "buoc bi don hoan tra",
+                "nguyen don co quyen yeu cau",
+            ]
+            valid_markers = [
+                "bi don",
+                "de nghi",
+                "lam ro",
+                "chua du can cu",
+                "chua the ket luan",
+                "dieu kien thanh toan",
+                "gia tri chung minh",
+                "khong dong y",
+            ]
+            if any(marker in normalized for marker in invalid_markers):
+                return False
+            if not any(marker in normalized for marker in valid_markers):
+                return False
+        if role == "plaintiff":
+            invalid_markers = [
+                "chua du can cu ket luan bi don vi pham",
+                "de nghi bac yeu cau cua nguyen don",
+                "bi don khong vi pham",
+            ]
+            if any(marker in normalized for marker in invalid_markers):
+                return False
+        return True
 
     def _llm_judge_summary(
         self,
@@ -482,8 +554,8 @@ class CourtroomSimulationService:
         )
         self._mark_evidence_usage(case, evidence_used, used_by=AgentName.PLAINTIFF_AGENT)
         fallback_message = (
-            "Nguyên đơn trình bày các yêu cầu về giao tài sản, hoàn tiền, và bồi thường "
-            "trên cơ sở hợp đồng và chứng cứ thanh toán."
+            "Nguyên đơn cho rằng bị đơn đã chậm giao xe trái với thỏa thuận trong hợp đồng, "
+            "đề nghị Tòa buộc giao xe hoặc hoàn trả khoản 28.000.000 đồng đã nhận và xem xét bồi thường thiệt hại."
         )
         message = self._llm_role_message(
             role="plaintiff",
@@ -553,8 +625,8 @@ class CourtroomSimulationService:
         self._mark_evidence_usage(case, evidence_used, challenged_by=AgentName.DEFENSE_AGENT)
         status = TurnStatus.NEEDS_FACT_CHECK if any(item.status != "uncontested" for item in case.evidence) else TurnStatus.OK
         fallback_message = (
-            "Bị đơn phản hồi rằng cần làm rõ điều khoản thanh toán và giá trị chứng minh "
-            "của các chứng cứ đang bị tranh luận."
+            "Bị đơn đề nghị Tòa làm rõ điều khoản thanh toán 30% còn lại, giá trị chứng minh của các chứng cứ narrative, "
+            "và khẳng định chưa đủ căn cứ để kết luận bị đơn vi phạm nghĩa vụ giao tài sản ngay ở thời điểm này."
         )
         message = self._llm_role_message(
             role="defense",
