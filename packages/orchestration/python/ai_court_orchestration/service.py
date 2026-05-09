@@ -2,12 +2,16 @@ from __future__ import annotations
 
 from functools import lru_cache
 from typing import TypedDict
+import json
 import warnings
 
+import httpx
 from langchain_core._api.deprecation import LangChainPendingDeprecationWarning
 warnings.filterwarnings("ignore", category=LangChainPendingDeprecationWarning)
 from langgraph.graph import END, StateGraph
+from pydantic import ValidationError
 
+from .llm import get_courtroom_llm_service
 from packages.retrieval.python.ai_court_retrieval.service import (
     get_local_legal_retrieval_service,
 )
@@ -74,6 +78,7 @@ def clone_case(case_state: CaseState) -> CaseState:
 class CourtroomSimulationService:
     def __init__(self) -> None:
         self.retrieval_service = get_local_legal_retrieval_service()
+        self.llm_service = get_courtroom_llm_service()
         self.graph = self._build_graph()
 
     def _build_graph(self):
@@ -174,6 +179,214 @@ class CourtroomSimulationService:
             if challenged_by is not None and challenged_by.value not in evidence.challenged_by:
                 evidence.challenged_by.append(challenged_by.value)
 
+    def _case_context_payload(self, case: CaseState) -> dict:
+        return {
+            "case_id": case.case_id,
+            "title": case.title,
+            "case_type": case.case_type.value,
+            "legal_issues": [
+                {
+                    "issue_id": issue.issue_id,
+                    "title": issue.title,
+                    "description": issue.description,
+                }
+                for issue in case.legal_issues
+            ],
+            "facts": [
+                {
+                    "fact_id": fact.fact_id,
+                    "content": fact.content,
+                    "source": fact.source,
+                }
+                for fact in case.facts
+            ],
+            "evidence": [
+                {
+                    "evidence_id": evidence.evidence_id,
+                    "type": evidence.type.value,
+                    "content": evidence.content,
+                    "status": evidence.status.value,
+                    "source": evidence.source,
+                }
+                for evidence in case.evidence
+            ],
+        }
+
+    def _citation_context_payload(
+        self,
+        citations: list[Citation],
+        citation_ids: list[str] | None = None,
+    ) -> list[dict]:
+        selected = citations
+        if citation_ids is not None:
+            citation_id_set = set(citation_ids)
+            selected = [citation for citation in citations if citation.citation_id in citation_id_set]
+        return [
+            {
+                "citation_id": citation.citation_id,
+                "article": citation.article,
+                "title": citation.title,
+                "content": citation.content,
+                "effective_status": citation.effective_status.value,
+            }
+            for citation in selected
+        ]
+
+    def _llm_role_message(
+        self,
+        role: str,
+        fallback_message: str,
+        case: CaseState,
+        claims: list[Claim],
+        citations: list[Citation],
+    ) -> str:
+        if not self.llm_service.is_enabled():
+            return fallback_message
+
+        system_prompt = (
+            "You are helping a Vietnamese legal courtroom simulation. "
+            "Return strict JSON only with shape {\"message\": string}. "
+            "Write concise Vietnamese. Do not invent evidence or citations."
+        )
+        user_prompt = json.dumps(
+            {
+                "task": f"Write the {role} turn message for the courtroom simulation.",
+                "provider": self.llm_service.provider_label(),
+                "case": self._case_context_payload(case),
+                "claims": [
+                    {
+                        "claim_id": claim.claim_id,
+                        "content": claim.content,
+                        "confidence": claim.confidence.value,
+                        "evidence_ids": claim.evidence_ids,
+                        "citation_ids": claim.citation_ids,
+                    }
+                    for claim in claims
+                ],
+                "citations": self._citation_context_payload(citations),
+                "requirements": [
+                    "Use only the supplied facts, evidence, and citations.",
+                    "Keep the message under 90 words.",
+                    "Sound like a courtroom participant, not a chatbot.",
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        try:
+            payload = self.llm_service.generate_json(system_prompt, user_prompt)
+            message = str(payload.get("message", "")).strip()
+            return message or fallback_message
+        except (RuntimeError, httpx.HTTPError, ValueError, KeyError, TypeError):
+            return fallback_message
+
+    def _llm_judge_summary(
+        self,
+        case: CaseState,
+        claims: list[Claim],
+        citations: list[Citation],
+        fact_check: FactCheckResult,
+        fallback_summary: JudgeSummary,
+    ) -> JudgeSummary:
+        if not self.llm_service.is_enabled():
+            return fallback_summary
+
+        system_prompt = (
+            "You are helping a Vietnamese legal courtroom simulation. "
+            "Return strict JSON only with shape "
+            "{\"summary\": string, \"main_disputed_points\": [string], "
+            "\"questions_to_clarify\": [string]}. "
+            "Do not invent facts, evidence, or legal conclusions."
+        )
+        user_prompt = json.dumps(
+            {
+                "task": "Draft a judge summary for the current simulation state.",
+                "case": self._case_context_payload(case),
+                "claims": [
+                    {
+                        "claim_id": claim.claim_id,
+                        "speaker": claim.speaker.value,
+                        "content": claim.content,
+                        "confidence": claim.confidence.value,
+                    }
+                    for claim in claims
+                ],
+                "citations": self._citation_context_payload(citations),
+                "fact_check": {
+                    "risk_level": fact_check.risk_level.value,
+                    "unsupported_claims": fact_check.unsupported_claims,
+                    "contradictions": fact_check.contradictions,
+                    "citation_mismatches": fact_check.citation_mismatches,
+                },
+                "requirements": [
+                    "Write concise Vietnamese.",
+                    "Keep disputed points grounded in legal issues and claims.",
+                    "Keep questions focused on unresolved evidence or contract interpretation.",
+                    "Do not decide a winner.",
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        try:
+            payload = self.llm_service.generate_json(system_prompt, user_prompt)
+            return JudgeSummary(
+                summary=str(payload.get("summary", fallback_summary.summary)).strip() or fallback_summary.summary,
+                main_disputed_points=[
+                    str(item).strip()
+                    for item in payload.get("main_disputed_points", fallback_summary.main_disputed_points)
+                    if str(item).strip()
+                ] or fallback_summary.main_disputed_points,
+                questions_to_clarify=[
+                    str(item).strip()
+                    for item in payload.get("questions_to_clarify", fallback_summary.questions_to_clarify)
+                    if str(item).strip()
+                ] or fallback_summary.questions_to_clarify,
+                unsupported_claims=fallback_summary.unsupported_claims,
+                recommended_human_review=fallback_summary.recommended_human_review,
+            )
+        except (RuntimeError, httpx.HTTPError, ValueError, KeyError, TypeError, ValidationError):
+            return fallback_summary
+
+    def _llm_report_summary(
+        self,
+        case: CaseState,
+        judge_summary: JudgeSummary | None,
+        fallback_summary: str,
+    ) -> str:
+        if not self.llm_service.is_enabled() or judge_summary is None:
+            return fallback_summary
+
+        system_prompt = (
+            "You are helping a Vietnamese legal courtroom simulation. "
+            "Return strict JSON only with shape {\"case_summary\": string}. "
+            "The summary must be neutral and concise."
+        )
+        user_prompt = json.dumps(
+            {
+                "task": "Draft the case summary paragraph for the final report.",
+                "case": self._case_context_payload(case),
+                "judge_summary": {
+                    "summary": judge_summary.summary,
+                    "main_disputed_points": judge_summary.main_disputed_points,
+                    "questions_to_clarify": judge_summary.questions_to_clarify,
+                },
+                "requirements": [
+                    "Write Vietnamese.",
+                    "Keep the summary under 100 words.",
+                    "Stay neutral and evidence-aware.",
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        try:
+            payload = self.llm_service.generate_json(system_prompt, user_prompt)
+            summary = str(payload.get("case_summary", "")).strip()
+            return summary or fallback_summary
+        except (RuntimeError, httpx.HTTPError, ValueError, KeyError, TypeError):
+            return fallback_summary
+
     def _build_plaintiff_claims(self, case: CaseState, issue_citations: dict[str, list[str]]) -> list[Claim]:
         claims: list[Claim] = []
         contract_evidence = [item.evidence_id for item in case.evidence if item.type == "contract"]
@@ -221,12 +434,23 @@ class CourtroomSimulationService:
             [citation_id for claim in plaintiff_claims for citation_id in claim.citation_ids]
         )
         self._mark_evidence_usage(case, evidence_used, used_by=AgentName.PLAINTIFF_AGENT)
+        fallback_message = (
+            "Nguyên đơn trình bày các yêu cầu về giao tài sản, hoàn tiền, và bồi thường "
+            "trên cơ sở hợp đồng và chứng cứ thanh toán."
+        )
+        message = self._llm_role_message(
+            role="plaintiff",
+            fallback_message=fallback_message,
+            case=case,
+            claims=plaintiff_claims,
+            citations=state["citations"],
+        )
         state["claims"] = claims
         state["turns"].append(
             AgentTurn(
                 turn_id=f"TURN_{len(state['turns']) + 1:03d}",
                 agent=AgentName.PLAINTIFF_AGENT,
-                message="Nguyên đơn trình bày các yêu cầu về giao tài sản, hoàn tiền, và bồi thường trên cơ sở hợp đồng và chứng cứ thanh toán.",
+                message=message,
                 claims=[claim.claim_id for claim in plaintiff_claims],
                 evidence_used=evidence_used,
                 citations_used=citations_used,
@@ -281,12 +505,23 @@ class CourtroomSimulationService:
         self._mark_evidence_usage(case, evidence_used, used_by=AgentName.DEFENSE_AGENT)
         self._mark_evidence_usage(case, evidence_used, challenged_by=AgentName.DEFENSE_AGENT)
         status = TurnStatus.NEEDS_FACT_CHECK if any(item.status != "uncontested" for item in case.evidence) else TurnStatus.OK
+        fallback_message = (
+            "Bị đơn phản hồi rằng cần làm rõ điều khoản thanh toán và giá trị chứng minh "
+            "của các chứng cứ đang bị tranh luận."
+        )
+        message = self._llm_role_message(
+            role="defense",
+            fallback_message=fallback_message,
+            case=case,
+            claims=defense_claims,
+            citations=state["citations"],
+        )
         state["claims"] = claims
         state["turns"].append(
             AgentTurn(
                 turn_id=f"TURN_{len(state['turns']) + 1:03d}",
                 agent=AgentName.DEFENSE_AGENT,
-                message="Bị đơn phản hồi rằng cần làm rõ điều khoản thanh toán và giá trị chứng minh của các chứng cứ đang bị tranh luận.",
+                message=message,
                 claims=[claim.claim_id for claim in defense_claims],
                 evidence_used=evidence_used,
                 citations_used=citations_used,
@@ -356,7 +591,7 @@ class CourtroomSimulationService:
             questions_to_clarify.append("Điều khoản thanh toán còn lại có phải là điều kiện tiên quyết để giao tài sản hay không.")
         if any(title_has_any(issue, ["bồi thường", "damages", "hoàn", "refund"]) for issue in case.legal_issues):
             questions_to_clarify.append("Thiệt hại thực tế và khoản tiền yêu cầu hoàn trả cần được chứng minh thêm bằng chứng cứ bổ sung.")
-        judge_summary = JudgeSummary(
+        fallback_judge_summary = JudgeSummary(
             summary=(
                 f"Vụ việc xoay quanh {', '.join(disputed_points).lower() if disputed_points else 'các nghĩa vụ hợp đồng'} "
                 "và cần đối chiếu thêm điều khoản gốc cùng chứng cứ thực tế."
@@ -365,6 +600,13 @@ class CourtroomSimulationService:
             questions_to_clarify=questions_to_clarify,
             unsupported_claims=fact_check.unsupported_claims,
             recommended_human_review=fact_check.risk_level != ClaimConfidence.LOW,
+        )
+        judge_summary = self._llm_judge_summary(
+            case=case,
+            claims=claims,
+            citations=citations,
+            fact_check=fact_check,
+            fallback_summary=fallback_judge_summary,
         )
         state["fact_check"] = fact_check
         state["citation_verification"] = citation_verification
@@ -412,9 +654,10 @@ class CourtroomSimulationService:
         ]
         if fact_check and fact_check.contradictions:
             checklist.append("Làm rõ các mâu thuẫn về điều kiện thanh toán và nghĩa vụ giao tài sản.")
+        fallback_case_summary = judge_summary.summary if judge_summary else case.title
         final_report = FinalReport(
             case_id=case.case_id,
-            case_summary=judge_summary.summary if judge_summary else case.title,
+            case_summary=self._llm_report_summary(case, judge_summary, fallback_case_summary),
             disputed_points=judge_summary.main_disputed_points if judge_summary else [],
             human_review_checklist=checklist,
             disclaimer=DISCLAIMER,

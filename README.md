@@ -146,6 +146,37 @@ The Phase 3 simulation runtime is also CPU-only. Run:
 
 This drives `create -> upload attachment -> parse -> simulate -> report` through the FastAPI app and verifies that the LangGraph-based multi-agent flow produces structured claims, turns, minutes, and a final report.
 
+## OpenRouter Provider
+
+The courtroom runtime now supports a provider abstraction for text generation in the
+`plaintiff`, `defense`, `judge`, and `clerk` stages while preserving heuristic fallback.
+
+Recommended local setup:
+
+```powershell
+$env:OPENROUTER_API_KEY="your_key_here"
+$env:OPENROUTER_MODEL="openrouter/free"
+```
+
+If `OPENROUTER_API_KEY` is present, the runtime now auto-selects OpenRouter. Set
+`AI_COURT_LLM_PROVIDER="heuristic"` only if you want to force the old deterministic path.
+
+Optional model override:
+
+```powershell
+$env:OPENROUTER_MODEL="tencent/hy3-preview:free"
+```
+
+Use the explicit Tencent override only if it is still available on OpenRouter. The model page
+for `tencent/hy3-preview:free` currently says it is going away on May 8, 2026, so `openrouter/free`
+is the safer default for demos after that date.
+
+Quick provider smoke:
+
+```bash
+.\.venv\Scripts\python scripts/eval/smoke_openrouter_provider.py
+```
+
 ## Phase 4 Safety Check
 
 The same simulation smoke now also verifies:
