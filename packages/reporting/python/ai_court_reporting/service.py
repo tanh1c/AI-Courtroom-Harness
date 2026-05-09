@@ -23,6 +23,12 @@ class MarkdownReportService:
         judge = simulation.judge_summary
         fact_check = simulation.fact_check
         citation_verification = simulation.citation_verification
+        accepted_citation_ids = set(citation_verification.accepted_citations)
+        accepted_citations = [
+            citation
+            for citation in simulation.case.citations
+            if citation.citation_id in accepted_citation_ids
+        ]
         lines: list[str] = [
             f"# AI Courtroom Harness Report - {simulation.case.case_id}",
             "",
@@ -48,6 +54,9 @@ class MarkdownReportService:
             "",
         ]
         for claim in simulation.case.claims:
+            visible_citation_ids = [
+                citation_id for citation_id in claim.citation_ids if citation_id in accepted_citation_ids
+            ]
             lines.extend(
                 [
                     f"### {claim.claim_id} - {claim.speaker.value}",
@@ -56,7 +65,11 @@ class MarkdownReportService:
                     "",
                     f"- Confidence: `{claim.confidence.value}`",
                     f"- Evidence: {', '.join(claim.evidence_ids) if claim.evidence_ids else 'None'}",
-                    f"- Citations: {', '.join(claim.citation_ids) if claim.citation_ids else 'None'}",
+                    (
+                        f"- Citations: {', '.join(visible_citation_ids)}"
+                        if visible_citation_ids
+                        else "- Citations: None kept after verification"
+                    ),
                     "",
                 ]
             )
@@ -67,7 +80,7 @@ class MarkdownReportService:
                 "",
             ]
         )
-        for citation in simulation.case.citations:
+        for citation in accepted_citations:
             lines.extend(
                 [
                     f"### {citation.citation_id} - {citation.article} - {citation.title}",
@@ -76,6 +89,13 @@ class MarkdownReportService:
                     "",
                     f"- Effective status: `{citation.effective_status.value}`",
                     f"- Source: {citation.source}",
+                    "",
+                ]
+            )
+        if not accepted_citations:
+            lines.extend(
+                [
+                    "- No accepted citations remained after verification.",
                     "",
                 ]
             )

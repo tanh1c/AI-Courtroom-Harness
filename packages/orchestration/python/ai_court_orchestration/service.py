@@ -3,6 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import TypedDict
 import json
+import re
 import warnings
 
 import httpx
@@ -40,6 +41,7 @@ DISCLAIMER = (
     "This system is for legal education, simulation, and research support only. "
     "It does not replace qualified legal professionals."
 )
+CLAIM_NORMALIZE_PATTERN = re.compile(r"\s+")
 
 
 class SimulationGraphState(TypedDict):
@@ -64,6 +66,51 @@ def dedupe_preserve(values: list[str]) -> list[str]:
         seen.add(value)
         output.append(value)
     return output
+
+
+def normalize_claim_text(text: str) -> str:
+    return CLAIM_NORMALIZE_PATTERN.sub(" ", text).strip().lower()
+
+
+def confidence_rank(value: ClaimConfidence) -> int:
+    order = {
+        ClaimConfidence.LOW: 0,
+        ClaimConfidence.MEDIUM: 1,
+        ClaimConfidence.HIGH: 2,
+    }
+    return order[value]
+
+
+def merge_claims_by_content(claims: list[Claim], start_index: int) -> list[Claim]:
+    merged: list[Claim] = []
+    claim_index_by_key: dict[tuple[str, str], int] = {}
+
+    for claim in claims:
+        key = (claim.speaker.value, normalize_claim_text(claim.content))
+        existing_index = claim_index_by_key.get(key)
+        if existing_index is None:
+            merged.append(
+                Claim(
+                    claim_id="",
+                    speaker=claim.speaker,
+                    content=claim.content,
+                    evidence_ids=list(claim.evidence_ids),
+                    citation_ids=list(claim.citation_ids),
+                    confidence=claim.confidence,
+                )
+            )
+            claim_index_by_key[key] = len(merged) - 1
+            continue
+
+        current = merged[existing_index]
+        current.evidence_ids = dedupe_preserve(current.evidence_ids + claim.evidence_ids)
+        current.citation_ids = dedupe_preserve(current.citation_ids + claim.citation_ids)
+        if confidence_rank(claim.confidence) > confidence_rank(current.confidence):
+            current.confidence = claim.confidence
+
+    for offset, claim in enumerate(merged, start=start_index):
+        claim.claim_id = f"CLAIM_{offset:03d}"
+    return merged
 
 
 def title_has_any(issue: LegalIssue, keywords: list[str]) -> bool:
@@ -420,7 +467,7 @@ class CourtroomSimulationService:
                         confidence=ClaimConfidence.MEDIUM,
                     )
                 )
-        return claims
+        return merge_claims_by_content(claims, start_index=1)
 
     def _plaintiff_node(self, state: SimulationGraphState) -> SimulationGraphState:
         case = state["case"]
@@ -489,7 +536,7 @@ class CourtroomSimulationService:
                     confidence=ClaimConfidence.MEDIUM,
                 )
             )
-        return claims
+        return merge_claims_by_content(claims, start_index=len(existing_claims) + 1)
 
     def _defense_node(self, state: SimulationGraphState) -> SimulationGraphState:
         case = state["case"]

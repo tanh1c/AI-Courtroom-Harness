@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from pathlib import Path
 
 from pypdf import PdfReader
@@ -22,10 +23,34 @@ from packages.shared.python.ai_court_shared.schemas import (
 
 SENTENCE_SPLIT_PATTERN = re.compile(r"(?<=[.!?])\s+")
 WHITESPACE_PATTERN = re.compile(r"\s+")
+ANCHOR_PATTERN = re.compile(r"\d{1,4}(?:[./]\d{1,4})+|\d[\d.,]*%?")
+NARRATIVE_ONLY_HINTS = [
+    "chua giao",
+    "khong giao",
+    "yeu cau",
+    "boi thuong",
+    "hoan tra",
+    "chi phi phat sinh",
+    "cho rang",
+]
+SUPPORT_KEYWORDS = [
+    "hop dong",
+    "giao xe",
+    "giao hang",
+    "giao tai san",
+    "thanh toan",
+    "chuyen khoan",
+]
 
 
 def normalize_text(text: str) -> str:
     return WHITESPACE_PATTERN.sub(" ", text).strip()
+
+
+def fold_text(text: str) -> str:
+    normalized = unicodedata.normalize("NFKD", text)
+    without_marks = "".join(character for character in normalized if not unicodedata.combining(character))
+    return normalize_text(without_marks).lower()
 
 
 def split_sentences(text: str) -> list[str]:
@@ -178,23 +203,52 @@ def build_attachment_parses(attachments: list[CaseAttachment]) -> list[Attachmen
     return [build_attachment_parse_result(attachment) for attachment in attachments]
 
 
-def pick_fact_source(sentence: str, attachments: list[CaseAttachment]) -> str:
-    lowered = sentence.lower()
-    for attachment in attachments:
-        note = (attachment.note or "").lower()
-        filename = attachment.filename.lower()
-        haystack = f"{note} {filename}"
-        if "hợp đồng" in lowered and ("hợp đồng" in haystack or "contract" in haystack):
-            return f"attachment:{attachment.attachment_id}"
-        if (
-            any(keyword in lowered for keyword in ["chuyển khoản", "thanh toán", "đặt cọc"])
-            and any(keyword in haystack for keyword in ["biên", "receipt", "chuyển khoản"])
-        ):
-            return f"attachment:{attachment.attachment_id}"
-        if (
-            any(keyword in lowered for keyword in ["hạn giao", "giao xe", "giao hàng", "giao tài sản", "thỏa thuận"])
-            and ("hợp đồng" in haystack or "contract" in haystack)
-        ):
+def attachment_supports_sentence(
+    sentence: str,
+    attachment: CaseAttachment,
+    parsed_attachment: AttachmentParseResult,
+) -> bool:
+    folded_sentence = fold_text(sentence)
+    folded_attachment = fold_text(
+        " ".join(
+            [
+                attachment.filename,
+                attachment.note or "",
+                parsed_attachment.extracted_text_excerpt or "",
+            ]
+        )
+    )
+    if not folded_attachment:
+        return False
+
+    for hint in NARRATIVE_ONLY_HINTS:
+        if hint in folded_sentence and hint not in folded_attachment:
+            return False
+
+    shared_anchor_count = sum(
+        1
+        for anchor in set(ANCHOR_PATTERN.findall(folded_sentence))
+        if anchor and anchor in folded_attachment
+    )
+    shared_keyword_count = sum(
+        1
+        for keyword in SUPPORT_KEYWORDS
+        if keyword in folded_sentence and keyword in folded_attachment
+    )
+
+    if "hop dong" in folded_sentence and "hop dong" in folded_attachment:
+        return shared_anchor_count >= 1 or shared_keyword_count >= 2
+
+    return shared_anchor_count >= 2 or (shared_anchor_count >= 1 and shared_keyword_count >= 1)
+
+
+def pick_fact_source(
+    sentence: str,
+    attachments: list[CaseAttachment],
+    attachment_parses: list[AttachmentParseResult],
+) -> str:
+    for attachment, parsed_attachment in zip(attachments, attachment_parses):
+        if attachment_supports_sentence(sentence, attachment, parsed_attachment):
             return f"attachment:{attachment.attachment_id}"
     return "narrative"
 
@@ -208,10 +262,13 @@ def infer_confidence(sentence: str, source: str) -> ClaimConfidence:
     return ClaimConfidence.LOW
 
 
-def build_facts(case_input: CaseFileInput) -> list[Fact]:
+def build_facts(
+    case_input: CaseFileInput,
+    attachment_parses: list[AttachmentParseResult],
+) -> list[Fact]:
     facts: list[Fact] = []
     for index, sentence in enumerate(split_sentences(case_input.narrative), start=1):
-        source = pick_fact_source(sentence, case_input.attachments)
+        source = pick_fact_source(sentence, case_input.attachments, attachment_parses)
         facts.append(
             Fact(
                 fact_id=f"FACT_{index:03d}",
@@ -361,7 +418,7 @@ def build_legal_issues(case_input: CaseFileInput, attachment_parses: list[Attach
 
 def parse_case_input(case_input: CaseFileInput) -> CaseState:
     attachment_parses = build_attachment_parses(case_input.attachments)
-    narrative_facts = build_facts(case_input)
+    narrative_facts = build_facts(case_input, attachment_parses)
     attachment_facts = build_attachment_facts(attachment_parses, len(narrative_facts) + 1)
     facts = narrative_facts + attachment_facts
     attachment_evidence = build_attachment_evidence(case_input.attachments, attachment_parses)
