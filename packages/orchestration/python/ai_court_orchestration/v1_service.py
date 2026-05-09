@@ -70,6 +70,12 @@ def dedupe(values: list[str]) -> list[str]:
     return output
 
 
+def has_grounding(evidence_ids: list[str], citation_ids: list[str], content: str) -> bool:
+    lowered = content.lower()
+    explicitly_missing = "chưa có chứng cứ" in lowered or "chưa có citation" in lowered
+    return bool(evidence_ids or citation_ids or explicitly_missing)
+
+
 class CourtroomV1RuntimeService:
     def __init__(self) -> None:
         self.retrieval_service = get_local_legal_retrieval_service()
@@ -406,58 +412,178 @@ class CourtroomV1RuntimeService:
             )
 
     def _advance_judge_questions(self, session: HearingSession) -> None:
-        question = ClarificationQuestion(
-            question_id=f"QUES_{len(session.clarification_questions) + 1:03d}",
-            asked_by=AgentName.JUDGE_AGENT,
-            question="Hợp đồng quy định thời điểm thanh toán 30% còn lại trước hay sau khi giao tài sản?",
-            target_agents=[AgentName.PLAINTIFF_AGENT, AgentName.DEFENSE_AGENT],
-            related_claim_ids=[claim.claim_id for claim in session.case.claims],
-            related_evidence_ids=[item.evidence_id for item in session.case.evidence[:1]],
-            related_citation_ids=[item.citation_id for item in session.case.citations[:2]],
+        questions = [
+            ClarificationQuestion(
+                question_id=f"QUES_{len(session.clarification_questions) + 1:03d}",
+                asked_by=AgentName.JUDGE_AGENT,
+                question="Hợp đồng quy định thời điểm thanh toán 30% còn lại trước hay sau khi giao tài sản?",
+                target_agents=[AgentName.PLAINTIFF_AGENT, AgentName.DEFENSE_AGENT],
+                related_claim_ids=[claim.claim_id for claim in session.case.claims],
+                related_evidence_ids=[item.evidence_id for item in session.case.evidence[:1]],
+                related_citation_ids=[item.citation_id for item in session.case.citations[:2]],
+                status=TurnStatus.NEEDS_REVIEW,
+            )
+        ]
+        if session.evidence_challenges:
+            challenged_evidence_ids = dedupe(
+                [challenge.evidence_id for challenge in session.evidence_challenges]
+            )
+            affected_claim_ids = dedupe(
+                [
+                    claim_id
+                    for challenge in session.evidence_challenges
+                    for claim_id in challenge.affected_claim_ids
+                ]
+            )
+            questions.append(
+                ClarificationQuestion(
+                    question_id=f"QUES_{len(session.clarification_questions) + len(questions) + 1:03d}",
+                    asked_by=AgentName.JUDGE_AGENT,
+                    question=(
+                        "Các chứng cứ đang bị challenge có đủ xác thực để hỗ trợ claim liên quan hay "
+                        "cần loại khỏi phần nhận định sơ bộ?"
+                    ),
+                    target_agents=[AgentName.PLAINTIFF_AGENT, AgentName.DEFENSE_AGENT],
+                    related_claim_ids=affected_claim_ids,
+                    related_evidence_ids=challenged_evidence_ids,
+                    related_citation_ids=[],
+                    status=TurnStatus.NEEDS_REVIEW,
+                )
+            )
+        if len(questions) < 2:
+            questions.append(
+                ClarificationQuestion(
+                    question_id=f"QUES_{len(session.clarification_questions) + len(questions) + 1:03d}",
+                    asked_by=AgentName.JUDGE_AGENT,
+                    question="Thiệt hại phát sinh và yêu cầu hoàn trả tiền đã có chứng cứ trực tiếp nào ngoài narrative hay chưa?",
+                    target_agents=[AgentName.PLAINTIFF_AGENT, AgentName.DEFENSE_AGENT],
+                    related_claim_ids=[claim.claim_id for claim in session.case.claims],
+                    related_evidence_ids=[item.evidence_id for item in session.case.evidence],
+                    related_citation_ids=[item.citation_id for item in session.case.citations[:1]],
+                    status=TurnStatus.NEEDS_REVIEW,
+                )
+            )
+        session.clarification_questions.extend(questions)
+        turn_id = self._next_turn_id(session)
+        tool_call = AgentToolCall(
+            tool_call_id=self._next_tool_call_id(session),
+            turn_id=turn_id,
+            agent=AgentName.JUDGE_AGENT,
+            tool_name="clarification_question_planner",
+            input_summary=(
+                f"Generate targeted questions for {len(session.case.claims)} claims, "
+                f"{len(session.evidence_challenges)} challenges, and {len(session.case.citations)} citations."
+            ),
+            output_refs=[question.question_id for question in questions],
             status=TurnStatus.NEEDS_REVIEW,
         )
-        session.clarification_questions.append(question)
+        session.tool_calls.append(tool_call)
         self._append_turn(
             session,
             hearing_stage=HearingStage.JUDGE_QUESTIONS,
             agent=AgentName.JUDGE_AGENT,
-            message="Thẩm phán đặt câu hỏi làm rõ về điều kiện thanh toán còn lại và nghĩa vụ giao tài sản.",
-            claims=question.related_claim_ids,
-            evidence_used=question.related_evidence_ids,
-            citations_used=question.related_citation_ids,
+            message=f"Thẩm phán đặt {len(questions)} câu hỏi làm rõ về điều kiện thanh toán, chứng cứ và claim còn tranh chấp.",
+            claims=dedupe([claim_id for question in questions for claim_id in question.related_claim_ids]),
+            evidence_used=dedupe([evidence_id for question in questions for evidence_id in question.related_evidence_ids]),
+            citations_used=dedupe([citation_id for question in questions for citation_id in question.related_citation_ids]),
             status=TurnStatus.NEEDS_REVIEW,
+            tool_call_ids=[tool_call.tool_call_id],
+        )
+        self._append_audit(
+            session,
+            stage=AuditStage.JUDICIAL_REVIEW,
+            severity=ClaimConfidence.MEDIUM if session.evidence_challenges else ClaimConfidence.LOW,
+            message=f"Judge issued {len(questions)} clarification questions.",
+            related_claim_ids=dedupe([claim_id for question in questions for claim_id in question.related_claim_ids]),
+            related_evidence_ids=dedupe([evidence_id for question in questions for evidence_id in question.related_evidence_ids]),
         )
 
     def _advance_party_responses(self, session: HearingSession) -> None:
-        question_id = session.clarification_questions[-1].question_id if session.clarification_questions else "QUES_001"
-        responses = [
-            PartyResponse(
-                response_id=f"RESP_{len(session.party_responses) + 1:03d}",
-                question_id=question_id,
-                responder=AgentName.PLAINTIFF_AGENT,
-                content="Nguyên đơn cho rằng thời hạn giao xe đã được xác lập rõ trong hợp đồng.",
-                evidence_ids=[item.evidence_id for item in session.case.evidence[:1]],
-                citation_ids=[item.citation_id for item in session.case.citations[:1]],
-            ),
-            PartyResponse(
-                response_id=f"RESP_{len(session.party_responses) + 2:03d}",
-                question_id=question_id,
-                responder=AgentName.DEFENSE_AGENT,
-                content="Bị đơn cho rằng điều kiện thanh toán còn lại vẫn cần được đối chiếu nguyên văn.",
-                evidence_ids=[item.evidence_id for item in session.case.evidence[:1]],
-                citation_ids=[],
-                status=TurnStatus.NEEDS_FACT_CHECK,
-            ),
-        ]
+        responses: list[PartyResponse] = []
+        for question in session.clarification_questions:
+            plaintiff_evidence = question.related_evidence_ids[:1]
+            plaintiff_citations = question.related_citation_ids[:1]
+            if plaintiff_evidence or plaintiff_citations:
+                plaintiff_content = (
+                    "Nguyên đơn trả lời dựa trên "
+                    f"evidence {', '.join(plaintiff_evidence) or 'chưa có chứng cứ trực tiếp'} "
+                    f"và citation {', '.join(plaintiff_citations) or 'chưa có citation bổ sung'}; "
+                    "đề nghị giữ claim để human review đối chiếu nguyên văn."
+                )
+            else:
+                plaintiff_content = "Nguyên đơn chưa có chứng cứ trực tiếp bổ sung cho câu hỏi này và đề nghị human review xác minh."
+            plaintiff_status = (
+                TurnStatus.OK
+                if has_grounding(plaintiff_evidence, plaintiff_citations, plaintiff_content)
+                and plaintiff_evidence
+                else TurnStatus.NEEDS_FACT_CHECK
+            )
+            responses.append(
+                PartyResponse(
+                    response_id=f"RESP_{len(session.party_responses) + len(responses) + 1:03d}",
+                    question_id=question.question_id,
+                    responder=AgentName.PLAINTIFF_AGENT,
+                    content=plaintiff_content,
+                    evidence_ids=plaintiff_evidence,
+                    citation_ids=plaintiff_citations,
+                    status=plaintiff_status,
+                )
+            )
+
+            defense_evidence = question.related_evidence_ids[:1]
+            defense_content = (
+                "Bị đơn phản hồi dựa trên "
+                f"evidence {', '.join(defense_evidence) or 'chưa có chứng cứ trực tiếp'}; "
+                "chưa có citation bổ sung nên đề nghị giữ câu hỏi ở trạng thái cần fact-check."
+            )
+            responses.append(
+                PartyResponse(
+                    response_id=f"RESP_{len(session.party_responses) + len(responses) + 1:03d}",
+                    question_id=question.question_id,
+                    responder=AgentName.DEFENSE_AGENT,
+                    content=defense_content,
+                    evidence_ids=defense_evidence,
+                    citation_ids=[],
+                    status=TurnStatus.NEEDS_FACT_CHECK,
+                )
+            )
+
+        for question in session.clarification_questions:
+            question_responses = [
+                response for response in responses if response.question_id == question.question_id
+            ]
+            responders = {response.responder for response in question_responses}
+            all_targets_answered = all(target in responders for target in question.target_agents)
+            all_grounded = all(
+                has_grounding(response.evidence_ids, response.citation_ids, response.content)
+                and response.status == TurnStatus.OK
+                for response in question_responses
+            )
+            question.status = TurnStatus.OK if all_targets_answered and all_grounded else TurnStatus.NEEDS_REVIEW
+
         session.party_responses.extend(responses)
         self._append_turn(
             session,
             hearing_stage=HearingStage.PARTY_RESPONSES,
             agent=AgentName.CLERK_AGENT,
-            message="Thư ký ghi nhận phản hồi của nguyên đơn và bị đơn đối với câu hỏi làm rõ.",
+            message=(
+                f"Thư ký ghi nhận {len(responses)} phản hồi của nguyên đơn và bị đơn; "
+                "các phản hồi thiếu evidence/citation rõ ràng được chuyển fact-check."
+            ),
             evidence_used=dedupe([item for response in responses for item in response.evidence_ids]),
             citations_used=dedupe([item for response in responses for item in response.citation_ids]),
-            status=TurnStatus.NEEDS_FACT_CHECK,
+            status=TurnStatus.NEEDS_FACT_CHECK if any(response.status != TurnStatus.OK for response in responses) else TurnStatus.OK,
+        )
+        unresolved = [
+            question for question in session.clarification_questions if question.status != TurnStatus.OK
+        ]
+        self._append_audit(
+            session,
+            stage=AuditStage.JUDICIAL_REVIEW,
+            severity=ClaimConfidence.MEDIUM if unresolved else ClaimConfidence.LOW,
+            message=f"Party responses left {len(unresolved)} clarification questions unresolved.",
+            related_claim_ids=dedupe([claim_id for question in unresolved for claim_id in question.related_claim_ids]),
+            related_evidence_ids=dedupe([evidence_id for question in unresolved for evidence_id in question.related_evidence_ids]),
         )
 
     def _advance_fact_check(self, session: HearingSession) -> None:
@@ -477,6 +603,13 @@ class CourtroomV1RuntimeService:
             contradictions.append("Có chứng cứ đang bị challenge và cần human review.")
         if any(response.status == TurnStatus.NEEDS_FACT_CHECK for response in session.party_responses):
             contradictions.append("Có phản hồi của bên tham gia cần fact-check thêm.")
+        unresolved_questions = [
+            question for question in session.clarification_questions if question.status != TurnStatus.OK
+        ]
+        if unresolved_questions:
+            contradictions.append(
+                f"Còn {len(unresolved_questions)} câu hỏi làm rõ chưa được giải quyết đủ bằng evidence/citation."
+            )
         risk = ClaimConfidence.HIGH if unsupported or citation_mismatches else ClaimConfidence.MEDIUM if contradictions else ClaimConfidence.LOW
         session.fact_check = FactCheckResult(
             unsupported_claims=unsupported,
@@ -581,19 +714,31 @@ class CourtroomV1RuntimeService:
         reasons = []
         if session.evidence_challenges:
             reasons.append("Evidence challenge remains unresolved.")
+        unresolved_questions = [
+            question for question in session.clarification_questions if question.status != TurnStatus.OK
+        ]
+        if unresolved_questions:
+            reasons.append("Clarification questions remain unresolved.")
         if session.fact_check and session.fact_check.risk_level != ClaimConfidence.LOW:
             reasons.append("Fact-check risk requires reviewer approval.")
         if session.citation_verification and session.citation_verification.warnings:
             reasons.extend(session.citation_verification.warnings)
+        checklist = [
+            "Đối chiếu nguyên văn hợp đồng và attachment.",
+            "Kiểm tra điều kiện thanh toán còn lại.",
+            "Xác minh citation từ nguồn văn bản chính thức.",
+        ]
+        checklist.extend(
+            [
+                f"Làm rõ {question.question_id}: {question.question}"
+                for question in unresolved_questions
+            ]
+        )
         session.human_review = HumanReviewGate(
             required=True,
             blocked=True,
             reasons=dedupe(reasons),
-            checklist=[
-                "Đối chiếu nguyên văn hợp đồng và attachment.",
-                "Kiểm tra điều kiện thanh toán còn lại.",
-                "Xác minh citation từ nguồn văn bản chính thức.",
-            ],
+            checklist=dedupe(checklist),
         )
         session.case.status = CaseStatus.REVIEW_REQUIRED
         session.status = CaseStatus.REVIEW_REQUIRED

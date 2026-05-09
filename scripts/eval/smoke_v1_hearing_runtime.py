@@ -143,6 +143,20 @@ def main() -> None:
     assert verification["citation_verification"] is not None, "Expected citation verification result."
     assert len(verification["verification_turns"]) == 2, "Expected fact-check and citation verifier turns."
     assert verification["tool_calls"], "Expected verification tool call trace."
+    assert len(persisted["clarification_questions"]) >= 2, "Expected at least two clarification questions."
+    expected_response_count = len(persisted["clarification_questions"]) * 2
+    assert len(persisted["party_responses"]) == expected_response_count, "Expected plaintiff and defense responses for each question."
+    for response in persisted["party_responses"]:
+        content = response["content"].lower()
+        grounded = response["evidence_ids"] or response["citation_ids"] or "chưa có chứng cứ" in content or "chưa có citation" in content
+        assert grounded, f"Party response lacks evidence/citation discipline: {response['response_id']}"
+    unresolved_questions = [
+        question for question in persisted["clarification_questions"] if question["status"] != "ok"
+    ]
+    assert unresolved_questions, "Expected unresolved clarification questions for human review."
+    checklist_text = "\n".join(persisted["human_review"]["checklist"])
+    for question in unresolved_questions:
+        assert question["question_id"] in checklist_text, f"Missing unresolved question in checklist: {question['question_id']}"
 
     print("case_id:", case_id)
     print("session_id:", persisted["session_id"])
@@ -155,6 +169,7 @@ def main() -> None:
     print("challenge_count:", len(persisted["evidence_challenges"]))
     print("question_count:", len(persisted["clarification_questions"]))
     print("response_count:", len(persisted["party_responses"]))
+    print("unresolved_question_count:", len(unresolved_questions))
     print("verification_turn_count:", len(verification["verification_turns"]))
     print("verification_tool_call_count:", len(verification["tool_calls"]))
     print("human_review_blocked:", persisted["human_review"]["blocked"])

@@ -13,6 +13,7 @@ The MVP proves the core harness path. V1 expands it into a fuller courtroom-simu
 - [x] Migration notes explain how V1 extends MVP contracts without breaking current flows.
 - [x] V1 Phase 1 procedural runtime is complete with stage-based start, advance, guard, and persistence.
 - [x] V1 Phase 2 evidence and verification agents are complete with explicit turns, tool traces, challenge endpoint, and verification endpoint.
+- [x] V1 Phase 3 clarification round is complete with multi-question judge clarification, grounded party responses, and unresolved-question review checklist propagation.
 - [ ] V1 report/UI integration has not started.
 
 ## 1. V1 Decision
@@ -189,7 +190,7 @@ Acceptance:
 
 Status:
 
-- [ ] Planned
+- [x] Completed for V1 Phase 3
 
 Add judge-led clarification:
 
@@ -200,9 +201,9 @@ Add judge-led clarification:
 
 Acceptance:
 
-- [ ] At least two judge questions are generated when risk is medium or high.
-- [ ] Each response must cite evidence or explicitly say evidence is missing.
-- [ ] Unanswered questions are carried into human review checklist.
+- [x] At least two judge questions are generated when risk is medium or high.
+- [x] Each response must cite evidence/citation or explicitly say evidence/citation is missing.
+- [x] Unanswered questions are carried into human review checklist.
 
 ### V1-M7. Non-Binding Proposed Outcome
 
@@ -348,14 +349,14 @@ Goal:
 
 Tasks:
 
-- [ ] Add judge clarification prompts.
-- [ ] Add party response turns.
-- [ ] Add unresolved question tracking.
-- [ ] Push unresolved questions into human review checklist.
+- [x] Add judge clarification prompts.
+- [x] Add party response turns.
+- [x] Add unresolved question tracking.
+- [x] Push unresolved questions into human review checklist.
 
 Exit criteria:
 
-- [ ] Medium-risk cases produce clarification questions and party responses.
+- [x] Medium-risk cases produce clarification questions and party responses.
 
 ### V1 Phase 4. Proposed Outcome
 
