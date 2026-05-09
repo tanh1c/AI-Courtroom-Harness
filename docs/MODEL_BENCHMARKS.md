@@ -91,6 +91,12 @@ Operational note:
 - The current MVP fallback chain is `openrouter/ring -> groq/qwen -> heuristic`.
 - `9router / cx/gpt-5.2` is a strong local-gateway option when you explicitly want to route through your own 9Router instance.
 
+Direct comparison summary:
+
+- `openrouter/ring`: best quality when available, but free-tier availability is the least stable.
+- `groq/qwen`: best stability-to-speed tradeoff for everyday MVP runs.
+- `9router/cx-gpt-5.2`: strong courtroom reasoning and summaries, but noticeably slower than `groq/qwen`.
+
 Best Ollama Cloud status on the tested key: no usable benchmark yet because the requested model requires a subscription tier that the tested key does not currently have.
 
 Suggested fallback order:
