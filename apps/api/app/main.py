@@ -62,6 +62,7 @@ from packages.shared.python.ai_court_shared.schemas import (
     HumanReviewGate,
     HearingAdvanceRequest,
     HearingEvidenceChallengesResponse,
+    HearingOutcomeResponse,
     HearingSession,
     HearingVerificationResponse,
     HumanReviewRecord,
@@ -349,6 +350,25 @@ def get_v1_verification(case_id: str) -> HearingVerificationResponse:
             for tool_call in hearing_session.tool_calls
             if tool_call.tool_call_id in verification_tool_call_ids
         ],
+    )
+
+
+@app.get("/api/v1/cases/{case_id}/outcome", response_model=HearingOutcomeResponse)
+def get_v1_outcome(case_id: str) -> HearingOutcomeResponse:
+    hearing_session = load_hearing_session(case_id)
+    if hearing_session is None:
+        raise HTTPException(status_code=404, detail=f"V1 hearing session not found: {case_id}")
+    preliminary_turns = [
+        turn
+        for turn in hearing_session.turns
+        if turn.hearing_stage.value == "preliminary_assessment"
+    ]
+    return HearingOutcomeResponse(
+        case_id=case_id,
+        outcome_candidates=hearing_session.outcome_candidates,
+        preliminary_assessment_turns=preliminary_turns,
+        harness_violations=hearing_session.harness_violations,
+        human_review=hearing_session.human_review,
     )
 
 

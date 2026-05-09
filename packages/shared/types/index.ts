@@ -431,6 +431,14 @@ export interface HearingVerificationResponse {
   tool_calls: AgentToolCall[];
 }
 
+export interface HearingOutcomeResponse {
+  case_id: string;
+  outcome_candidates: OutcomeCandidate[];
+  preliminary_assessment_turns: V1AgentTurn[];
+  harness_violations: HarnessViolation[];
+  human_review: HumanReviewGate;
+}
+
 export interface AuditTrailResponse {
   case_id: string;
   audit_trail: AuditEvent[];

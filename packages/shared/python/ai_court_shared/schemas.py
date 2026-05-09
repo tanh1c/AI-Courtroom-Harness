@@ -499,6 +499,14 @@ class HearingVerificationResponse(BaseModel):
     tool_calls: list[AgentToolCall] = Field(default_factory=list)
 
 
+class HearingOutcomeResponse(BaseModel):
+    case_id: str
+    outcome_candidates: list[OutcomeCandidate] = Field(default_factory=list)
+    preliminary_assessment_turns: list[V1AgentTurn] = Field(default_factory=list)
+    harness_violations: list[HarnessViolation] = Field(default_factory=list)
+    human_review: HumanReviewGate
+
+
 class AuditTrailResponse(BaseModel):
     case_id: str
     audit_trail: list[AuditEvent] = Field(default_factory=list)

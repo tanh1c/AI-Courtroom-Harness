@@ -129,6 +129,10 @@ def main() -> None:
     verification_response.raise_for_status()
     verification = verification_response.json()
 
+    outcome_response = client.get(f"/api/v1/cases/{case_id}/outcome")
+    outcome_response.raise_for_status()
+    outcome_payload = outcome_response.json()
+
     agents_by_stage = {
         turn["hearing_stage"]: turn["agent"]
         for turn in persisted["turns"]
@@ -157,6 +161,27 @@ def main() -> None:
     checklist_text = "\n".join(persisted["human_review"]["checklist"])
     for question in unresolved_questions:
         assert question["question_id"] in checklist_text, f"Missing unresolved question in checklist: {question['question_id']}"
+    assert outcome_payload["outcome_candidates"], "Expected non-binding outcome candidate."
+    assert outcome_payload["preliminary_assessment_turns"], "Expected preliminary assessment turn."
+    outcome = outcome_payload["outcome_candidates"][0]
+    assert outcome["requires_human_review"] is True, "Outcome candidate must require human review."
+    assert outcome["disposition"] == "requires_more_evidence", "Risky sample should require more evidence."
+    assert outcome["supported_claim_ids"], "Outcome should reference grounded claim IDs."
+    assert outcome["evidence_ids"], "Outcome should reference evidence IDs."
+    assert outcome["citation_ids"], "Outcome should reference accepted citation IDs."
+    outcome_text = f"{outcome['disposition']} {outcome['rationale']} {outcome['disclaimer']}".lower()
+    official_markers = [
+        "tòa tuyên",
+        "tòa án tuyên",
+        "tòa quyết định",
+        "buộc bị đơn",
+        "buộc nguyên đơn",
+        "court hereby decides",
+        "court orders",
+    ]
+    assert not any(marker in outcome_text for marker in official_markers), "Outcome used official judgment language."
+    assert outcome_payload["human_review"]["blocked"] is True, "Outcome must stay behind human review."
+    assert outcome["outcome_id"] in checklist_text, "Outcome review item missing from human review checklist."
 
     print("case_id:", case_id)
     print("session_id:", persisted["session_id"])
@@ -172,6 +197,8 @@ def main() -> None:
     print("unresolved_question_count:", len(unresolved_questions))
     print("verification_turn_count:", len(verification["verification_turns"]))
     print("verification_tool_call_count:", len(verification["tool_calls"]))
+    print("outcome_count:", len(outcome_payload["outcome_candidates"]))
+    print("outcome_disposition:", outcome["disposition"])
     print("human_review_blocked:", persisted["human_review"]["blocked"])
 
 

@@ -28,6 +28,8 @@ from packages.shared.python.ai_court_shared.schemas import (
     HumanReviewGate,
     LegalSearchFilter,
     LegalSearchRequest,
+    OutcomeCandidate,
+    OutcomeDisposition,
     PartyResponse,
     TurnStatus,
     V1AgentTurn,
@@ -74,6 +76,28 @@ def has_grounding(evidence_ids: list[str], citation_ids: list[str], content: str
     lowered = content.lower()
     explicitly_missing = "chưa có chứng cứ" in lowered or "chưa có citation" in lowered
     return bool(evidence_ids or citation_ids or explicitly_missing)
+
+
+OFFICIAL_JUDGMENT_MARKERS = [
+    "tòa tuyên",
+    "tòa án tuyên",
+    "tòa quyết định",
+    "buộc bị đơn",
+    "buộc nguyên đơn",
+    "court orders",
+    "the court hereby decides",
+    "the court orders",
+]
+
+OUTCOME_DISCLAIMER = (
+    "Non-binding proposed outcome for legal education and decision-support only; "
+    "it is not a judgment, order, or substitute for qualified legal review."
+)
+
+
+def contains_official_judgment_language(text: str) -> bool:
+    lowered = text.lower()
+    return any(marker in lowered for marker in OFFICIAL_JUDGMENT_MARKERS)
 
 
 class CourtroomV1RuntimeService:
@@ -213,6 +237,9 @@ class CourtroomV1RuntimeService:
                 related_evidence_ids=related_evidence_ids or [],
             )
         )
+
+    def _next_violation_id(self, session: HearingSession) -> str:
+        return f"VIOL_{len(session.harness_violations) + 1:03d}"
 
     def _advance_evidence_presentation(self, session: HearingSession) -> None:
         evidence_ids = [item.evidence_id for item in session.case.evidence]
@@ -696,18 +723,44 @@ class CourtroomV1RuntimeService:
     def _advance_preliminary_assessment(self, session: HearingSession) -> None:
         if not session.fact_check:
             self._advance_fact_check(session)
+        outcome = self._build_outcome_candidate(session)
+        session.outcome_candidates = [outcome]
+        turn_id = self._next_turn_id(session)
+        tool_call = AgentToolCall(
+            tool_call_id=self._next_tool_call_id(session),
+            turn_id=turn_id,
+            agent=AgentName.JUDGE_AGENT,
+            tool_name="non_binding_outcome_guard",
+            input_summary=(
+                "Create and verify a non-binding proposed outcome candidate from grounded claims, "
+                "evidence, citations, fact-check risk, and unresolved review items."
+            ),
+            output_refs=[outcome.outcome_id],
+            status=TurnStatus.NEEDS_REVIEW,
+        )
+        session.tool_calls.append(tool_call)
         self._append_turn(
             session,
             hearing_stage=HearingStage.PRELIMINARY_ASSESSMENT,
             agent=AgentName.JUDGE_AGENT,
             message=(
-                "Thẩm phán đưa nhận định sơ bộ về các điểm còn tranh chấp và yêu cầu human review "
-                "trước khi có bất kỳ hướng xử lý tham khảo nào."
+                "Thẩm phán tạo một non-binding proposed outcome candidate để hỗ trợ human review; "
+                "đây không phải phán quyết và không được xuất như quyết định của Tòa."
             ),
             claims=[claim.claim_id for claim in session.case.claims],
-            evidence_used=[item.evidence_id for item in session.case.evidence],
-            citations_used=[item.citation_id for item in session.case.citations[:2]],
+            evidence_used=outcome.evidence_ids,
+            citations_used=outcome.citation_ids,
             status=TurnStatus.NEEDS_REVIEW,
+            tool_call_ids=[tool_call.tool_call_id],
+        )
+        self._append_audit(
+            session,
+            stage=AuditStage.JUDICIAL_REVIEW,
+            severity=outcome.risk_level,
+            message=f"Generated non-binding proposed outcome candidate {outcome.outcome_id}.",
+            related_claim_ids=outcome.supported_claim_ids,
+            related_citation_ids=outcome.citation_ids,
+            related_evidence_ids=outcome.evidence_ids,
         )
 
     def _advance_human_review(self, session: HearingSession) -> None:
@@ -723,6 +776,8 @@ class CourtroomV1RuntimeService:
             reasons.append("Fact-check risk requires reviewer approval.")
         if session.citation_verification and session.citation_verification.warnings:
             reasons.extend(session.citation_verification.warnings)
+        if session.outcome_candidates:
+            reasons.append("Non-binding proposed outcome requires human reviewer approval.")
         checklist = [
             "Đối chiếu nguyên văn hợp đồng và attachment.",
             "Kiểm tra điều kiện thanh toán còn lại.",
@@ -732,6 +787,12 @@ class CourtroomV1RuntimeService:
             [
                 f"Làm rõ {question.question_id}: {question.question}"
                 for question in unresolved_questions
+            ]
+        )
+        checklist.extend(
+            [
+                f"Review non-binding outcome {candidate.outcome_id}: {candidate.disposition.value}."
+                for candidate in session.outcome_candidates
             ]
         )
         session.human_review = HumanReviewGate(
@@ -755,6 +816,91 @@ class CourtroomV1RuntimeService:
             severity=ClaimConfidence.MEDIUM,
             message="V1 hearing requires human review before final export.",
         )
+
+    def _build_outcome_candidate(self, session: HearingSession) -> OutcomeCandidate:
+        unresolved_questions = [
+            question for question in session.clarification_questions if question.status != TurnStatus.OK
+        ]
+        accepted_citations = (
+            session.citation_verification.accepted_citations
+            if session.citation_verification
+            else [citation.citation_id for citation in session.case.citations]
+        )
+        supported_claim_ids = [
+            claim.claim_id
+            for claim in session.case.claims
+            if claim.evidence_ids and any(citation_id in accepted_citations for citation_id in claim.citation_ids)
+        ]
+        evidence_ids = dedupe(
+            [
+                evidence_id
+                for claim in session.case.claims
+                if claim.claim_id in supported_claim_ids
+                for evidence_id in claim.evidence_ids
+            ]
+        )
+        citation_ids = dedupe(
+            [
+                citation_id
+                for claim in session.case.claims
+                if claim.claim_id in supported_claim_ids
+                for citation_id in claim.citation_ids
+                if citation_id in accepted_citations
+            ]
+        )
+        risk_level = session.fact_check.risk_level if session.fact_check else ClaimConfidence.MEDIUM
+        if session.evidence_challenges or unresolved_questions or risk_level != ClaimConfidence.LOW:
+            disposition = OutcomeDisposition.REQUIRES_MORE_EVIDENCE
+            rationale = (
+                "Non-binding proposed outcome: requires more evidence because the hearing still has "
+                f"{len(session.evidence_challenges)} evidence challenge(s), "
+                f"{len(unresolved_questions)} unresolved clarification question(s), "
+                f"and fact-check risk `{risk_level.value}`. Human review must resolve these issues "
+                "before this can be used as decision-support."
+            )
+        elif any(claim.speaker == AgentName.PLAINTIFF_AGENT for claim in session.case.claims):
+            disposition = OutcomeDisposition.LIKELY_PLAINTIFF_FAVORED
+            rationale = (
+                "Non-binding proposed outcome: plaintiff-favored scenario is plausible only because "
+                "the currently supported claims include evidence and accepted legal citations. "
+                "Human review remains mandatory before export."
+            )
+        else:
+            disposition = OutcomeDisposition.SPLIT_OR_UNCERTAIN
+            rationale = (
+                "Non-binding proposed outcome: split or uncertain because the current record does not "
+                "support a single side strongly enough for decision-support."
+            )
+
+        candidate = OutcomeCandidate(
+            outcome_id=f"OUTCOME_{len(session.outcome_candidates) + 1:03d}",
+            disposition=disposition,
+            rationale=rationale,
+            supported_claim_ids=supported_claim_ids,
+            evidence_ids=evidence_ids,
+            citation_ids=citation_ids,
+            risk_level=risk_level,
+            requires_human_review=True,
+            disclaimer=OUTCOME_DISCLAIMER,
+        )
+        guarded_text = f"{candidate.disposition.value} {candidate.rationale} {candidate.disclaimer}"
+        if contains_official_judgment_language(guarded_text):
+            violation = HarnessViolation(
+                violation_id=self._next_violation_id(session),
+                hearing_stage=HearingStage.PRELIMINARY_ASSESSMENT,
+                agent=AgentName.JUDGE_AGENT,
+                rule="no_official_judgment_language",
+                message="Outcome candidate used official judgment language and was forced to human review.",
+                severity=ClaimConfidence.HIGH,
+                action=HarnessAction.HUMAN_REVIEW,
+            )
+            session.harness_violations.append(violation)
+            candidate.disposition = OutcomeDisposition.REQUIRES_MORE_EVIDENCE
+            candidate.rationale = (
+                "Non-binding proposed outcome: requires more evidence and human review because the "
+                "guard detected wording that could be confused with an official judgment."
+            )
+        return candidate
 
     def _advance_closing_record(self, session: HearingSession) -> None:
         session.case.agent_turns = []

@@ -14,6 +14,7 @@ The MVP proves the core harness path. V1 expands it into a fuller courtroom-simu
 - [x] V1 Phase 1 procedural runtime is complete with stage-based start, advance, guard, and persistence.
 - [x] V1 Phase 2 evidence and verification agents are complete with explicit turns, tool traces, challenge endpoint, and verification endpoint.
 - [x] V1 Phase 3 clarification round is complete with multi-question judge clarification, grounded party responses, and unresolved-question review checklist propagation.
+- [x] V1 Phase 4 non-binding proposed outcome is complete with grounded candidates, official-judgment language guard, outcome endpoint, and mandatory human review.
 - [ ] V1 report/UI integration has not started.
 
 ## 1. V1 Decision
@@ -209,7 +210,7 @@ Acceptance:
 
 Status:
 
-- [ ] Planned
+- [x] Completed for V1 Phase 4
 
 Add cautious outcome candidates:
 
@@ -229,9 +230,9 @@ Each candidate must include:
 
 Acceptance:
 
-- [ ] Outcome is clearly labeled non-binding.
-- [ ] Outcome cannot be exported without human review.
-- [ ] No official judgment language such as "the court orders" or "the court hereby decides".
+- [x] Outcome is clearly labeled non-binding.
+- [x] Outcome cannot be exported without human review.
+- [x] No official judgment language such as "the court orders" or "the court hereby decides".
 
 ### V1-M8. Formal Hearing Record Report
 
@@ -366,14 +367,14 @@ Goal:
 
 Tasks:
 
-- [ ] Add `OutcomeCandidate` schema.
-- [ ] Add outcome generation prompt and fallback.
-- [ ] Add outcome verification guard.
-- [ ] Add human review requirement.
+- [x] Add `OutcomeCandidate` schema.
+- [x] Add outcome generation prompt and fallback.
+- [x] Add outcome verification guard.
+- [x] Add human review requirement.
 
 Exit criteria:
 
-- [ ] Outcome candidate exists only as reviewed decision-support, not a verdict.
+- [x] Outcome candidate exists only as reviewed decision-support, not a verdict.
 
 ### V1 Phase 5. Report, UI Hooks, And Evaluation
 
