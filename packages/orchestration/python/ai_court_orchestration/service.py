@@ -340,7 +340,7 @@ class CourtroomSimulationService:
             indent=2,
         )
         try:
-            payload = self.llm_service.generate_json(system_prompt, user_prompt)
+            payload = self.llm_service.generate_json(system_prompt, user_prompt, max_tokens=512)
             message = str(payload.get("message", "")).strip()
             if not message:
                 return clamp_words(fallback_message, max_words)
@@ -466,7 +466,7 @@ class CourtroomSimulationService:
             indent=2,
         )
         try:
-            payload = self.llm_service.generate_json(system_prompt, user_prompt)
+            payload = self.llm_service.generate_json(system_prompt, user_prompt, max_tokens=1536)
             return JudgeSummary(
                 summary=str(payload.get("summary", fallback_summary.summary)).strip() or fallback_summary.summary,
                 main_disputed_points=[
@@ -518,7 +518,7 @@ class CourtroomSimulationService:
             indent=2,
         )
         try:
-            payload = self.llm_service.generate_json(system_prompt, user_prompt)
+            payload = self.llm_service.generate_json(system_prompt, user_prompt, max_tokens=512)
             summary = str(payload.get("case_summary", "")).strip()
             return summary or fallback_summary
         except Exception:

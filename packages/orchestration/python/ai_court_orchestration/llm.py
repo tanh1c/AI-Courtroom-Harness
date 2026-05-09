@@ -208,6 +208,7 @@ class CourtroomLlmService:
         provider: str,
         system_prompt: str,
         user_prompt: str,
+        max_tokens: int | None = None,
     ) -> dict[str, Any]:
         if provider == "openrouter":
             extra_headers: dict[str, str] = {}
@@ -234,7 +235,7 @@ class CourtroomLlmService:
         if provider == "deepseek":
             extra_payload: dict[str, Any] = {
                 "response_format": {"type": "json_object"},
-                "max_tokens": self.deepseek_max_tokens,
+                "max_tokens": max_tokens or self.deepseek_max_tokens,
             }
             if self.deepseek_thinking in {"enabled", "disabled"}:
                 extra_payload["thinking"] = {"type": self.deepseek_thinking}
@@ -296,7 +297,7 @@ class CourtroomLlmService:
             )
         raise RuntimeError(f"Unsupported LLM provider: {provider}")
 
-    def generate_json(self, system_prompt: str, user_prompt: str) -> dict:
+    def generate_json(self, system_prompt: str, user_prompt: str, *, max_tokens: int | None = None) -> dict:
         self._last_used_label = None
         candidates = self._provider_candidates()
         if not candidates:
@@ -305,7 +306,7 @@ class CourtroomLlmService:
         last_error: Exception | None = None
         for provider in candidates:
             try:
-                data = self._generate_with_provider(provider, system_prompt, user_prompt)
+                data = self._generate_with_provider(provider, system_prompt, user_prompt, max_tokens=max_tokens)
                 if provider == "ollama":
                     content = data["message"]["content"]
                 else:

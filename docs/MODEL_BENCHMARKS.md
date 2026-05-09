@@ -55,7 +55,8 @@ Retest note: this model remained stable on both provider smoke and courtroom sim
 
 | Model | Provider smoke | Simulation quality | Latency | Notes |
 | --- | --- | --- | --- | --- |
-| `deepseek-v4-pro` with thinking disabled | Pass | Strong | ~39.9s simulation | Official DeepSeek API route passed strict JSON mode and produced formal, role-consistent Vietnamese courtroom output. Turning off default thinking mode made it about 5.5x faster than the first run. |
+| `deepseek-v4-pro` with thinking disabled and task token budgets | Pass | Strong | ~37.3s simulation | Official DeepSeek API route passed strict JSON mode and produced formal, role-consistent Vietnamese courtroom output. Turning off default thinking mode made it about 5.5x faster than the first run; task-specific output budgets trimmed a little more latency. |
+| `deepseek-v4-pro` with thinking disabled | Pass | Strong | ~39.9s simulation | Same provider with a single shared `2048` output budget for all JSON calls. |
 | `deepseek-v4-pro` with default thinking | Pass | Strong but slow | ~218.1s simulation | DeepSeek thinking mode defaults to enabled with high effort, which is too expensive for the repo's short JSON-per-agent MVP calls. |
 
 DeepSeek winner tested: `deepseek-v4-pro`
@@ -91,7 +92,7 @@ Latest direct retest on the same simulation flow:
 | --- | --- | --- | --- | --- |
 | OpenRouter | `inclusionai/ring-2.6-1t:free` | Pass | ~8.5s | Concise and clean. Best speed-to-quality result in the latest direct side-by-side run, but OpenRouter free still has intermittent `429` risk. |
 | Groq | `qwen/qwen3-32b` | Pass | ~9.0s | Very fast and stable. Good overall, but the defense turn is more template-like than `ring` or DeepSeek. |
-| DeepSeek | `deepseek-v4-pro` | Pass | ~39.9s | Formal and role-consistent with thinking disabled, but still slower than the much faster MVP pair for routine demos. |
+| DeepSeek | `deepseek-v4-pro` | Pass | ~37.3s | Formal and role-consistent with thinking disabled and task token budgets, but still slower than the much faster MVP pair for routine demos. |
 | NVIDIA NIM | `z-ai/glm4.7` | Pass | ~185.3s | Most detailed and legally specific output in the latest retest, but much too slow for the default MVP lane. |
 
 Best quality when available: `inclusionai/ring-2.6-1t:free` on OpenRouter
@@ -120,6 +121,7 @@ Operational note:
 - Use `ring` as the preferred OpenRouter model for quality.
 - Keep `qwen` on Groq as the most reliable alternate path when OpenRouter free capacity is rate-limited.
 - Use `deepseek-v4-pro` with `DEEPSEEK_THINKING=disabled` when you want to spend paid DeepSeek credits for long-context or higher-quality experiments; do not put it in the default free MVP chain yet.
+- DeepSeek JSON calls now use task-specific output budgets: `512` tokens for role/report snippets and `1536` for judge summaries.
 - Use `z-ai/glm4.7` on NVIDIA only when you explicitly want richer courtroom phrasing and are willing to trade about three minutes of latency for it.
 - The current MVP fallback chain is `openrouter/ring -> groq/qwen -> heuristic`.
 - `9router / cx/gpt-5.2` is a strong local-gateway option when you explicitly want to route through your own 9Router instance.

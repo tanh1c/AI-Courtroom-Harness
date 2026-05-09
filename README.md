@@ -326,7 +326,16 @@ page before paid runs: `https://api-docs.deepseek.com/quick_start/pricing/`.
 For MVP simulations, `DEEPSEEK_THINKING` defaults to `disabled` because DeepSeek enables
 thinking by default and that made the short JSON agent calls much slower. Set
 `DEEPSEEK_THINKING=enabled` and optionally `DEEPSEEK_REASONING_EFFORT=high` or `max` only
-when you want slower, deeper reasoning experiments.
+when you want slower, deeper reasoning experiments. The orchestration layer also sets tighter
+per-task output budgets for DeepSeek-backed JSON calls: short role turns and report summaries
+use smaller budgets than judge summaries.
+
+DeepSeek feature notes:
+
+- Multi-round chat is stateless; the current runtime intentionally keeps each agent call independent instead of replaying full conversation history.
+- Context caching is automatic on DeepSeek's side and benefits repeated shared prefixes without extra repo config.
+- Chat prefix completion and FIM require the beta endpoint, so they are not used in the MVP courtroom JSON path.
+- Tool calls are useful for model-directed tool use, but this repo keeps retrieval and verification deterministic outside the model for safer demos.
 
 NVIDIA NIM setup:
 
