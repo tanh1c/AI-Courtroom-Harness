@@ -114,6 +114,14 @@ $env:AI_COURT_VECTOR_API_URL="https://your-colab-ngrok-url"
 
 The local API will then merge BM25 with remote vector results from Colab and fall back to BM25-only if the remote service is unavailable.
 
+You can also store the Colab/ngrok URL persistently with the provider config CLI:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\setup\configure_provider_cli.py
+```
+
+Choose `Configure Colab vector URL` and paste the current ngrok URL from Colab.
+
 ## Run API Mock
 
 ```bash
@@ -289,3 +297,10 @@ Optional browser preview:
 This scripted flow uses the in-repo FastAPI app through `TestClient`, creates a demo case,
 exports `report.md`, and generates `report_preview.html` under
 `data/processed/cases/<case_id>/`.
+
+You do not need to start the local API in another terminal for `run_demo.ps1`.
+It uses `TestClient` directly inside the script.
+
+If you want hybrid retrieval instead of BM25-only during the demo, keep the Google Colab
+vector server alive and make sure `AI_COURT_VECTOR_API_URL` is saved in `.env.local`
+or set in the current shell.

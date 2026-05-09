@@ -60,6 +60,11 @@ BASE_ENV_DEFAULTS = {
     "AI_COURT_LLM_ENABLE_FALLBACK": "true",
 }
 
+VECTOR_SECTION = {
+    "AI_COURT_VECTOR_API_URL": "",
+    "AI_COURT_VECTOR_TIMEOUT_SECONDS": "30",
+}
+
 
 def masked(value: str) -> str:
     if not value:
@@ -174,6 +179,10 @@ def print_summary(env_path: Path) -> None:
             if key.endswith("_API_KEY") or key.endswith("_KEY"):
                 value = masked(value)
             print(f"  {key} = {value}")
+    print("\n[vector]")
+    for key, default in VECTOR_SECTION.items():
+        value = current.get(key, default)
+        print(f"  {key} = {value or '(empty)'}")
     print()
 
 
@@ -184,6 +193,16 @@ def ensure_defaults(env_path: Path) -> None:
     }
     if missing:
         save_env_values(env_path, missing)
+
+
+def configure_vector_lane(env_path: Path) -> None:
+    current = load_current_env(env_path)
+    updates: dict[str, str] = {}
+    for key, default in VECTOR_SECTION.items():
+        existing = current.get(key, default)
+        updates[key] = prompt_text(key, existing, secret=False)
+    save_env_values(env_path, updates)
+    print("Remote vector lane configuration saved.")
 
 
 def main() -> None:
@@ -199,6 +218,7 @@ def main() -> None:
         ("Configure NVIDIA NIM", lambda path: configure_provider(path, "nvidia")),
         ("Configure 9Router", lambda path: configure_provider(path, "9router")),
         ("Configure Ollama Cloud", lambda path: configure_provider(path, "ollama")),
+        ("Configure Colab vector URL", configure_vector_lane),
         ("Show current config", print_summary),
         ("Exit", None),
     ]
