@@ -1,20 +1,22 @@
+import {useState} from 'react';
 import {
   ArrowLeft,
+  ArrowRight,
   BookOpen,
   CheckCircle2,
+  Database,
   FileText,
   GitBranch,
   Layers3,
   Scale,
   Scale3d,
-  Server,
+  ShieldAlert,
   ShieldCheck,
   Workflow,
 } from 'lucide-react';
 
 import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
-import {Card} from '@/components/ui/card';
 import {ScrollArea} from '@/components/ui/scroll-area';
 import {Separator} from '@/components/ui/separator';
 
@@ -22,79 +24,121 @@ type ProductOverviewPageProps = {
   onBack: () => void;
 };
 
-const versions = [
+type VersionName = 'MVP' | 'V1' | 'V2';
+
+const versions: Record<
+  VersionName,
   {
-    name: 'MVP',
+    status: string;
+    role: string;
+    promise: string;
+    features: string[];
+    tech: string[];
+    surfaces: string[];
+  }
+> = {
+  MVP: {
     status: 'Milestone F closed',
-    focus: 'Case intake, baseline simulation, human review, and report preview.',
+    role: 'Product demo path',
+    promise: 'Turns a civil-contract case into a reviewed, exportable decision-support report.',
     features: [
-      'Create civil-contract cases and upload attachments',
-      'Parse facts, evidence, claims, legal issues, and citations',
-      'Run structured simulation with audit and review gate',
-      'Approve human review and export persisted markdown report',
+      'Create case and upload evidence attachments',
+      'Parse facts, evidence, legal issues, claims, and citations',
+      'Run structured simulation with audit trail',
+      'Approve human review and export persisted markdown',
     ],
     tech: [
       'FastAPI case store and SQLite-backed processed data',
-      'Pydantic contracts mirrored by frontend TypeScript',
-      'Heuristic parser and retrieval-backed simulation service',
-      'Markdown report renderer for review-ready output',
+      'Pydantic schemas mirrored by TypeScript contracts',
+      'Heuristic parser plus retrieval-backed simulation',
+      'Markdown renderer for review-ready reports',
     ],
+    surfaces: ['Case intake', 'Evidence table', 'Audit trail', 'Review gate', 'Report preview'],
   },
-  {
-    name: 'V1',
-    status: 'Procedural hearing harness',
-    focus: 'A fuller simulated hearing with challenge, verification, and outcome surfaces.',
+  V1: {
+    status: 'Procedural harness ready',
+    role: 'Hearing inspection path',
+    promise: 'Expands the simulation into a stage-based hearing with challenges, verification, and outcome candidates.',
     features: [
-      'Stage-based hearing: opening through closing record',
-      'Evidence challenge flow with admissibility state',
+      'Stage-based hearing from opening to closing record',
+      'Evidence challenge flow and admissibility state',
       'Fact-check and citation-verifier turns',
-      'Clarification questions, party responses, and non-binding proposed outcome',
+      'Clarification questions, party responses, and proposed outcome',
     ],
     tech: [
-      'HearingSession runtime with enforced stage order',
-      'Dedicated V1 endpoints for hearing, challenges, verification, and outcome',
-      'Formal V1 markdown and HTML hearing record exports',
-      'Human review remains mandatory before outcome use',
+      'HearingSession runtime with guarded stage order',
+      'Dedicated endpoints for hearing/challenges/verification/outcome',
+      'Formal V1 markdown and HTML hearing records',
+      'Mandatory human review before outcome use',
     ],
+    surfaces: ['Stage timeline', 'Challenges', 'Verification turns', 'Clarification', 'Outcome candidates'],
   },
-  {
-    name: 'V2',
-    status: 'Courtroom-style trial record',
-    focus: 'Vietnamese courtroom narrative from preparation to simulated decision.',
+  V2: {
+    status: 'Courtroom record ready',
+    role: 'Formal trial narrative path',
+    promise: 'Creates a Vietnamese courtroom-style record with evidence examination, deliberation, and guarded simulated decision.',
     features: [
       'Complete trial timeline with clerk, judge, parties, and evidence agent',
       'Evidence examination, debate, final statements, and deliberation',
-      'Simulation-safe decision guard and optional review checklist',
+      'Simulation-safe decision guard and review checklist',
       'Formal HTML/Markdown trial record preview',
     ],
     tech: [
-      'V2TrialSession contracts and timeline UI-state endpoint',
+      'V2TrialSession and timeline UI-state endpoint',
       'CourtroomDialogueTurn and EvidenceExamination surfaces',
       'DecisionGuardResult blocks official judgment language',
-      'Frontend renders transcript, citations, debate, risks, and exports',
+      'Frontend renders transcript, risks, debate, citations, and exports',
     ],
+    surfaces: ['Trial timeline', 'Transcript', 'Evidence examination', 'Deliberation', 'Simulated decision'],
+  },
+};
+
+const architecture = [
+  {
+    name: 'Data Plane',
+    icon: Database,
+    detail: 'Case input, attachment metadata, parsed facts, evidence, issues, claims, and citations.',
+    tone: 'border-blue-500/20 bg-blue-500/5 text-blue-600',
+  },
+  {
+    name: 'Runtime Plane',
+    icon: Workflow,
+    detail: 'MVP simulation, V1 hearing runtime, and V2 trial runtime share contracts but expose different procedural depth.',
+    tone: 'border-emerald-500/20 bg-emerald-500/5 text-emerald-600',
+  },
+  {
+    name: 'Verification Plane',
+    icon: ShieldCheck,
+    detail: 'Fact checking, citation verification, audit events, role/stage safety, and review checklist propagation.',
+    tone: 'border-amber-500/20 bg-amber-500/5 text-amber-600',
+  },
+  {
+    name: 'Reporting Plane',
+    icon: FileText,
+    detail: 'Markdown and HTML renderers produce records that remain readable without the React app.',
+    tone: 'border-red-500/20 bg-red-500/5 text-red-600',
+  },
+  {
+    name: 'UI Plane',
+    icon: Layers3,
+    detail: 'React/Vite workspace with MVP, V1, and V2 modes over the same backend case store.',
+    tone: 'border-primary/20 bg-primary/5 text-primary',
   },
 ];
 
-const architecture = [
-  ['Data Plane', 'Case input, uploaded attachments, parsed facts, evidence, issues, claims, and citations.'],
-  ['Runtime Plane', 'MVP simulation, V1 hearing runtime, and V2 trial runtime share backend contracts but expose different depth.'],
-  ['Verification Plane', 'Fact-checking, citation verification, audit events, role/stage safety, and review checklists.'],
-  ['Reporting Plane', 'Markdown and HTML renderers produce records that remain readable outside the frontend.'],
-  ['UI Plane', 'React/Vite workspace with MVP, V1, and V2 modes over the same case store.'],
-];
+const flow = ['Create', 'Upload', 'Parse', 'Run mode', 'Inspect', 'Review', 'Export'];
 
-const flow = [
-  'Create or choose a case',
-  'Upload attachments',
-  'Parse case state',
-  'Run MVP/V1/V2 flow',
-  'Inspect evidence and citations',
-  'Review risks and outcome',
-  'Export report',
+const guardrails = [
+  ['Grounding first', 'Important claims carry evidence IDs and citation IDs when available. Missing support becomes review work.'],
+  ['No official judgment', 'The product avoids official court-order language and labels outcomes as non-binding simulations.'],
+  ['Human review', 'MVP and V1 expose review gates. V2 surfaces optional review checklist and risk notes.'],
+  ['Portable records', 'Markdown and HTML exports can be read without the frontend, which keeps demos reproducible.'],
 ];
 
 export function ProductOverviewPage({onBack}: ProductOverviewPageProps) {
+  const [selectedVersion, setSelectedVersion] = useState<VersionName>('V2');
+  const version = versions[selectedVersion];
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur">
@@ -111,131 +155,183 @@ export function ProductOverviewPage({onBack}: ProductOverviewPageProps) {
           </div>
           <Separator orientation="vertical" className="mx-2 h-8" />
           <div className="min-w-0">
-            <h1 className="truncate text-sm font-semibold">AI Courtroom Harness overview</h1>
-            <p className="truncate text-xs text-muted-foreground">Feature map, product boundary, and technical architecture for MVP, V1, and V2.</p>
+            <h1 className="truncate text-sm font-semibold">Product operating map</h1>
+            <p className="truncate text-xs text-muted-foreground">A courtroom-style explanation of features, versions, architecture, and safety boundaries.</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="secondary">MVP closed</Badge>
-          <Badge variant="outline">V1/V2 ready</Badge>
+          <Badge variant="outline">V1/V2 inspectable</Badge>
         </div>
       </header>
 
       <ScrollArea className="min-h-0 flex-1">
-        <main className="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-5">
-          <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-            <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded bg-primary/10 text-primary">
-                  <Scale className="h-5 w-5" />
-                </div>
+        <main className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-5">
+          <section className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+            <div className="grid min-h-[360px] lg:grid-cols-[0.95fr_1.05fr]">
+              <div className="flex flex-col justify-between border-b border-border bg-muted/20 p-6 lg:border-b-0 lg:border-r">
                 <div>
-                  <h2 className="font-serif text-xl font-bold uppercase tracking-wide">Legal simulation, not automated judging</h2>
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                    The product helps inspect a Vietnamese civil-contract dispute through structured evidence, agent dialogue, verification, human review, and exportable simulated records.
+                  <div className="mb-4 flex items-center gap-2 text-primary">
+                    <Scale className="h-5 w-5" />
+                    <span className="text-xs font-semibold uppercase tracking-[0.24em]">Legal simulation system</span>
+                  </div>
+                  <h2 className="max-w-xl font-serif text-3xl font-bold uppercase leading-tight tracking-wide text-foreground">
+                    Explainable courtroom simulation, bounded by review.
+                  </h2>
+                  <p className="mt-4 max-w-xl text-sm leading-7 text-muted-foreground">
+                    AI Courtroom Harness turns Vietnamese civil-contract disputes into structured evidence, courtroom dialogue, verification surfaces, human review gates, and exportable simulated records.
+                  </p>
+                </div>
+
+                <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                  <Metric label="Case type" value="civil contract" />
+                  <Metric label="Modes" value="MVP / V1 / V2" />
+                  <Metric label="Boundary" value="non-binding" />
+                </div>
+              </div>
+
+              <CourtroomBlueprint selectedVersion={selectedVersion} onSelect={setSelectedVersion} />
+            </div>
+          </section>
+
+          <section className="grid gap-5 lg:grid-cols-[340px_1fr]">
+            <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
+              <div className="mb-4 flex items-center gap-2 text-primary">
+                <GitBranch className="h-4 w-4" />
+                <h3 className="text-xs font-semibold uppercase tracking-wide">Version rail</h3>
+              </div>
+              <div className="relative space-y-3">
+                <div className="absolute bottom-8 left-[21px] top-8 w-px bg-border" />
+                {(Object.keys(versions) as VersionName[]).map((name) => (
+                  <button
+                    className={`relative z-10 flex w-full items-center gap-3 rounded-md border p-3 text-left transition-colors ${
+                      selectedVersion === name ? 'border-primary/30 bg-primary/5 text-primary' : 'border-border bg-background text-foreground hover:bg-muted/50'
+                    }`}
+                    key={name}
+                    onClick={() => setSelectedVersion(name)}
+                    type="button"
+                  >
+                    <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border font-serif text-sm font-bold ${selectedVersion === name ? 'border-primary bg-background' : 'border-border bg-muted'}`}>
+                      {name}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{versions[name].role}</p>
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">{versions[name].status}</p>
+                    </div>
+                    <ArrowRight className={`ml-auto h-4 w-4 ${selectedVersion === name ? 'opacity-100' : 'opacity-30'}`} />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+              <div className="border-b border-border bg-muted/20 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="mb-1 flex items-center gap-2">
+                      <p className="font-serif text-2xl font-bold uppercase tracking-wide text-primary">{selectedVersion}</p>
+                      <Badge variant="secondary">{version.status}</Badge>
+                    </div>
+                    <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{version.promise}</p>
+                  </div>
+                  <Badge variant="outline" className="mt-1">{version.role}</Badge>
+                </div>
+              </div>
+
+              <div className="grid gap-0 lg:grid-cols-[1fr_1fr_260px]">
+                <VersionColumn title="Product capabilities" icon={CheckCircle2} items={version.features} />
+                <VersionColumn title="Technical implementation" icon={BookOpen} items={version.tech} muted />
+                <div className="border-t border-border bg-background p-4 lg:border-l lg:border-t-0">
+                  <div className="mb-3 flex items-center gap-2 text-primary">
+                    <Layers3 className="h-4 w-4" />
+                    <h4 className="text-xs font-semibold uppercase tracking-wide">UI surfaces</h4>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {version.surfaces.map((surface) => (
+                      <Badge variant="outline" className="bg-muted/30" key={surface}>
+                        {surface}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-border bg-card shadow-sm">
+            <div className="flex items-center justify-between gap-3 border-b border-border p-4">
+              <div className="flex items-center gap-2 text-primary">
+                <Workflow className="h-4 w-4" />
+                <h3 className="text-xs font-semibold uppercase tracking-wide">Operational flow</h3>
+              </div>
+              <Badge variant="outline">single case store</Badge>
+            </div>
+            <div className="overflow-x-auto p-4 [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border">
+              <div className="flex min-w-max items-center">
+                {flow.map((step, index) => (
+                  <div className="flex items-center" key={step}>
+                    <div className="flex h-24 w-36 flex-col items-center justify-center rounded-md border border-border bg-background px-3 text-center">
+                      <span className="mb-2 flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">{index + 1}</span>
+                      <span className="text-xs font-semibold uppercase tracking-wide text-foreground">{step}</span>
+                    </div>
+                    {index < flow.length - 1 && <div className="h-px w-10 bg-border" />}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="grid gap-5 lg:grid-cols-[1fr_0.85fr]">
+            <div className="rounded-lg border border-border bg-card shadow-sm">
+              <div className="border-b border-border p-4">
+                <div className="flex items-center gap-2 text-primary">
+                  <Layers3 className="h-4 w-4" />
+                  <h3 className="text-xs font-semibold uppercase tracking-wide">Architecture swimlane</h3>
+                </div>
+              </div>
+              <div className="divide-y divide-border">
+                {architecture.map((layer) => {
+                  const Icon = layer.icon;
+                  return (
+                    <div className="grid gap-3 p-4 sm:grid-cols-[190px_1fr]" key={layer.name}>
+                      <div className={`flex items-center gap-3 rounded-md border px-3 py-2 ${layer.tone}`}>
+                        <Icon className="h-4 w-4 shrink-0" />
+                        <span className="text-xs font-semibold uppercase tracking-wide">{layer.name}</span>
+                      </div>
+                      <p className="self-center text-sm leading-6 text-muted-foreground">{layer.detail}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border bg-card shadow-sm">
+              <div className="border-b border-border p-4">
+                <div className="flex items-center gap-2 text-primary">
+                  <ShieldCheck className="h-4 w-4" />
+                  <h3 className="text-xs font-semibold uppercase tracking-wide">Safety stack</h3>
+                </div>
+              </div>
+              <div className="space-y-3 p-4">
+                {guardrails.map(([title, detail], index) => (
+                  <div className="relative rounded-md border border-border bg-background p-3" key={title}>
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">{index + 1}</span>
+                      <p className="text-sm font-semibold text-foreground">{title}</p>
+                    </div>
+                    <p className="text-xs leading-5 text-muted-foreground">{detail}</p>
+                  </div>
+                ))}
+                <div className="rounded-md border border-amber-500/20 bg-amber-500/5 p-3">
+                  <div className="mb-1 flex items-center gap-2 text-amber-600">
+                    <ShieldAlert className="h-4 w-4" />
+                    <p className="text-xs font-semibold uppercase tracking-wide">Product boundary</p>
+                  </div>
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    The system can explain and simulate, but it does not issue official judgments or replace legal review.
                   </p>
                 </div>
               </div>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <Signal label="Primary case type" value="civil_contract_dispute" />
-                <Signal label="Frontend modes" value="MVP / V1 / V2" />
-                <Signal label="Safety boundary" value="Non-binding simulation" />
-              </div>
-            </div>
-
-            <Card className="border-border/50 bg-card p-5 shadow-sm">
-              <div className="mb-3 flex items-center gap-2 text-primary">
-                <Workflow className="h-4 w-4" />
-                <h3 className="text-xs font-semibold uppercase tracking-wide">End-to-end flow</h3>
-              </div>
-              <div className="space-y-2">
-                {flow.map((step, index) => (
-                  <div className="flex items-center gap-3" key={step}>
-                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-xs font-bold text-primary">
-                      {index + 1}
-                    </div>
-                    <p className="text-sm text-foreground/90">{step}</p>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </section>
-
-          <section className="grid gap-4 lg:grid-cols-3">
-            {versions.map((version) => (
-              <Card className="border-border/50 bg-card p-4 shadow-sm" key={version.name}>
-                <div className="mb-3 flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-serif text-lg font-bold uppercase tracking-wide text-primary">{version.name}</p>
-                    <p className="mt-1 text-sm leading-6 text-muted-foreground">{version.focus}</p>
-                  </div>
-                  <Badge variant="secondary" className="shrink-0">{version.status}</Badge>
-                </div>
-                <BlockTitle icon={CheckCircle2} title="Product features" />
-                <ul className="mb-4 space-y-2">
-                  {version.features.map((item) => (
-                    <li className="flex gap-2 text-sm leading-6 text-muted-foreground" key={item}>
-                      <CheckCircle2 className="mt-1 h-3.5 w-3.5 shrink-0 text-primary" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-                <BlockTitle icon={Server} title="Technical notes" />
-                <ul className="space-y-2">
-                  {version.tech.map((item) => (
-                    <li className="flex gap-2 text-xs leading-5 text-muted-foreground" key={item}>
-                      <GitBranch className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            ))}
-          </section>
-
-          <section className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-            <Card className="border-border/50 bg-card p-4 shadow-sm">
-              <BlockTitle icon={Layers3} title="Architecture layers" />
-              <div className="space-y-3">
-                {architecture.map(([name, detail]) => (
-                  <div className="rounded-md border border-border/50 bg-background p-3" key={name}>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-foreground">{name}</p>
-                    <p className="mt-1 text-sm leading-6 text-muted-foreground">{detail}</p>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            <Card className="border-border/50 bg-card p-4 shadow-sm">
-              <BlockTitle icon={ShieldCheck} title="Safety and review model" />
-              <div className="grid gap-3 sm:grid-cols-2">
-                <SafetyItem title="Grounding first" detail="Important claims carry evidence IDs and citation IDs where available; weak support becomes a review item." />
-                <SafetyItem title="No official judgment" detail="Prompts, guards, and product copy avoid official court-order language." />
-                <SafetyItem title="Human review" detail="MVP and V1 expose review gates; V2 surfaces optional review checklist and risk notes." />
-                <SafetyItem title="Portable record" detail="Markdown/HTML exports remain readable without the React frontend." />
-              </div>
-              <Separator className="my-4" />
-              <div className="rounded-md border border-primary/20 bg-primary/5 p-3">
-                <div className="mb-2 flex items-center gap-2 text-primary">
-                  <BookOpen className="h-4 w-4" />
-                  <p className="text-xs font-semibold uppercase tracking-wide">Current frontend status</p>
-                </div>
-                <p className="text-sm leading-6 text-muted-foreground">
-                  The workspace now closes the original MVP frontend checklist and adds V1/V2 inspection modes: evidence tables, citations, transcript, review flags, verification, challenges, outcomes, and report previews.
-                </p>
-              </div>
-            </Card>
-          </section>
-
-          <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
-            <div className="mb-3 flex items-center gap-2 text-primary">
-              <FileText className="h-4 w-4" />
-              <h3 className="text-xs font-semibold uppercase tracking-wide">What each page is for</h3>
-            </div>
-            <div className="grid gap-3 md:grid-cols-3">
-              <Usage title="MVP mode" detail="Use for a fast product demo: create/upload/parse/simulate/approve/export." />
-              <Usage title="V1 mode" detail="Use for procedural harness inspection: hearing stages, evidence challenges, verification turns, and proposed outcome." />
-              <Usage title="V2 mode" detail="Use for polished courtroom storytelling: formal transcript, evidence examination, deliberation, and simulated decision." />
             </div>
           </section>
         </main>
@@ -244,38 +340,84 @@ export function ProductOverviewPage({onBack}: ProductOverviewPageProps) {
   );
 }
 
-function BlockTitle({icon: Icon, title}: {icon: typeof Scale; title: string}) {
+function CourtroomBlueprint({selectedVersion, onSelect}: {selectedVersion: VersionName; onSelect: (version: VersionName) => void}) {
   return (
-    <div className="mb-2 flex items-center gap-2 text-primary">
-      <Icon className="h-4 w-4" />
-      <h3 className="text-xs font-semibold uppercase tracking-wide">{title}</h3>
+    <div className="relative min-h-[360px] bg-background p-6">
+      <div className="absolute inset-0 opacity-[0.35]" style={{backgroundImage: 'linear-gradient(to right, var(--border) 1px, transparent 1px), linear-gradient(to bottom, var(--border) 1px, transparent 1px)', backgroundSize: '34px 34px'}} />
+      <div className="relative z-10 flex h-full min-h-[310px] flex-col justify-between rounded-lg border border-border bg-background/90 p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Courtroom blueprint</p>
+            <p className="mt-1 text-sm text-foreground">One case moves through progressively richer harness layers.</p>
+          </div>
+          <Badge variant="outline">{selectedVersion} selected</Badge>
+        </div>
+
+        <div className="grid items-center gap-4 md:grid-cols-[1fr_120px_1fr]">
+          <BlueprintNode title="Case dossier" detail="facts · evidence · claims" icon={FileText} tone="blue" />
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-px w-full bg-border" />
+            <div className="flex h-20 w-20 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-primary shadow-sm">
+              <Scale className="h-8 w-8" />
+            </div>
+            <div className="h-px w-full bg-border" />
+          </div>
+          <BlueprintNode title="Simulated record" detail="review · outcome · export" icon={BookOpen} tone="emerald" />
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-3">
+          {(Object.keys(versions) as VersionName[]).map((version) => (
+            <button
+              className={`rounded-md border px-3 py-2 text-left transition-colors ${selectedVersion === version ? 'border-primary/40 bg-primary/10 text-primary' : 'border-border bg-muted/30 hover:bg-muted'}`}
+              key={version}
+              onClick={() => onSelect(version)}
+              type="button"
+            >
+              <p className="font-serif text-sm font-bold uppercase tracking-wide">{version}</p>
+              <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{versions[version].role}</p>
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
 
-function Signal({label, value}: {label: string; value: string}) {
+function BlueprintNode({title, detail, icon: Icon, tone}: {title: string; detail: string; icon: typeof FileText; tone: 'blue' | 'emerald'}) {
+  const toneClass = tone === 'blue' ? 'border-blue-500/20 bg-blue-500/5 text-blue-600' : 'border-emerald-500/20 bg-emerald-500/5 text-emerald-600';
   return (
-    <div className="rounded-md border border-border/50 bg-background p-3">
+    <div className={`rounded-lg border p-4 ${toneClass}`}>
+      <Icon className="mb-4 h-6 w-6" />
+      <p className="font-serif text-lg font-bold uppercase tracking-wide text-foreground">{title}</p>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">{detail}</p>
+    </div>
+  );
+}
+
+function VersionColumn({title, icon: Icon, items, muted = false}: {title: string; icon: typeof CheckCircle2; items: string[]; muted?: boolean}) {
+  return (
+    <div className="border-t border-border p-4 lg:border-t-0">
+      <div className="mb-3 flex items-center gap-2 text-primary">
+        <Icon className="h-4 w-4" />
+        <h4 className="text-xs font-semibold uppercase tracking-wide">{title}</h4>
+      </div>
+      <ul className="space-y-2">
+        {items.map((item) => (
+          <li className="flex gap-2 text-sm leading-6 text-muted-foreground" key={item}>
+            <CheckCircle2 className={`mt-1 h-3.5 w-3.5 shrink-0 ${muted ? 'text-muted-foreground/50' : 'text-primary'}`} />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function Metric({label, value}: {label: string; value: string}) {
+  return (
+    <div className="rounded-md border border-border bg-background p-3">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-1 truncate text-sm font-medium text-foreground">{value}</p>
-    </div>
-  );
-}
-
-function SafetyItem({title, detail}: {title: string; detail: string}) {
-  return (
-    <div className="rounded-md border border-border/50 bg-background p-3">
-      <p className="text-sm font-semibold text-foreground">{title}</p>
-      <p className="mt-1 text-xs leading-5 text-muted-foreground">{detail}</p>
-    </div>
-  );
-}
-
-function Usage({title, detail}: {title: string; detail: string}) {
-  return (
-    <div className="rounded-md border border-border/50 bg-background p-3">
-      <p className="text-sm font-semibold text-foreground">{title}</p>
-      <p className="mt-1 text-sm leading-6 text-muted-foreground">{detail}</p>
     </div>
   );
 }
