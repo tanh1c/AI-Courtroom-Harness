@@ -132,6 +132,8 @@ def main() -> None:
         "llm_polish_enabled": args.use_llm,
         "llm_provider_used": runtime_service.last_llm_provider_label,
         "llm_polish_call_count": runtime_service.last_llm_polish_call_count,
+        "llm_verifier_reject_count": runtime_service.last_llm_verifier_reject_count,
+        "llm_verifier_reasons": runtime_service.last_llm_verifier_reasons,
         "v2_status": trial["status"],
         "current_stage": trial["current_stage"],
         "dialogue_turn_count": len(trial["dialogue_turns"]),

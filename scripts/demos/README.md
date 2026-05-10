@@ -48,7 +48,8 @@ To let the configured LLM polish high-value V2 dialogue turns, for example with 
 ```
 
 The LLM layer is bounded and guarded: evidence-reading stays deterministic, official-judgment
-language is blocked, and the runtime falls back to deterministic text if the provider fails.
+language is blocked, claim grounding is verified against related evidence/citations, and the
+runtime falls back to deterministic text if the provider fails or introduces unsupported claims.
 
 To generate only the PDF evidence bundle:
 

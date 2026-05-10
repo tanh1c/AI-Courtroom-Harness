@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import unicodedata
 from functools import lru_cache
 
 from packages.orchestration.python.ai_court_orchestration.llm import (
@@ -155,6 +157,13 @@ V2_LLM_FORBIDDEN_MARKERS = [
     "nghĩa vụ giao xe hoặc hoàn tiền là rõ ràng",
 ]
 
+V2_ANCHOR_PATTERN = re.compile(
+    r"\b\d{1,4}(?:[./]\d{1,4}){1,2}\b"
+    r"|\b\d+(?:[.,]\d+)*(?:\s*(?:%|đồng|dong|triệu|trieu|vnd))?\b",
+    re.IGNORECASE,
+)
+V2_EVIDENCE_REF_PATTERN = re.compile(r"\bEVID_\d{3}\b", re.IGNORECASE)
+
 
 class TrialRuntimeError(ValueError):
     pass
@@ -192,6 +201,12 @@ def compact_utterance(text: str, limit: int = MAX_UTTERANCE_CHARS) -> tuple[str,
     return normalized[: limit - 1].rstrip() + "…", True
 
 
+def fold_vietnamese_text(text: str) -> str:
+    normalized = unicodedata.normalize("NFKD", text)
+    without_marks = "".join(character for character in normalized if not unicodedata.combining(character))
+    return " ".join(without_marks.lower().split())
+
+
 def has_role_drift(speaker: AgentName, utterance: str) -> bool:
     lowered = utterance.lower()
     return any(marker in lowered for marker in ROLE_DRIFT_MARKERS.get(speaker, []))
@@ -212,6 +227,62 @@ def has_v2_llm_policy_violation(text: str) -> bool:
     return any(marker in lowered for marker in V2_LLM_FORBIDDEN_MARKERS)
 
 
+def extract_grounding_anchors(text: str) -> list[str]:
+    return [match.group(0).strip().lower() for match in V2_ANCHOR_PATTERN.finditer(text)]
+
+
+def anchor_digits(anchor: str) -> str:
+    return re.sub(r"\D", "", anchor)
+
+
+def anchor_supported(anchor: str, folded_context: str, context_digit_runs: set[str]) -> bool:
+    folded_anchor = fold_vietnamese_text(anchor)
+    if folded_anchor in folded_context:
+        return True
+    digits = anchor_digits(anchor)
+    if not digits:
+        return True
+    if digits in context_digit_runs:
+        return True
+    return any(run.startswith(digits) or digits.startswith(run) for run in context_digit_runs if len(run) >= 2)
+
+
+def verify_v2_llm_grounding(
+    *,
+    polished: str,
+    fallback: str,
+    grounding_context: str,
+) -> list[str]:
+    issues: list[str] = []
+    if has_v2_llm_policy_violation(polished):
+        issues.append("LLM turn contains a V2 forbidden marker.")
+
+    folded_context = fold_vietnamese_text(f"{fallback} {grounding_context}")
+    context_digit_runs = {
+        anchor_digits(anchor)
+        for anchor in extract_grounding_anchors(grounding_context + " " + fallback)
+        if anchor_digits(anchor)
+    }
+    unsupported_anchors = [
+        anchor
+        for anchor in extract_grounding_anchors(polished)
+        if not anchor_supported(anchor, folded_context, context_digit_runs)
+    ]
+    if unsupported_anchors:
+        issues.append(f"LLM turn introduced unsupported numeric/date anchors: {', '.join(unsupported_anchors)}.")
+
+    context_evidence_refs = {reference.upper() for reference in V2_EVIDENCE_REF_PATTERN.findall(grounding_context + " " + fallback)}
+    unsupported_refs = [
+        reference.upper()
+        for reference in V2_EVIDENCE_REF_PATTERN.findall(polished)
+        if reference.upper() not in context_evidence_refs
+    ]
+    if unsupported_refs:
+        issues.append(f"LLM turn introduced unsupported evidence refs: {', '.join(unsupported_refs)}.")
+
+    return dedupe(issues)
+
+
 class CourtroomV2RuntimeService:
     def __init__(self) -> None:
         self.retrieval_service = get_local_legal_retrieval_service()
@@ -224,6 +295,8 @@ class CourtroomV2RuntimeService:
         }
         self.llm_polish_max_turns = int(os.getenv("AI_COURT_V2_LLM_MAX_TURNS", "12"))
         self.last_llm_polish_call_count = 0
+        self.last_llm_verifier_reject_count = 0
+        self.last_llm_verifier_reasons: list[str] = []
         self.last_llm_provider_label = "heuristic"
         self._llm_polish_used_by_session: dict[str, int] = {}
 
@@ -246,6 +319,8 @@ class CourtroomV2RuntimeService:
         )
         self._llm_polish_used_by_session[session.session_id] = 0
         self.last_llm_polish_call_count = 0
+        self.last_llm_verifier_reject_count = 0
+        self.last_llm_verifier_reasons = []
         self.last_llm_provider_label = "heuristic"
         self._append_turn(
             session,
@@ -495,6 +570,23 @@ class CourtroomV2RuntimeService:
         if used >= self.llm_polish_max_turns:
             return fallback_utterance
 
+        related_claims = [claim for claim in session.case.claims if claim.claim_id in set(claim_ids)]
+        related_evidence = [
+            evidence
+            for evidence in session.case.evidence
+            if evidence.evidence_id in set(evidence_ids)
+        ]
+        related_citations = [
+            citation
+            for citation in session.case.citations
+            if citation.citation_id in set(citation_ids)
+        ]
+        grounding_context = self._llm_grounding_context(
+            fallback_utterance=fallback_utterance,
+            claims=related_claims,
+            evidence=related_evidence,
+            citations=related_citations,
+        )
         system_prompt = (
             "You are a Vietnamese courtroom dialogue writer for a realistic film-like civil hearing simulation. "
             "Return strict JSON only with shape {\"utterance\": string}. "
@@ -538,8 +630,7 @@ class CourtroomV2RuntimeService:
                         "evidence_ids": claim.evidence_ids,
                         "citation_ids": claim.citation_ids,
                     }
-                    for claim in session.case.claims
-                    if claim.claim_id in set(claim_ids)
+                    for claim in related_claims
                 ],
                 "related_evidence": [
                     {
@@ -548,8 +639,7 @@ class CourtroomV2RuntimeService:
                         "status": evidence.status.value,
                         "content": evidence.content[:700],
                     }
-                    for evidence in session.case.evidence
-                    if evidence.evidence_id in set(evidence_ids)
+                    for evidence in related_evidence
                 ],
                 "related_citations": [
                     {
@@ -558,8 +648,7 @@ class CourtroomV2RuntimeService:
                         "title": citation.title,
                         "content": citation.content[:500],
                     }
-                    for citation in session.case.citations
-                    if citation.citation_id in set(citation_ids)
+                    for citation in related_citations
                 ],
                 "requirements": [
                     "Vietnamese only.",
@@ -574,6 +663,7 @@ class CourtroomV2RuntimeService:
                     "For defense_agent, sound cautious and realistic; concede only what the fallback already concedes.",
                     "For judge_agent, sound calm, probing, and procedural.",
                     "The judge may ask questions or announce a simulated non-binding result, but must not sound like an official court judgment.",
+                    "Any number, date, percentage, money amount, evidence reference, or legal consequence must already appear in fallback_utterance or related evidence/citations.",
                 ],
             },
             ensure_ascii=False,
@@ -587,17 +677,41 @@ class CourtroomV2RuntimeService:
             polished = str(payload.get("utterance", "")).strip()
             if not polished:
                 return fallback_utterance
+            verifier_issues = verify_v2_llm_grounding(
+                polished=polished,
+                fallback=fallback_utterance,
+                grounding_context=grounding_context,
+            )
             if (
                 contains_official_judgment_language(polished)
                 or has_role_drift(speaker, polished)
                 or has_v2_llm_policy_violation(polished)
+                or verifier_issues
             ):
+                self.last_llm_verifier_reject_count += 1
+                self.last_llm_verifier_reasons.extend(verifier_issues or ["LLM turn failed V2 policy guards."])
                 return fallback_utterance
             polished, _ = compact_utterance(polished, MAX_UTTERANCE_CHARS)
             self.last_llm_provider_label = self.llm_service.provider_label()
             return polished
         except Exception:
             return fallback_utterance
+
+    def _llm_grounding_context(
+        self,
+        *,
+        fallback_utterance: str,
+        claims: list[Claim],
+        evidence: list[Evidence],
+        citations: list[Citation],
+    ) -> str:
+        parts = [fallback_utterance]
+        parts.extend(claim.content for claim in claims)
+        for item in evidence:
+            parts.append(f"{item.evidence_id} {item.type.value} {item.status.value} {item.content}")
+        for citation in citations:
+            parts.append(f"{citation.citation_id} {citation.article} {citation.title} {citation.content}")
+        return "\n".join(parts)
 
     def _append_act(
         self,

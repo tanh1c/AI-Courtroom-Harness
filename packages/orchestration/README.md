@@ -40,4 +40,6 @@ $env:AI_COURT_LLM_PROVIDER="deepseek"
 ```
 
 This only rewrites high-value participant turns and keeps evidence reading, stage transitions,
-grounding, and decision guards deterministic.
+grounding, and decision guards deterministic. Each rewritten turn is also verified against the
+related fallback text, evidence, and citations; unsupported numbers, dates, evidence references,
+or forbidden legal characterizations are rejected back to deterministic text.
