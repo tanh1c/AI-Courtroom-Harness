@@ -100,6 +100,9 @@ OFFICIAL_JUDGMENT_MARKERS = [
     "tòa quyết định",
     "buộc bị đơn",
     "buộc nguyên đơn",
+    "buộc bên bán",
+    "buộc bên mua",
+    "buộc các bên",
     "court orders",
     "the court hereby decides",
 ]
@@ -148,6 +151,7 @@ V2_LLM_ALWAYS_FORBIDDEN_MARKERS = [
     "tòa nhìn nhận",
     "bị đơn phải",
     "nguyên đơn phải",
+    "cơ quan có thẩm quyền",
     "tôi đồng ý rằng nghĩa vụ",
     "đồng ý rằng nghĩa vụ",
     "nghĩa vụ giao xe hoặc hoàn tiền là rõ ràng",
@@ -166,6 +170,7 @@ V2_ANCHOR_PATTERN = re.compile(
     re.IGNORECASE,
 )
 V2_EVIDENCE_REF_PATTERN = re.compile(r"\bEVID_\d{3}\b", re.IGNORECASE)
+V2_LEGAL_ARTICLE_PATTERN = re.compile(r"\bđiều\s+\d+[a-zA-Z]?\b", re.IGNORECASE)
 
 
 class TrialRuntimeError(ValueError):
@@ -288,6 +293,15 @@ def verify_v2_llm_grounding(
     ]
     if unsupported_refs:
         issues.append(f"LLM turn introduced unsupported evidence refs: {', '.join(unsupported_refs)}.")
+
+    folded_full_context = fold_vietnamese_text(f"{fallback} {grounding_context}")
+    unsupported_articles = [
+        article
+        for article in V2_LEGAL_ARTICLE_PATTERN.findall(polished)
+        if fold_vietnamese_text(article) not in folded_full_context
+    ]
+    if unsupported_articles:
+        issues.append(f"LLM turn introduced unsupported legal articles: {', '.join(unsupported_articles)}.")
 
     return dedupe(issues)
 
