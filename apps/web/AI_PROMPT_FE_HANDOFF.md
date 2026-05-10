@@ -1,5 +1,7 @@
 # AI Prompt FE Handoff
 
+Status: superseded. The frontend lane has been implemented in `frontend/` with `MVP | V1 | V2` modes. Keep this file only as historical handoff context.
+
 Use this prompt with a frontend coding agent:
 
 ```text

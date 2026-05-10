@@ -10,7 +10,7 @@ V2 starts after the backend MVP and V1 procedural harness are stable. The goal i
 - [x] V2 Phase 3 deliberation and simulation-safe verdict guard is implemented.
 - [x] V2 Phase 4 formal trial record and simulated outcome export are implemented.
 - [x] V2 Phase 5 backend evaluation, demo fixtures, and API UI hooks are implemented.
-- [ ] Real frontend rendering and frontend handoff notes remain pending.
+- [x] Real frontend rendering and frontend handoff notes are complete in `frontend/`.
 
 ## 1. V2 Product Goal
 
@@ -220,7 +220,7 @@ Acceptance:
 Status:
 
 - [x] Backend completed for V2 Phase 5
-- [ ] Frontend handoff/rendering notes deferred until the FE lane resumes
+- [x] Frontend handoff/rendering notes completed after the FE lane resumed
 
 Add three stable V2 demo cases:
 
@@ -277,7 +277,7 @@ Acceptance:
 - [x] Add V2 smoke and regression tests.
 - [x] Add three stable demo cases.
 - [x] Add API endpoints for frontend timeline/transcript rendering.
-- [ ] Write frontend handoff notes for trial transcript UI.
+- [x] Write frontend handoff notes for trial transcript UI.
 - [x] Add a config flag for `human_review_mode`: `optional`, `required`, or `off`.
 
 ## 5. Demo-Ready Definition

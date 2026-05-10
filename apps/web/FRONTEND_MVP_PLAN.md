@@ -2,6 +2,8 @@
 
 This document isolates the remaining `Phase 5` frontend scope for `AI Courtroom Harness`.
 
+Status: complete. The implemented frontend lives in `frontend/` and exposes `MVP | V1 | V2` modes against the backend API.
+
 ## Goal
 
 Build the minimum UI needed to close the MVP from a product perspective.
@@ -19,6 +21,8 @@ Backend, retrieval, simulation, review, and report export are already usable. Th
 5. inspect evidence, citations, disputed points, and review flags
 6. approve the report in human review
 7. open the markdown or HTML report preview
+
+Current implementation status: all seven closure items are implemented in the `MVP` mode. `V1` and `V2` modes expose their additional hearing/trial surfaces.
 
 The frontend does **not** need to add automatic judicial verdict generation.
 

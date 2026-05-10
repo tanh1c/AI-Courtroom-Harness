@@ -16,7 +16,7 @@ The MVP proves the core harness path. V1 expands it into a fuller courtroom-simu
 - [x] V1 Phase 3 clarification round is complete with multi-question judge clarification, grounded party responses, and unresolved-question review checklist propagation.
 - [x] V1 Phase 4 non-binding proposed outcome is complete with grounded candidates, official-judgment language guard, outcome endpoint, and mandatory human review.
 - [x] V1 Phase 5 backend report hooks and evaluation are complete.
-- [ ] Real frontend/UI implementation remains pending in `apps/web`.
+- [x] Real frontend/UI implementation is available in `frontend/` via the `MVP | V1 | V2` mode switch.
 
 ## 1. V1 Decision
 
@@ -239,7 +239,7 @@ Acceptance:
 
 Status:
 
-- [x] Backend renderer completed for V1 Phase 5; frontend display remains pending.
+- [x] Backend renderer and frontend display completed for V1 Phase 5.
 
 Upgrade report output into a fuller simulated hearing record:
 
@@ -394,11 +394,11 @@ Tasks:
 Exit criteria:
 
 - [x] V1 scripted backend demo/evaluation runs end-to-end.
-- [ ] V1 frontend can display hearing stages, challenges, verification turns, and proposed outcome.
+- [x] V1 frontend can display hearing stages, challenges, verification turns, and proposed outcome.
 
 Note:
 
-- FE/UI implementation is intentionally left for the frontend lane.
+- FE/UI implementation is now available in `frontend/`; the V1 mode loads hearing, challenge, verification, clarification, and outcome surfaces from backend endpoints.
 
 ## 6. Parallel Work Lanes
 
@@ -436,7 +436,7 @@ V1 is complete when:
 - [x] Non-binding proposed outcome is generated only with grounding and review.
 - [x] Formal hearing record report includes all major stages.
 - [x] At least three demo cases pass smoke checks.
-- [ ] Frontend can inspect all new V1 surfaces.
+- [x] Frontend can inspect all new V1 surfaces.
 
 ## 9. Risks And Guardrails
 
