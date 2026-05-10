@@ -3,13 +3,14 @@
   "private": true,
   "version": "0.1.0",
   "workspaces": [
+    "frontend",
     "apps/*",
     "packages/*"
   ],
   "scripts": {
-    "dev:web": "echo web workspace placeholder",
-    "dev:api": "echo run uvicorn from apps/api",
-    "typecheck": "echo add frontend toolchain in Phase 1"
+    "dev:web": "npm --prefix frontend run dev",
+    "build:web": "npm --prefix frontend run build",
+    "dev:api": ".venv\\Scripts\\python.exe -m uvicorn apps.api.app.main:app --reload",
+    "typecheck": "npm --prefix frontend run lint"
   }
 }
-

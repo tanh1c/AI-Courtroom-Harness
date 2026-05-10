@@ -10,6 +10,7 @@ from fastapi import File
 from fastapi import Form
 from fastapi import HTTPException
 from fastapi import UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
 if str(ROOT_DIR) not in sys.path:
@@ -192,6 +193,16 @@ app = FastAPI(
     title="AI Courtroom Harness API",
     version="0.1.0",
     description="Phase 1 retrieval, Phase 2 intake, and Phase 3 simulation baseline API for AI Courtroom Harness.",
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

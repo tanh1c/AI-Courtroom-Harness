@@ -8,7 +8,7 @@ The project is built as an agent harness, not a free-form chatbot. Each case mov
 
 - Backend MVP: complete
 - V1 backend harness: complete through report hooks and evaluation
-- Frontend/UI: pending in `apps/web`
+- V2 mock frontend: wired to the backend trial pipeline in `frontend/`
 - Supported case family: `civil_contract_dispute`
 
 ## Architecture
@@ -39,7 +39,8 @@ flowchart TD
 
 ```text
 apps/api/          FastAPI backend and persistence hooks
-apps/web/          frontend placeholder
+frontend/          Vite React V2 pipeline dashboard
+apps/web/          reserved frontend workspace placeholder
 packages/shared/   Pydantic schemas, TypeScript types, fixtures
 packages/retrieval/ legal corpus, BM25 search, vector bridge
 packages/orchestration/ MVP and V1 courtroom runtimes
@@ -62,9 +63,17 @@ py -3.12 -m venv .venv
 Run the API:
 
 ```powershell
-cd apps/api
-..\..\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+npm run dev:api
 ```
+
+Run the V2 frontend dashboard in another PowerShell window:
+
+```powershell
+npm --prefix frontend install
+npm run dev:web
+```
+
+The frontend proxies `/api/*` to `http://127.0.0.1:8000` by default and can create cases, upload attachments, run the V2 trial stages, and preview the exported HTML record.
 
 Run the scripted MVP demo without starting a server:
 
@@ -115,6 +124,11 @@ V1 backend checks:
 - `GET /api/v1/cases/{case_id}/outcome`
 - `POST /api/v1/cases/{case_id}/hearing/record/markdown`
 - `POST /api/v1/cases/{case_id}/hearing/record/html`
+- `POST /api/v1/cases/{case_id}/trial-v2/start`
+- `POST /api/v1/cases/{case_id}/trial-v2/advance`
+- `GET /api/v1/cases/{case_id}/trial-v2/ui-state`
+- `POST /api/v1/cases/{case_id}/trial-v2/record/markdown`
+- `POST /api/v1/cases/{case_id}/trial-v2/record/html`
 
 ## LLM And Retrieval Configuration
 
