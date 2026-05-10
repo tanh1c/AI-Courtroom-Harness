@@ -139,11 +139,7 @@ ROLE_DRIFT_MARKERS = {
     AgentName.CLERK_AGENT: ["nguyên đơn:", "bị đơn:", "thẩm phán:"],
 }
 
-V2_LLM_FORBIDDEN_MARKERS = [
-    "tiền đặt cọc",
-    "đặt cọc",
-    "thỏa thuận miệng",
-    "thoả thuận miệng",
+V2_LLM_ALWAYS_FORBIDDEN_MARKERS = [
     "hội đồng xét xử",
     "đề nghị tòa",
     "xin tòa",
@@ -155,6 +151,13 @@ V2_LLM_FORBIDDEN_MARKERS = [
     "tôi đồng ý rằng nghĩa vụ",
     "đồng ý rằng nghĩa vụ",
     "nghĩa vụ giao xe hoặc hoàn tiền là rõ ràng",
+]
+
+V2_LLM_CONTEXTUAL_MARKERS = [
+    "tiền đặt cọc",
+    "đặt cọc",
+    "thỏa thuận miệng",
+    "thoả thuận miệng",
 ]
 
 V2_ANCHOR_PATTERN = re.compile(
@@ -222,9 +225,15 @@ def is_party_grounded(turn: CourtroomDialogueTurn) -> bool:
     return bool(turn.evidence_ids or turn.citation_ids or explicitly_missing)
 
 
-def has_v2_llm_policy_violation(text: str) -> bool:
+def has_v2_llm_policy_violation(text: str, grounding_context: str = "") -> bool:
     lowered = text.lower()
-    return any(marker in lowered for marker in V2_LLM_FORBIDDEN_MARKERS)
+    if any(marker in lowered for marker in V2_LLM_ALWAYS_FORBIDDEN_MARKERS):
+        return True
+    folded_context = fold_vietnamese_text(grounding_context)
+    return any(
+        marker in lowered and fold_vietnamese_text(marker) not in folded_context
+        for marker in V2_LLM_CONTEXTUAL_MARKERS
+    )
 
 
 def extract_grounding_anchors(text: str) -> list[str]:
@@ -254,7 +263,7 @@ def verify_v2_llm_grounding(
     grounding_context: str,
 ) -> list[str]:
     issues: list[str] = []
-    if has_v2_llm_policy_violation(polished):
+    if has_v2_llm_policy_violation(polished, grounding_context):
         issues.append("LLM turn contains a V2 forbidden marker.")
 
     folded_context = fold_vietnamese_text(f"{fallback} {grounding_context}")
@@ -685,7 +694,7 @@ class CourtroomV2RuntimeService:
             if (
                 contains_official_judgment_language(polished)
                 or has_role_drift(speaker, polished)
-                or has_v2_llm_policy_violation(polished)
+                or has_v2_llm_policy_violation(polished, grounding_context)
                 or verifier_issues
             ):
                 self.last_llm_verifier_reject_count += 1
