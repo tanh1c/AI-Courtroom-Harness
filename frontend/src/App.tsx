@@ -29,6 +29,7 @@ import {
   X,
 } from 'lucide-react';
 
+import {ProductOverviewPage} from './ProductOverviewPage';
 import {
   AuditTrailResponse,
   CaseDetail,
@@ -178,8 +179,10 @@ function escapeHtml(value: string) {
 }
 
 type AppMode = 'mvp' | 'v1' | 'v2';
+type AppPage = 'workspace' | 'product';
 
 export default function App() {
+  const [activePage, setActivePage] = useState<AppPage>('workspace');
   const [activeMode, setActiveMode] = useState<AppMode>('v2');
   const [apiOnline, setApiOnline] = useState(false);
   const [cases, setCases] = useState<CaseRecord[]>([]);
@@ -611,6 +614,10 @@ export default function App() {
     });
   }
 
+  if (activePage === 'product') {
+    return <ProductOverviewPage onBack={() => setActivePage('workspace')} />;
+  }
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <header className="relative z-10 flex h-16 shrink-0 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur">
@@ -652,6 +659,9 @@ export default function App() {
         </div>
 
         <div className="flex shrink-0 items-center gap-3">
+          <Button variant="outline" size="sm" className="h-9 gap-2 border-border/50 bg-background font-normal text-muted-foreground hover:bg-accent/50" onClick={() => setActivePage('product')}>
+            <BookOpen className="h-4 w-4" /> Product
+          </Button>
           <Button variant="outline" size="sm" className="h-9 gap-2 border-border/50 bg-background font-normal text-muted-foreground hover:bg-accent/50" disabled={Boolean(busyAction)} onClick={() => refreshCases(selectedCaseId)}>
             <RefreshCw className={`h-4 w-4 ${busyAction ? 'animate-spin' : ''}`} /> Làm mới
           </Button>
