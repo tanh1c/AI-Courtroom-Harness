@@ -171,8 +171,8 @@ export function ProductOverviewPage({onBack}: ProductOverviewPageProps) {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <aside className="hidden w-[292px] shrink-0 border-r border-border bg-card/70 lg:flex lg:flex-col">
-          <div className="border-b border-border p-4">
+        <aside className="hidden w-[292px] shrink-0 border-r border-blue-100 bg-[#EFF5FF] shadow-[inset_-1px_0_0_rgba(37,99,235,0.04)] lg:flex lg:flex-col">
+          <div className="border-b border-blue-100 bg-[#EAF2FF]/80 p-4">
             <div className="mb-3 flex items-center gap-2 text-primary">
               <Scale3d className="h-5 w-5" />
               <p className="text-xs font-semibold uppercase tracking-[0.22em]">Product nav</p>
@@ -182,13 +182,13 @@ export function ProductOverviewPage({onBack}: ProductOverviewPageProps) {
             </p>
           </div>
 
-          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border">
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-blue-200">
             <nav className="space-y-1" aria-label="Product overview sections">
               {pageSections.map((section) => {
                 const Icon = section.icon;
                 return (
                   <a
-                    className="group flex items-center gap-3 rounded-md border border-transparent px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-border hover:bg-background hover:text-foreground"
+                    className="group flex items-center gap-3 rounded-md border border-transparent px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:border-blue-200 hover:bg-white/75 hover:text-slate-950"
                     href={`#${section.id}`}
                     key={section.id}
                   >
@@ -199,7 +199,7 @@ export function ProductOverviewPage({onBack}: ProductOverviewPageProps) {
               })}
             </nav>
 
-            <Separator />
+            <Separator className="bg-blue-100" />
 
             <div>
               <div className="mb-3 flex items-center gap-2 text-primary">
@@ -207,17 +207,17 @@ export function ProductOverviewPage({onBack}: ProductOverviewPageProps) {
                 <h3 className="text-xs font-semibold uppercase tracking-wide">Version modes</h3>
               </div>
               <div className="relative space-y-3">
-                <div className="absolute bottom-8 left-[21px] top-8 w-px bg-border" />
+                <div className="absolute bottom-8 left-[21px] top-8 w-px bg-blue-200/80" />
                 {(Object.keys(versions) as VersionName[]).map((name) => (
                   <button
                     className={`relative z-10 flex w-full items-center gap-3 rounded-md border p-3 text-left transition-colors ${
-                      selectedVersion === name ? 'border-primary/30 bg-primary/5 text-primary' : 'border-border bg-background text-foreground hover:bg-muted/50'
+                      selectedVersion === name ? 'border-primary/35 bg-white text-primary shadow-sm' : 'border-blue-100 bg-[#F8FBFF]/85 text-slate-800 hover:bg-white'
                     }`}
                     key={name}
                     onClick={() => setSelectedVersion(name)}
                     type="button"
                   >
-                    <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border font-serif text-sm font-bold ${selectedVersion === name ? 'border-primary bg-background' : 'border-border bg-muted'}`}>
+                    <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border font-serif text-sm font-bold ${selectedVersion === name ? 'border-primary bg-[#EFF5FF]' : 'border-blue-100 bg-[#EAF2FF]'}`}>
                       {name}
                     </div>
                     <div className="min-w-0">
@@ -231,8 +231,8 @@ export function ProductOverviewPage({onBack}: ProductOverviewPageProps) {
             </div>
           </div>
 
-          <div className="border-t border-border p-4">
-            <div className="rounded-md border border-amber-500/20 bg-amber-500/5 p-3">
+          <div className="border-t border-blue-100 bg-[#EAF2FF]/70 p-4">
+            <div className="rounded-md border border-amber-500/20 bg-white/70 p-3">
               <div className="mb-1 flex items-center gap-2 text-amber-600">
                 <ShieldAlert className="h-4 w-4" />
                 <p className="text-xs font-semibold uppercase tracking-wide">Boundary</p>
