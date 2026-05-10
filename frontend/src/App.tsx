@@ -25,24 +25,48 @@ import {
   ShieldCheck,
   Sun,
   UserCheck,
+  Upload,
   X,
 } from 'lucide-react';
 
 import {
+  AuditTrailResponse,
   CaseDetail,
   CaseRecord,
   CourtroomTurn,
+  ReportResponse,
+  ReviewResponse,
+  SimulationResponse,
   V2UiState,
+  V1ChallengesResponse,
+  V1HearingSession,
+  V1OutcomeResponse,
+  V1VerificationResponse,
+  advanceV1,
   advanceV2,
+  createCase,
+  exportMvpMarkdown,
+  exportV1Html,
+  exportV1Markdown,
   exportV2Html,
   exportV2Markdown,
+  getAuditTrail,
   getCase,
+  getReport,
+  getV1Challenges,
+  getV1Hearing,
+  getV1Outcome,
+  getV1Verification,
   getV2UiState,
   healthCheck,
   listCases,
   parseCase,
+  reviewCase,
   runExistingV2Pipeline,
+  simulateCase,
+  startV1,
   startV2,
+  uploadAttachment,
 } from './api';
 import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar';
 import {Badge} from '@/components/ui/badge';
@@ -53,6 +77,19 @@ import {ScrollArea} from '@/components/ui/scroll-area';
 import {Separator} from '@/components/ui/separator';
 
 const stageLabels: Record<string, string> = {
+  opening: 'Mở phiên',
+  evidence_presentation: 'Trình bày chứng cứ',
+  legal_retrieval: 'Truy xuất pháp luật',
+  plaintiff_argument: 'Nguyên đơn tranh luận',
+  defense_argument: 'Bị đơn đối đáp',
+  evidence_challenge: 'Thách thức chứng cứ',
+  judge_questions: 'HĐXX hỏi',
+  party_responses: 'Các bên phản hồi',
+  fact_check: 'Kiểm chứng sự kiện',
+  citation_verification: 'Xác minh viện dẫn',
+  preliminary_assessment: 'Nhận định sơ bộ',
+  human_review: 'Rà soát con người',
+  closing_record: 'Kết thúc phiên',
   case_preparation: 'Chuẩn bị hồ sơ',
   opening_formalities: 'Mở phiên',
   appearance_check: 'Kiểm tra sự có mặt',
@@ -66,7 +103,6 @@ const stageLabels: Record<string, string> = {
   final_statements: 'Lời sau cùng',
   deliberation: 'Nghị án mô phỏng',
   simulated_decision: 'Kết quả mô phỏng',
-  closing_record: 'Kết thúc phiên',
 };
 
 const statusLabels: Record<string, string> = {
@@ -132,11 +168,34 @@ function getCaseTitle(caseDetail: CaseDetail | null, selectedCase: CaseRecord | 
   return caseDetail?.record.title || selectedCase?.title || 'Chưa chọn hồ sơ';
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+type AppMode = 'mvp' | 'v1' | 'v2';
+
 export default function App() {
+  const [activeMode, setActiveMode] = useState<AppMode>('v2');
   const [apiOnline, setApiOnline] = useState(false);
   const [cases, setCases] = useState<CaseRecord[]>([]);
   const [selectedCaseId, setSelectedCaseId] = useState('');
   const [caseDetail, setCaseDetail] = useState<CaseDetail | null>(null);
+  const [newCaseTitle, setNewCaseTitle] = useState('Tranh chấp hợp đồng mua bán xe máy');
+  const [newCaseNarrative, setNewCaseNarrative] = useState('Nguyên đơn cho rằng bị đơn vi phạm nghĩa vụ giao tài sản đúng hạn; các bên tranh chấp về điều kiện thanh toán còn lại, hoàn trả tiền đã nhận và chi phí phát sinh.');
+  const [files, setFiles] = useState<File[]>([]);
+  const [simulation, setSimulation] = useState<SimulationResponse | null>(null);
+  const [auditTrail, setAuditTrail] = useState<AuditTrailResponse | null>(null);
+  const [mvpReport, setMvpReport] = useState<ReportResponse | null>(null);
+  const [reviewResult, setReviewResult] = useState<ReviewResponse | null>(null);
+  const [v1Session, setV1Session] = useState<V1HearingSession | null>(null);
+  const [v1Challenges, setV1Challenges] = useState<V1ChallengesResponse | null>(null);
+  const [v1Verification, setV1Verification] = useState<V1VerificationResponse | null>(null);
+  const [v1Outcome, setV1Outcome] = useState<V1OutcomeResponse | null>(null);
   const [uiState, setUiState] = useState<V2UiState | null>(null);
   const [htmlPreview, setHtmlPreview] = useState('');
   const [markdownPath, setMarkdownPath] = useState('');
@@ -160,25 +219,107 @@ export default function App() {
   const facts = parsed?.facts ?? [];
   const evidence = parsed?.evidence ?? [];
   const legalIssues = parsed?.legal_issues ?? [];
+  const claims = parsed?.claims ?? [];
   const citations = parsed?.citations ?? [];
-  const transcript = uiState?.transcript ?? [];
-  const timeline = uiState?.timeline ?? [];
+  const v2Transcript = uiState?.transcript ?? [];
+  const v1Transcript: CourtroomTurn[] = (v1Session?.turns ?? []).map((turn) => ({
+    turn_id: turn.turn_id,
+    trial_stage: turn.hearing_stage,
+    speaker: turn.agent,
+    speaker_label: labelStage(turn.agent),
+    utterance: turn.message,
+    claim_ids: turn.claims,
+    evidence_ids: turn.evidence_used,
+    citation_ids: turn.citations_used,
+    status: turn.status,
+    risk_notes: [],
+  }));
+  const mvpTranscript: CourtroomTurn[] = simulation
+    ? [
+        {
+          turn_id: 'MVP_SUMMARY',
+          trial_stage: 'simulated',
+          speaker: 'judge_agent',
+          speaker_label: 'Judge summary',
+          utterance: simulation.judge_summary.summary,
+          claim_ids: [],
+          evidence_ids: [],
+          citation_ids: [],
+          status: simulation.human_review.blocked ? 'needs_review' : 'ok',
+          risk_notes: simulation.judge_summary.unsupported_claims,
+        },
+        {
+          turn_id: 'MVP_REPORT',
+          trial_stage: 'report_ready',
+          speaker: 'clerk_agent',
+          speaker_label: 'Clerk report',
+          utterance: simulation.final_report.case_summary,
+          claim_ids: [],
+          evidence_ids: [],
+          citation_ids: [],
+          status: simulation.case.status,
+          risk_notes: simulation.final_report.human_review_checklist,
+        },
+      ]
+    : [];
+  const transcript = activeMode === 'v1' ? v1Transcript : activeMode === 'mvp' ? mvpTranscript : v2Transcript;
+  const v2Timeline = uiState?.timeline ?? [];
+  const v1Timeline = (v1Session?.stage_order ?? []).map((stage) => ({
+    trial_stage: stage,
+    label: labelStage(stage),
+    status: (v1Session?.turns ?? []).some((turn) => turn.hearing_stage === stage) ? 'completed' : 'pending',
+    turn_ids: (v1Session?.turns ?? []).filter((turn) => turn.hearing_stage === stage).map((turn) => turn.turn_id),
+  }));
+  const mvpTimeline = [
+    {trial_stage: 'draft', label: 'Draft', status: caseDetail ? 'completed' : 'pending', turn_ids: []},
+    {trial_stage: 'parsed', label: 'Parsed', status: parsed ? 'completed' : 'pending', turn_ids: []},
+    {trial_stage: 'simulated', label: 'Simulated', status: simulation ? 'completed' : 'pending', turn_ids: simulation?.trial_minutes.turn_ids ?? []},
+    {
+      trial_stage: 'review_required',
+      label: 'Review',
+      status: reviewResult || simulation?.human_review.required ? 'completed' : 'pending',
+      turn_ids: [],
+    },
+    {trial_stage: 'report_ready', label: 'Report', status: mvpReport || reviewResult ? 'completed' : 'pending', turn_ids: []},
+  ];
+  const timeline = activeMode === 'v1' ? v1Timeline : activeMode === 'mvp' ? mvpTimeline : v2Timeline;
+  const currentStage = activeMode === 'v1' ? v1Session?.current_stage : activeMode === 'mvp' ? selectedCase?.status : uiState?.current_stage;
   const currentStageIndex = Math.max(
     0,
-    timeline.findIndex((item) => item.trial_stage === uiState?.current_stage),
+    timeline.findIndex((item) => item.trial_stage === currentStage),
   );
   const latestTurn = transcript[transcript.length - 1];
   const reviewCount =
     (uiState?.human_review.checklist.length ?? 0) +
     (uiState?.dialogue_quality.ungrounded_turn_ids.length ?? 0) +
-    (uiState?.decision_guard?.unresolved_items.length ?? 0);
+    (uiState?.decision_guard?.unresolved_items.length ?? 0) +
+    (simulation?.human_review.checklist.length ?? 0) +
+    (v1Session?.human_review.checklist.length ?? 0);
   const okTurns = transcript.filter((turn) => turn.status === 'ok').length;
   const needsReviewTurns = transcript.filter((turn) => turn.status !== 'ok').length;
   const title = getCaseTitle(caseDetail, selectedCase);
   const timelineItems = timeline.length ? timeline : [{trial_stage: 'case_preparation', label: 'Case preparation', status: 'pending', turn_ids: []}];
-  const judgeSummaryItems = (uiState?.deliberation?.established_facts ?? facts.slice(0, 3).map((fact) => fact.content)).slice(0, 3);
-  const judgeRiskItems = (uiState?.decision_guard?.unresolved_items ?? uiState?.human_review.checklist ?? []).slice(0, 3);
-  const judgeNote = uiState?.simulated_decision?.summary || latestTurn?.utterance || '';
+  const judgeSummaryItems = (
+    activeMode === 'v2'
+      ? (uiState?.deliberation?.established_facts ?? facts.slice(0, 3).map((fact) => fact.content))
+      : activeMode === 'v1'
+        ? (v1Outcome?.preliminary_assessment_turns.map((turn) => turn.message) ?? facts.slice(0, 3).map((fact) => fact.content))
+        : (simulation?.judge_summary.main_disputed_points ?? facts.slice(0, 3).map((fact) => fact.content))
+  ).slice(0, 3);
+  const judgeRiskItems = (
+    activeMode === 'v2'
+      ? (uiState?.decision_guard?.unresolved_items ?? uiState?.human_review.checklist ?? [])
+      : activeMode === 'v1'
+        ? (v1Session?.human_review.checklist ?? [])
+        : (simulation?.human_review.checklist ?? [])
+  ).slice(0, 3);
+  const judgeNote =
+    activeMode === 'v2'
+      ? uiState?.simulated_decision?.summary || latestTurn?.utterance || ''
+      : activeMode === 'v1'
+        ? v1Outcome?.outcome_candidates[0]?.rationale || latestTurn?.utterance || ''
+        : simulation?.final_report.case_summary || latestTurn?.utterance || '';
+  const modeStatus = activeMode === 'v2' ? uiState?.status || selectedCase?.status : activeMode === 'v1' ? v1Session?.status || selectedCase?.status : simulation?.case.status || selectedCase?.status;
 
   async function refreshCases(preferredCaseId?: string) {
     setError('');
@@ -198,8 +339,24 @@ export default function App() {
     setHtmlPreview('');
     setMarkdownPath('');
     setHtmlPath('');
+    setSimulation(null);
+    setAuditTrail(null);
+    setMvpReport(null);
+    setReviewResult(null);
+    setV1Session(null);
+    setV1Challenges(null);
+    setV1Verification(null);
+    setV1Outcome(null);
     const detail = await getCase(caseId);
     setCaseDetail(detail);
+    await Promise.all([
+      getAuditTrail(caseId).then(setAuditTrail).catch(() => undefined),
+      getReport(caseId).then(setMvpReport).catch(() => undefined),
+      getV1Hearing(caseId).then(setV1Session).catch(() => undefined),
+      getV1Challenges(caseId).then(setV1Challenges).catch(() => undefined),
+      getV1Verification(caseId).then(setV1Verification).catch(() => undefined),
+      getV1Outcome(caseId).then(setV1Outcome).catch(() => undefined),
+    ]);
     try {
       const state = await getV2UiState(caseId);
       setUiState(state);
@@ -247,6 +404,118 @@ export default function App() {
     });
   }
 
+  async function createCaseFromUi() {
+    await runAction('create', async () => {
+      setLogs((current) => [...current, 'Tạo hồ sơ mới từ UI']);
+      const record = await createCase(newCaseTitle, newCaseNarrative);
+      for (const file of files) {
+        setLogs((current) => [...current, `Upload attachment: ${file.name}`]);
+        await uploadAttachment(record.case_id, file);
+      }
+      setFiles([]);
+      await refreshCases(record.case_id);
+      setActiveMode('mvp');
+    });
+  }
+
+  async function uploadFilesToSelectedCase() {
+    if (!selectedCaseId || files.length === 0) return;
+    await runAction('upload', async () => {
+      for (const file of files) {
+        setLogs((current) => [...current, `Upload attachment: ${file.name}`]);
+        await uploadAttachment(selectedCaseId, file);
+      }
+      setFiles([]);
+      await loadCase(selectedCaseId, false);
+      await refreshCases(selectedCaseId);
+    });
+  }
+
+  async function runMvpSimulation() {
+    if (!selectedCaseId) return;
+    await runAction('simulate', async () => {
+      setLogs((current) => [...current, 'Chạy MVP simulation']);
+      await parseCase(selectedCaseId);
+      const result = await simulateCase(selectedCaseId);
+      await refreshCases(selectedCaseId);
+      setSimulation(result);
+      setAuditTrail({case_id: selectedCaseId, audit_trail: result.audit_trail, human_review: result.human_review});
+    });
+  }
+
+  async function approveMvpReview() {
+    if (!selectedCaseId) return;
+    await runAction('review', async () => {
+      const result = await reviewCase({
+        caseId: selectedCaseId,
+        decision: 'approve',
+        reviewerName: 'Nguyễn Văn A',
+        notes: 'Approved from frontend demo review panel.',
+      });
+      setLogs((current) => [...current, `Human review approved: ${result.report_status}`]);
+      await refreshCases(selectedCaseId);
+      setReviewResult(result);
+      setMvpReport({case_id: result.case_id, report_status: result.report_status, generated_from_turns: [], report: result.report});
+    });
+  }
+
+  async function startSelectedV1() {
+    if (!selectedCaseId) return;
+    await runAction('v1-start', async () => {
+      setLogs((current) => [...current, 'Khởi động V1 hearing']);
+      await parseCase(selectedCaseId);
+      const session = await startV1(selectedCaseId);
+      setV1Session(session);
+      await loadV1Panels(selectedCaseId);
+      await refreshCases(selectedCaseId);
+    });
+  }
+
+  async function advanceSelectedV1() {
+    if (!selectedCaseId) return;
+    await runAction('v1-advance', async () => {
+      setLogs((current) => [...current, `Advance V1 từ stage: ${labelStage(v1Session?.current_stage)}`]);
+      const session = await advanceV1(selectedCaseId);
+      setV1Session(session);
+      await loadV1Panels(selectedCaseId);
+      await refreshCases(selectedCaseId);
+    });
+  }
+
+  async function runFullV1() {
+    if (!selectedCaseId) return;
+    await runAction('v1-full', async () => {
+      setLogs([]);
+      setHtmlPreview('');
+      await parseCase(selectedCaseId);
+      let session = await startV1(selectedCaseId);
+      for (let index = 0; index < 20 && session.current_stage !== 'closing_record'; index += 1) {
+        setLogs((current) => [...current, `V1 advance ${index + 1}: ${labelStage(session.current_stage)}`]);
+        session = await advanceV1(selectedCaseId);
+      }
+      setV1Session(session);
+      await loadV1Panels(selectedCaseId);
+      const markdown = await exportV1Markdown(selectedCaseId);
+      const html = await exportV1Html(selectedCaseId);
+      setMarkdownPath(markdown);
+      setHtmlPath(html.htmlPath);
+      setHtmlPreview(html.html);
+      setShowPreview(true);
+      await refreshCases(selectedCaseId);
+    });
+  }
+
+  async function loadV1Panels(caseId: string) {
+    const [challenges, verification, outcome] = await Promise.all([
+      getV1Challenges(caseId).catch(() => null),
+      getV1Verification(caseId).catch(() => null),
+      getV1Outcome(caseId).catch(() => null),
+    ]);
+    setV1Challenges(challenges);
+    setV1Verification(verification);
+    setV1Outcome(outcome);
+  }
+
   async function startSelectedV2() {
     if (!selectedCaseId) return;
     await runAction('start', async () => {
@@ -285,10 +554,38 @@ export default function App() {
     });
   }
 
+  function runFullActiveMode() {
+    if (activeMode === 'mvp') {
+      return runMvpSimulation();
+    }
+    if (activeMode === 'v1') {
+      return runFullV1();
+    }
+    return runFullV2();
+  }
+
+  function advanceActiveMode() {
+    if (activeMode === 'v1') {
+      return advanceSelectedV1();
+    }
+    if (activeMode === 'mvp') {
+      return runMvpSimulation();
+    }
+    return advanceSelectedV2();
+  }
+
   async function exportMarkdown() {
     if (!selectedCaseId) return;
     await runAction('markdown', async () => {
-      const path = await exportV2Markdown(selectedCaseId);
+      if (activeMode === 'mvp') {
+        const result = await exportMvpMarkdown(selectedCaseId);
+        setMarkdownPath(result.markdownPath);
+        setHtmlPreview(`<pre>${escapeHtml(result.markdown)}</pre>`);
+        setShowPreview(true);
+        setLogs((current) => [...current, `Đã xuất MVP Markdown: ${result.markdownPath}`]);
+        return;
+      }
+      const path = activeMode === 'v1' ? await exportV1Markdown(selectedCaseId) : await exportV2Markdown(selectedCaseId);
       setMarkdownPath(path);
       setLogs((current) => [...current, `Đã xuất Markdown: ${path}`]);
     });
@@ -297,7 +594,16 @@ export default function App() {
   async function exportHtml() {
     if (!selectedCaseId) return;
     await runAction('html', async () => {
-      const result = await exportV2Html(selectedCaseId);
+      if (activeMode === 'mvp') {
+        const result = await exportMvpMarkdown(selectedCaseId);
+        setMarkdownPath(result.markdownPath);
+        setHtmlPath('');
+        setHtmlPreview(`<pre>${escapeHtml(result.markdown)}</pre>`);
+        setShowPreview(true);
+        setLogs((current) => [...current, `Đã mở MVP Markdown preview: ${result.markdownPath}`]);
+        return;
+      }
+      const result = activeMode === 'v1' ? await exportV1Html(selectedCaseId) : await exportV2Html(selectedCaseId);
       setHtmlPath(result.htmlPath);
       setHtmlPreview(result.html);
       setShowPreview(true);
@@ -317,12 +623,26 @@ export default function App() {
             </div>
           </div>
           <Separator orientation="vertical" className="mx-4 h-8" />
+          <div className="flex shrink-0 rounded-md border border-border bg-muted/40 p-0.5">
+            {(['mvp', 'v1', 'v2'] as AppMode[]).map((mode) => (
+              <Button
+                key={mode}
+                variant="ghost"
+                size="sm"
+                className={`h-8 px-3 text-xs font-semibold uppercase tracking-wide ${activeMode === mode ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                onClick={() => setActiveMode(mode)}
+              >
+                {mode.toUpperCase()}
+              </Button>
+            ))}
+          </div>
+          <Separator orientation="vertical" className="mx-2 h-8" />
           <div className="flex min-w-0 flex-col">
             <h1 className="truncate text-sm font-semibold">{title}</h1>
             <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
               <span>{selectedCaseId || 'Chưa chọn case'}</span>
-              <Badge variant={badgeVariant(uiState?.status || selectedCase?.status)} className="h-5 border border-border/50 bg-muted font-normal text-muted-foreground hover:bg-muted">
-                {labelStatus(uiState?.status || selectedCase?.status)}
+              <Badge variant={badgeVariant(modeStatus)} className="h-5 border border-border/50 bg-muted font-normal text-muted-foreground hover:bg-muted">
+                {labelStatus(modeStatus)}
               </Badge>
               <Badge variant={apiOnline ? 'secondary' : 'destructive'} className="h-5">
                 {apiOnline ? 'API online' : 'API offline'}
@@ -335,9 +655,9 @@ export default function App() {
           <Button variant="outline" size="sm" className="h-9 gap-2 border-border/50 bg-background font-normal text-muted-foreground hover:bg-accent/50" disabled={Boolean(busyAction)} onClick={() => refreshCases(selectedCaseId)}>
             <RefreshCw className={`h-4 w-4 ${busyAction ? 'animate-spin' : ''}`} /> Làm mới
           </Button>
-          <Button size="sm" className="h-9 gap-2 rounded border-none bg-primary font-semibold text-primary-foreground hover:bg-primary/90" disabled={!selectedCaseId || Boolean(busyAction)} onClick={runFullV2}>
-            {busyAction === 'full' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-            Tạo báo cáo <ChevronDown className="h-4 w-4 opacity-70" />
+          <Button size="sm" className="h-9 gap-2 rounded border-none bg-primary font-semibold text-primary-foreground hover:bg-primary/90" disabled={!selectedCaseId || Boolean(busyAction)} onClick={runFullActiveMode}>
+            {busyAction.includes('full') || busyAction === 'simulate' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+            {activeMode === 'mvp' ? 'Run MVP' : activeMode === 'v1' ? 'Run V1' : 'Tạo báo cáo'} <ChevronDown className="h-4 w-4 opacity-70" />
           </Button>
           <Button variant="ghost" size="icon" onClick={toggleDarkMode} className="h-9 w-9 text-muted-foreground hover:bg-accent/50">
             {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -376,6 +696,26 @@ export default function App() {
               <div className="w-72 space-y-2 p-3">
                 <div className="space-y-2 rounded-lg border border-border/50 bg-background p-3">
                   <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Hồ sơ từ BE</label>
+                  {activeMode === 'mvp' && (
+                    <div className="space-y-2 rounded-md border border-dashed border-border p-2">
+                      <input
+                        className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs outline-none focus:border-primary"
+                        value={newCaseTitle}
+                        onChange={(event) => setNewCaseTitle(event.target.value)}
+                        placeholder="Tên hồ sơ mới"
+                      />
+                      <textarea
+                        className="h-20 w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-xs leading-5 outline-none focus:border-primary"
+                        value={newCaseNarrative}
+                        onChange={(event) => setNewCaseNarrative(event.target.value)}
+                        placeholder="Narrative"
+                      />
+                      <Button className="h-8 w-full gap-2" size="sm" disabled={Boolean(busyAction) || !newCaseTitle || !newCaseNarrative} onClick={createCaseFromUi}>
+                        {busyAction === 'create' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                        Tạo case
+                      </Button>
+                    </div>
+                  )}
                   <select
                     className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm outline-none focus:border-primary"
                     value={selectedCaseId}
@@ -392,16 +732,45 @@ export default function App() {
                       </option>
                     ))}
                   </select>
+                  <label className="flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-border px-2 text-xs text-muted-foreground hover:bg-muted/50">
+                    <Upload className="h-3.5 w-3.5" />
+                    {files.length ? `${files.length} file đã chọn` : 'Chọn attachment'}
+                    <input className="hidden" type="file" multiple onChange={(event) => setFiles(Array.from(event.target.files || []))} />
+                  </label>
                   <div className="grid grid-cols-2 gap-2">
                     <Button variant="outline" size="sm" className="h-8 gap-1" disabled={!selectedCaseId || Boolean(busyAction)} onClick={parseSelectedCase}>
                       {busyAction === 'parse' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                       Parse
                     </Button>
-                    <Button variant="outline" size="sm" className="h-8 gap-1" disabled={!selectedCaseId || Boolean(busyAction)} onClick={startSelectedV2}>
+                    <Button variant="outline" size="sm" className="h-8 gap-1" disabled={!selectedCaseId || files.length === 0 || Boolean(busyAction)} onClick={uploadFilesToSelectedCase}>
+                      {busyAction === 'upload' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                      Upload
+                    </Button>
+                  </div>
+                  {activeMode === 'mvp' && (
+                    <Button variant="outline" size="sm" className="h-8 w-full gap-1" disabled={!selectedCaseId || Boolean(busyAction)} onClick={runMvpSimulation}>
+                      {busyAction === 'simulate' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+                      Simulate MVP
+                    </Button>
+                  )}
+                  {activeMode === 'v1' && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button variant="outline" size="sm" className="h-8 gap-1" disabled={!selectedCaseId || Boolean(busyAction)} onClick={startSelectedV1}>
+                        {busyAction === 'v1-start' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+                        Start V1
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-8 gap-1" disabled={!selectedCaseId || Boolean(busyAction)} onClick={advanceSelectedV1}>
+                        {busyAction === 'v1-advance' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                        Advance
+                      </Button>
+                    </div>
+                  )}
+                  {activeMode === 'v2' && (
+                    <Button variant="outline" size="sm" className="h-8 w-full gap-1" disabled={!selectedCaseId || Boolean(busyAction)} onClick={startSelectedV2}>
                       {busyAction === 'start' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
                       Start V2
                     </Button>
-                  </div>
+                  )}
                 </div>
 
                 <Collapsible defaultOpen>
@@ -479,14 +848,14 @@ export default function App() {
                 <h2 className="truncate font-serif text-lg font-bold uppercase tracking-wide text-foreground">
                   Biên bản phiên tòa
                   <span className="relative top-[-2px] ml-2 rounded-full bg-primary/10 px-2 py-0.5 pb-[3px] font-sans text-[10px] font-medium uppercase tracking-normal text-primary">
-                    {uiState ? 'Trực tiếp từ BE v2' : 'Chưa có V2'}
+                    {activeMode.toUpperCase()} từ backend
                   </span>
                 </h2>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="h-8 border-border bg-background/50 text-xs font-medium hover:bg-muted" disabled={!selectedCaseId || Boolean(busyAction)} onClick={advanceSelectedV2}>
-                  {busyAction === 'advance' ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Play className="mr-2 h-3.5 w-3.5" />}
-                  Advance stage
+                <Button variant="outline" size="sm" className="h-8 border-border bg-background/50 text-xs font-medium hover:bg-muted" disabled={!selectedCaseId || Boolean(busyAction)} onClick={advanceActiveMode}>
+                  {busyAction === 'advance' || busyAction === 'v1-advance' || busyAction === 'simulate' ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Play className="mr-2 h-3.5 w-3.5" />}
+                  {activeMode === 'mvp' ? 'Simulate' : 'Advance stage'}
                 </Button>
                 <Button variant="outline" size="icon" className="h-8 w-8 border-border bg-background/50 hover:bg-muted" onClick={() => setShowPreview((current) => !current)} disabled={!htmlPreview}>
                   <Maximize2 className="h-4 w-4" />
@@ -558,8 +927,8 @@ export default function App() {
                 <CompactJudgeCard title="Kết quả mô phỏng" value={judgeNote || 'Chờ dữ liệu từ BE v2.'} accent />
               </div>
               <div className="relative z-10 flex gap-2">
-                <Button className="h-9 w-[160px] gap-2 border-none bg-primary font-bold text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90" disabled={!selectedCaseId || Boolean(busyAction)} onClick={advanceSelectedV2}>
-                  {busyAction === 'advance' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />} Tiếp tục phiên
+                <Button className="h-9 w-[160px] gap-2 border-none bg-primary font-bold text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90" disabled={!selectedCaseId || Boolean(busyAction)} onClick={advanceActiveMode}>
+                  {busyAction === 'advance' || busyAction === 'v1-advance' || busyAction === 'simulate' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />} Tiếp tục phiên
                 </Button>
                 <Button variant="outline" className="h-9 flex-1 gap-2 border-border bg-background font-medium hover:bg-muted">
                   <Pause className="h-4 w-4 fill-current opacity-70" /> Tạm dừng
@@ -567,8 +936,8 @@ export default function App() {
                 <Button variant="outline" className="h-9 flex-1 gap-2 border-border bg-background font-medium hover:bg-muted" disabled={!selectedCaseId || Boolean(busyAction)} onClick={exportHtml}>
                   {busyAction === 'html' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4 text-primary" />} Xuất HTML
                 </Button>
-                <Button variant="outline" className="h-9 flex-1 gap-2 border-border bg-background font-medium hover:bg-muted" disabled={!selectedCaseId || Boolean(busyAction)} onClick={runFullV2}>
-                  {busyAction === 'full' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Scale className="h-4 w-4 text-primary" />} Chạy đầy đủ
+                <Button variant="outline" className="h-9 flex-1 gap-2 border-border bg-background font-medium hover:bg-muted" disabled={!selectedCaseId || Boolean(busyAction)} onClick={runFullActiveMode}>
+                  {busyAction.includes('full') || busyAction === 'simulate' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Scale className="h-4 w-4 text-primary" />} Chạy đầy đủ
                 </Button>
               </div>
             </div>
@@ -619,8 +988,154 @@ export default function App() {
                   </Collapsible>
                 </Card>
 
+                <DataPanel
+                  icon={Scale}
+                  title="Evidence table"
+                  count={evidence.length}
+                  items={evidence.slice(0, 6).map((item) => ({
+                    id: item.evidence_id,
+                    title: `${item.type} · ${item.status}`,
+                    body: item.content,
+                    meta: item.source,
+                  }))}
+                  empty="Chưa có evidence từ parsed case."
+                />
+
+                <DataPanel
+                  icon={FileText}
+                  title="Claims"
+                  count={claims.length}
+                  items={claims.slice(0, 6).map((item) => ({
+                    id: item.claim_id,
+                    title: `${item.speaker} · ${item.confidence}`,
+                    body: item.content,
+                    meta: [...item.evidence_ids, ...item.citation_ids].join(', '),
+                  }))}
+                  empty="Chưa có claim từ parser/simulation."
+                />
+
+                {activeMode === 'mvp' && (
+                  <>
+                    <DataPanel
+                      icon={ShieldAlert}
+                      title="Audit trail"
+                      count={auditTrail?.audit_trail.length ?? simulation?.audit_trail.length ?? 0}
+                      items={(auditTrail?.audit_trail ?? simulation?.audit_trail ?? []).slice(0, 5).map((item) => ({
+                        id: item.event_id,
+                        title: `${item.stage} · ${item.severity}`,
+                        body: item.message,
+                      }))}
+                      empty="Chạy simulation để có audit trail."
+                    />
+                    <Card className="border-border/50 bg-background p-4 shadow-sm">
+                      <div className="mb-3 flex items-center gap-2 text-primary">
+                        <UserCheck className="h-4 w-4" />
+                        <span className="text-xs font-semibold uppercase tracking-wide">Human review</span>
+                      </div>
+                      <div className="space-y-2 text-sm text-muted-foreground">
+                        <InfoLine label="Required" value={String(simulation?.human_review.required ?? false)} />
+                        <InfoLine label="Blocked" value={String(simulation?.human_review.blocked ?? false)} />
+                        {(simulation?.human_review.checklist ?? []).slice(0, 3).map((item) => (
+                          <p className="rounded-md bg-muted/50 p-2 text-xs leading-5" key={item}>{item}</p>
+                        ))}
+                        {reviewResult && <Badge variant="secondary">{reviewResult.report_status}</Badge>}
+                      </div>
+                      <Button className="mt-3 h-8 w-full gap-2" size="sm" disabled={!selectedCaseId || Boolean(busyAction) || !simulation} onClick={approveMvpReview}>
+                        {busyAction === 'review' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                        Approve review
+                      </Button>
+                    </Card>
+                  </>
+                )}
+
+                {activeMode === 'v1' && (
+                  <>
+                    <DataPanel
+                      icon={ShieldAlert}
+                      title="Evidence challenges"
+                      count={v1Challenges?.challenges.length ?? v1Session?.evidence_challenges.length ?? 0}
+                      items={(v1Challenges?.challenges ?? v1Session?.evidence_challenges ?? []).slice(0, 5).map((item) => ({
+                        id: item.challenge_id,
+                        title: `${item.evidence_id} · ${item.admissibility}`,
+                        body: item.reason,
+                        meta: item.raised_by,
+                      }))}
+                      empty="Start/advance V1 để xem challenge."
+                    />
+                    <DataPanel
+                      icon={ShieldCheck}
+                      title="Verification turns"
+                      count={v1Verification?.verification_turns.length ?? 0}
+                      items={(v1Verification?.verification_turns ?? []).slice(0, 5).map((item) => ({
+                        id: item.turn_id,
+                        title: `${labelStage(item.agent)} · ${labelStage(item.hearing_stage)}`,
+                        body: item.message,
+                        meta: item.status,
+                      }))}
+                      empty="V1 verification chưa có dữ liệu."
+                    />
+                    <DataPanel
+                      icon={BookOpen}
+                      title="Clarification"
+                      count={(v1Session?.clarification_questions.length ?? 0) + (v1Session?.party_responses.length ?? 0)}
+                      items={[
+                        ...(v1Session?.clarification_questions ?? []).map((item) => ({
+                          id: item.question_id,
+                          title: `Question · ${item.status}`,
+                          body: item.question,
+                          meta: item.target_agents.join(', '),
+                        })),
+                        ...(v1Session?.party_responses ?? []).map((item) => ({
+                          id: item.response_id,
+                          title: `Response · ${item.responder}`,
+                          body: item.content,
+                          meta: item.status,
+                        })),
+                      ].slice(0, 6)}
+                      empty="Chưa có clarification round."
+                    />
+                  </>
+                )}
+
+                {activeMode === 'v2' && (
+                  <>
+                    <DataPanel
+                      icon={ShieldAlert}
+                      title="Evidence examination"
+                      count={uiState?.evidence_examinations.length ?? 0}
+                      items={(uiState?.evidence_examinations ?? []).slice(0, 5).map((item) => ({
+                        id: item.examination_id,
+                        title: `${item.evidence_id} · ${item.admissibility}`,
+                        body: item.notes || item.plaintiff_position,
+                        meta: item.defense_position,
+                      }))}
+                      empty="Chưa có V2 evidence examination."
+                    />
+                    <DataPanel
+                      icon={FileText}
+                      title="Debate & final statements"
+                      count={(uiState?.debate_rounds?.length ?? 0) + (uiState?.final_statements?.length ?? 0)}
+                      items={[
+                        ...(uiState?.debate_rounds ?? []).map((item) => ({
+                          id: item.debate_id,
+                          title: item.topic,
+                          body: item.judge_summary,
+                          meta: item.unresolved_points.join(', '),
+                        })),
+                        ...(uiState?.final_statements ?? []).map((item) => ({
+                          id: item.statement_id,
+                          title: labelStage(item.speaker),
+                          body: item.content,
+                          meta: item.requested_outcome || '',
+                        })),
+                      ].slice(0, 5)}
+                      empty="Chưa có debate/final statements."
+                    />
+                  </>
+                )}
+
                 <RightToggle icon={ShieldAlert} title="Kiểm toán & Rà soát" count={reviewCount} />
-                <RightToggle icon={UserCheck} title="Rà soát của con người" count={uiState?.human_review.checklist.length ?? 0} />
+                <RightToggle icon={UserCheck} title="Rà soát của con người" count={activeMode === 'v2' ? (uiState?.human_review.checklist.length ?? 0) : activeMode === 'v1' ? (v1Session?.human_review.checklist.length ?? 0) : (simulation?.human_review.checklist.length ?? 0)} />
 
                 <Card className="border-border/50 bg-background p-4 shadow-sm">
                   <div className="mb-4 flex items-center gap-2 text-primary">
@@ -630,7 +1145,7 @@ export default function App() {
                   <div className="space-y-3 text-sm">
                     <StatusLine label="Đã xác minh" count={okTurns} tone="green" />
                     <StatusLine label="Cần rà soát" count={needsReviewTurns} tone="yellow" strong />
-                    <StatusLine label="Ungrounded" count={uiState?.dialogue_quality.ungrounded_turn_ids.length ?? 0} tone="zinc" />
+                    <StatusLine label="Ungrounded" count={activeMode === 'v2' ? (uiState?.dialogue_quality.ungrounded_turn_ids.length ?? 0) : 0} tone="zinc" />
                   </div>
                   <Separator className="my-3 bg-border/50" />
                   <div className="flex items-center justify-between text-sm font-semibold">
@@ -644,7 +1159,7 @@ export default function App() {
                     <ShieldCheck className="h-4 w-4" />
                     <span className="text-xs font-semibold uppercase tracking-wide">Kết quả mô phỏng</span>
                   </div>
-                  {uiState?.simulated_decision ? (
+                  {activeMode === 'v2' && uiState?.simulated_decision ? (
                     <div className="space-y-3 text-sm">
                       <Badge variant={badgeVariant(uiState.simulated_decision.risk_level)}>{uiState.simulated_decision.disposition}</Badge>
                       <p className="leading-6 text-muted-foreground">{uiState.simulated_decision.relief_or_next_step}</p>
@@ -657,8 +1172,18 @@ export default function App() {
                         ))}
                       </ul>
                     </div>
+                  ) : activeMode === 'v1' && v1Outcome?.outcome_candidates.length ? (
+                    <div className="space-y-3 text-sm">
+                      <Badge variant={badgeVariant(v1Outcome.outcome_candidates[0].risk_level)}>{v1Outcome.outcome_candidates[0].disposition}</Badge>
+                      <p className="leading-6 text-muted-foreground">{v1Outcome.outcome_candidates[0].rationale}</p>
+                    </div>
+                  ) : activeMode === 'mvp' && (mvpReport || simulation) ? (
+                    <div className="space-y-3 text-sm">
+                      <Badge variant={badgeVariant(mvpReport?.report_status || simulation?.case.status)}>{labelStatus(mvpReport?.report_status || simulation?.case.status)}</Badge>
+                      <p className="leading-6 text-muted-foreground">{mvpReport?.report.case_summary || simulation?.final_report.case_summary}</p>
+                    </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">Decision sẽ xuất hiện sau stage simulated_decision.</p>
+                    <p className="text-sm text-muted-foreground">Kết quả sẽ xuất hiện sau khi chạy mode hiện tại.</p>
                   )}
                 </Card>
 
@@ -695,11 +1220,11 @@ export default function App() {
             <div className="flex items-center gap-2 truncate text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
               <ProgressPill done={Boolean(parsed)} label="Thông tin vụ án" index={1} />
               <ProgressBar />
-              <ProgressPill done={transcript.length > 0} active={Boolean(uiState && !uiState.simulated_decision)} label="Diễn biến phiên tòa" index={2} />
+              <ProgressPill done={transcript.length > 0} active={transcript.length > 0 && !judgeNote} label="Diễn biến phiên tòa" index={2} />
               <ProgressBar />
-              <ProgressPill done={Boolean(uiState?.deliberation)} active={Boolean(uiState?.deliberation && !uiState?.simulated_decision)} label="Nhận định & căn cứ" index={3} />
+              <ProgressPill done={Boolean(judgeNote)} active={Boolean(judgeNote && activeMode !== 'mvp' && !mvpReport)} label="Nhận định & căn cứ" index={3} />
               <ProgressBar />
-              <ProgressPill done={Boolean(uiState?.simulated_decision)} active={Boolean(uiState?.simulated_decision)} label="Quyết định dự thảo" index={4} />
+              <ProgressPill done={Boolean(uiState?.simulated_decision || v1Outcome?.outcome_candidates.length || mvpReport || reviewResult)} active={Boolean(uiState?.simulated_decision || v1Outcome?.outcome_candidates.length || mvpReport || reviewResult)} label="Quyết định dự thảo" index={4} />
             </div>
           </div>
 
@@ -766,14 +1291,14 @@ export default function App() {
                   />
                 </div>
                 <div className="flex gap-3 lg:col-span-2">
-                  <Button className="h-9 w-[180px] gap-2 border-none bg-primary font-bold text-primary-foreground hover:bg-primary/90" disabled={!selectedCaseId || Boolean(busyAction)} onClick={advanceSelectedV2}>
-                    {busyAction === 'advance' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />} Tiếp tục phiên
+                  <Button className="h-9 w-[180px] gap-2 border-none bg-primary font-bold text-primary-foreground hover:bg-primary/90" disabled={!selectedCaseId || Boolean(busyAction)} onClick={advanceActiveMode}>
+                    {busyAction === 'advance' || busyAction === 'v1-advance' || busyAction === 'simulate' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />} Tiếp tục phiên
                   </Button>
                   <Button variant="outline" className="h-9 flex-1 gap-2 border-border bg-background font-medium hover:bg-muted" disabled={!selectedCaseId || Boolean(busyAction)} onClick={exportHtml}>
                     {busyAction === 'html' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4 text-primary" />} Xuất HTML
                   </Button>
-                  <Button variant="outline" className="h-9 flex-1 gap-2 border-border bg-background font-medium hover:bg-muted" disabled={!selectedCaseId || Boolean(busyAction)} onClick={runFullV2}>
-                    {busyAction === 'full' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Scale className="h-4 w-4 text-primary" />} Chạy đầy đủ
+                  <Button variant="outline" className="h-9 flex-1 gap-2 border-border bg-background font-medium hover:bg-muted" disabled={!selectedCaseId || Boolean(busyAction)} onClick={runFullActiveMode}>
+                    {busyAction.includes('full') || busyAction === 'simulate' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Scale className="h-4 w-4 text-primary" />} Chạy đầy đủ
                   </Button>
                 </div>
               </div>
@@ -809,6 +1334,59 @@ function CompactJudgeCard({title, value, muted = false, accent = false}: {title:
       </div>
       <p className="line-clamp-1 text-xs leading-5 text-foreground/90">{value}</p>
     </div>
+  );
+}
+
+function InfoLine({label, value}: {label: string; value: string}) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-border/50 pb-1 last:border-b-0">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="max-w-[170px] truncate text-right text-xs font-medium text-foreground">{value}</span>
+    </div>
+  );
+}
+
+function DataPanel({
+  icon: Icon,
+  title,
+  count,
+  items,
+  empty,
+}: {
+  icon: typeof Scale;
+  title: string;
+  count: number;
+  items: Array<{id: string; title: string; body: string; meta?: string}>;
+  empty: string;
+}) {
+  return (
+    <Card className="border-border/50 bg-background shadow-sm">
+      <Collapsible>
+        <CollapsibleTrigger className="flex w-full items-center justify-between p-3 transition-colors hover:bg-accent/50">
+          <div className="flex items-center gap-2 text-primary">
+            <Icon className="h-4 w-4" />
+            <span className="text-xs font-semibold uppercase tracking-wide">{title}</span>
+          </div>
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <span className="rounded-sm bg-muted px-1.5 py-0.5 text-xs">{count}</span>
+            <ChevronDown className="h-3 w-3" />
+          </div>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-2 p-3 pt-0">
+          {items.map((item) => (
+            <div className="rounded-md border border-border/50 bg-muted/20 p-2" key={item.id}>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="truncate text-xs font-semibold text-foreground">{item.id}</span>
+                <span className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">{item.title}</span>
+              </div>
+              <p className="line-clamp-3 text-xs leading-5 text-muted-foreground">{item.body}</p>
+              {item.meta && <p className="mt-1 line-clamp-1 text-[10px] text-muted-foreground/80">{item.meta}</p>}
+            </div>
+          ))}
+          {items.length === 0 && <p className="text-sm text-muted-foreground">{empty}</p>}
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
   );
 }
 
