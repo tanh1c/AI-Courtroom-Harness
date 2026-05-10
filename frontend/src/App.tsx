@@ -494,25 +494,25 @@ export default function App() {
               </div>
             </div>
 
-            <div className="relative z-10 h-[104px] select-none overflow-x-auto border-b border-border text-foreground [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-track]:bg-transparent">
+            <div className="relative z-10 h-[112px] select-none overflow-x-auto border-b border-border text-foreground [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-track]:bg-transparent">
               <div className="relative flex h-full min-w-max px-5">
                 {timelineItems.map((item, index) => {
                   const active = item.trial_stage === uiState?.current_stage;
                   const completed = item.status === 'completed';
                   const past = index <= currentStageIndex;
                   return (
-                    <div className="relative flex h-full w-40 shrink-0 flex-col items-center px-3 pt-4" key={item.trial_stage}>
-                      <div className={`${past ? 'bg-primary/70' : 'bg-border'} absolute left-0 right-0 top-[33px] z-0 h-px ${index === 0 ? 'left-1/2' : ''} ${index === timelineItems.length - 1 ? 'right-1/2' : ''}`} />
+                    <div className="relative flex h-full w-40 shrink-0 flex-col items-center px-3 pt-2" key={item.trial_stage}>
+                      <div className={`${past ? 'bg-primary/70' : 'bg-border'} absolute left-0 right-0 top-[47px] z-0 h-px ${index === 0 ? 'left-1/2' : ''} ${index === timelineItems.length - 1 ? 'right-1/2' : ''}`} />
                       {active && <div className="absolute inset-x-2 bottom-0 top-[3px] z-0 rounded-t-md bg-primary/5 ring-1 ring-primary/10" />}
+                      <span className={`${active ? 'border-primary/30 bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground'} relative z-10 mb-1 flex h-5 min-w-12 items-center justify-center rounded-full border px-1.5 text-[10px] font-medium shadow-sm`}>
+                        {item.turn_ids.length} lượt
+                      </span>
                       <div className="relative z-10 flex h-10 items-center justify-center">
                         <div className={`${completed ? 'border-primary bg-primary text-primary-foreground' : active ? 'border-primary bg-background text-primary' : 'border-border bg-background text-muted-foreground'} flex h-8 w-8 items-center justify-center rounded-full border-2 text-sm font-bold shadow-sm`}>
                           {index + 1}
                         </div>
-                        <span className={`${active ? 'border-primary/30 bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground'} absolute left-[calc(50%+1.25rem)] top-1/2 flex h-5 min-w-12 -translate-y-1/2 items-center justify-center rounded-full border px-1.5 text-[10px] font-medium`}>
-                          {item.turn_ids.length} lượt
-                        </span>
                       </div>
-                      <span className={`${active ? 'text-primary' : 'text-foreground'} relative z-10 mt-2 line-clamp-2 min-h-8 text-center text-[11px] font-semibold uppercase leading-4 tracking-wide`}>
+                      <span className={`${active ? 'text-primary' : 'text-foreground'} relative z-10 mt-1.5 line-clamp-2 min-h-8 text-center text-[11px] font-semibold uppercase leading-4 tracking-wide`}>
                         {labelStage(item.trial_stage)}
                       </span>
                       <span className="relative z-10 mt-1 text-[10px] uppercase tracking-wide text-muted-foreground">{labelStatus(item.status)}</span>
@@ -871,16 +871,16 @@ function TranscriptItem({turn, index}: {turn: CourtroomTurn; index: number}) {
               : 'border-slate-500/20 bg-slate-500/10 text-slate-600';
 
   return (
-    <div className="group flex gap-4">
-      <div className="w-12 shrink-0 pt-1 text-right">
+    <div className="group flex gap-5">
+      <div className="w-16 shrink-0 pr-2 pt-1 text-right">
         <span className="font-mono text-xs text-muted-foreground">{turnTime(index)}</span>
       </div>
       <div className={`relative mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border ${toneClass}`}>
         <div className="flex h-6 w-6 items-center justify-center rounded-full bg-current/10">
           <span className="text-[12px] font-bold">{initials(turn.speaker_label || turn.speaker)}</span>
         </div>
-        <div className="absolute -left-[24px] top-1/2 h-px w-[22px] bg-current/30" />
-        <div className="absolute -left-[26px] top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-current" />
+        <div className="absolute -left-[16px] top-1/2 h-px w-[14px] bg-current/30" />
+        <div className="absolute -left-[18px] top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-current" />
       </div>
       <div className="flex-1 pb-4 pt-1">
         <div className="mb-1 flex items-center justify-between gap-3">
