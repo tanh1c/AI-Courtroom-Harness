@@ -237,7 +237,7 @@ def main() -> None:
     assert official_judgment_language_hits(decision_text) == []
     assert persisted["human_review"]["blocked"] is False
     quality = persisted["dialogue_quality"]
-    assert quality["max_utterance_chars"] == 280
+    assert quality["max_utterance_chars"] == 520
     assert quality["overlong_turn_ids"] == []
     assert quality["ungrounded_turn_ids"] == []
     assert quality["role_drift_warnings"] == []

@@ -20,6 +20,7 @@ from packages.shared.python.ai_court_shared.schemas import (
     DecisionGuardResult,
     DeliberationRecord,
     DialogueQualityReport,
+    Evidence,
     EvidenceAdmissibility,
     EvidenceExamination,
     FactCheckResult,
@@ -95,7 +96,7 @@ OFFICIAL_JUDGMENT_MARKERS = [
     "the court hereby decides",
 ]
 
-MAX_UTTERANCE_CHARS = 280
+MAX_UTTERANCE_CHARS = 520
 
 PARTY_GROUNDED_STAGES = {
     TrialProcedureStage.PLAINTIFF_CLAIM_STATEMENT,
@@ -192,7 +193,10 @@ class CourtroomV2RuntimeService:
             trial_stage=TrialProcedureStage.CASE_PREPARATION,
             speaker=AgentName.CLERK_AGENT,
             speaker_label="Thư ký",
-            utterance="Thư ký tiếp nhận hồ sơ đã parse và lập lịch trình phiên tòa mô phỏng V2.",
+            utterance=(
+                "Hồ sơ đã được tiếp nhận. Thư ký kiểm tra danh mục tài liệu, đánh số chứng cứ "
+                "và chuẩn bị đưa vụ việc vào phần hỏi đáp mô phỏng trước hội đồng."
+            ),
         )
         self._append_act(
             session,
@@ -216,20 +220,45 @@ class CourtroomV2RuntimeService:
                 Claim(
                     claim_id="CLAIM_001",
                     speaker=AgentName.PLAINTIFF_AGENT,
-                    content="Nguyên đơn cho rằng bị đơn vi phạm nghĩa vụ giao tài sản đúng thời hạn.",
-                    evidence_ids=evidence_ids[:2],
+                    content=(
+                        "Nguyên đơn xác định bị đơn đã nhận tiền nhưng không giao tài sản "
+                        "đúng hạn theo hợp đồng."
+                    ),
+                    evidence_ids=evidence_ids[:4] or evidence_ids,
                     citation_ids=plaintiff_citations,
                     confidence=ClaimConfidence.HIGH if evidence_ids and plaintiff_citations else ClaimConfidence.MEDIUM,
                 ),
-                Claim(
-                    claim_id="CLAIM_002",
-                    speaker=AgentName.DEFENSE_AGENT,
-                    content="Bị đơn yêu cầu làm rõ điều kiện thanh toán còn lại trước khi kết luận vi phạm.",
-                    evidence_ids=evidence_ids[:1],
-                    citation_ids=defense_citations,
-                    confidence=ClaimConfidence.MEDIUM,
-                ),
             ]
+            if not self._has_strong_delivery_breach_record(case):
+                case.claims.append(
+                    Claim(
+                        claim_id="CLAIM_002",
+                        speaker=AgentName.DEFENSE_AGENT,
+                        content="Bị đơn yêu cầu làm rõ điều kiện thanh toán còn lại trước khi kết luận vi phạm.",
+                        evidence_ids=evidence_ids[:1],
+                        citation_ids=defense_citations,
+                        confidence=ClaimConfidence.MEDIUM,
+                    )
+                )
+
+    def _case_text(self, case: CaseState) -> str:
+        return " ".join(
+            [
+                case.title,
+                *[fact.content for fact in case.facts],
+                *[evidence.content for evidence in case.evidence],
+            ]
+        ).lower()
+
+    def _has_strong_delivery_breach_record(self, case: CaseState) -> bool:
+        text = self._case_text(case)
+        required_markers = [
+            ("hợp đồng", "hop dong"),
+            ("chuyển khoản", "chuyen khoan"),
+            ("chưa giao", "chua giao", "không giao", "khong giao"),
+            ("thông báo", "thong bao", "khắc phục", "khac phuc"),
+        ]
+        return all(any(marker in text for marker in group) for group in required_markers)
 
     def _retrieve_trial_citations(self, case: CaseState) -> list[Citation]:
         retrieved: list[Citation] = []
@@ -407,6 +436,74 @@ class CourtroomV2RuntimeService:
     def _citation_ids(self, session: V2TrialSession) -> list[str]:
         return [citation.citation_id for citation in session.case.citations]
 
+    def _evidence_brief(self, evidence: Evidence) -> str:
+        text = evidence.content.lower()
+        if "chi phí" in text or "chi_phi" in text:
+            return "bảng kê chi phí phát sinh, dùng riêng cho phần thiệt hại có chứng từ"
+        if "chưa giao" in text or "chua_giao" in text:
+            return "biên bản xác nhận sau hạn giao, ghi nhận tài sản vẫn chưa được bàn giao"
+        if "thông báo" in text or "khắc phục" in text or "thong_bao" in text:
+            return "thông báo khắc phục, thể hiện bên mua đã cho bên bán cơ hội giao tài sản hoặc hoàn tiền"
+        if "chuyển khoản" in text or "chuyen_khoan" in text:
+            return "chứng từ chuyển khoản, thể hiện số tiền đã đi từ bên mua sang bên bán"
+        if "hợp đồng" in text or "hop_dong" in text:
+            return "tài liệu hợp đồng, trong đó có giá mua bán, khoản trả trước, hạn giao và cách thanh toán phần còn lại"
+        return "tài liệu trong hồ sơ, cần được đọc theo đúng nội dung trích xuất"
+
+    def _plaintiff_evidence_position(self, evidence: Evidence) -> str:
+        brief = self._evidence_brief(evidence)
+        if "hợp đồng" in brief:
+            return (
+                f"Tôi đề nghị ghi nhận {evidence.evidence_id} là {brief}. Chính điều khoản này cho thấy tôi đã thanh toán trước "
+                "và phần còn lại gắn với việc nhận xe, không phải điều kiện để bên bán giữ xe."
+            )
+        if "chuyển khoản" in brief:
+            return (
+                f"Với {evidence.evidence_id}, tôi xác nhận đây là khoản 28.000.000 đồng đã chuyển. "
+                "Điểm này chứng minh tôi đã thực hiện phần thanh toán ban đầu theo hợp đồng."
+            )
+        if "chưa được bàn giao" in brief:
+            return (
+                f"{evidence.evidence_id} là biên bản lập sau hạn giao. Tôi dựa vào tài liệu này để chứng minh đến ngày đối chiếu, "
+                "xe vẫn chưa được giao và tiền cũng chưa được hoàn lại."
+            )
+        if "khắc phục" in brief:
+            return (
+                f"Tài liệu {evidence.evidence_id} cho thấy tôi đã gửi thông báo, không phải im lặng rồi kiện ngay. "
+                "Tôi đã cho bên bán thời hạn xử lý trước khi yêu cầu hoàn tiền."
+            )
+        if "chi phí phát sinh" in brief:
+            return (
+                f"Với {evidence.evidence_id}, tôi chỉ đề nghị xem khoản chi phí trong phạm vi hóa đơn mô phỏng. "
+                "Nếu cần tách riêng mức bồi thường, tôi vẫn giữ yêu cầu chính về giao xe hoặc hoàn tiền."
+            )
+        return f"Tôi xác nhận tài liệu {evidence.evidence_id} đúng với hồ sơ tôi nộp và đề nghị được xem xét."
+
+    def _defense_evidence_position(self, evidence: Evidence, disputed: bool) -> str:
+        brief = self._evidence_brief(evidence)
+        if disputed:
+            return f"Tôi đề nghị kiểm tra thêm bối cảnh của {evidence.evidence_id}; tài liệu này chưa nên là căn cứ duy nhất."
+        if "hợp đồng" in brief:
+            return (
+                f"Tôi không phản đối {evidence.evidence_id}. Nếu hợp đồng thể hiện phần còn lại thanh toán sau khi giao, "
+                "tôi ghi nhận điểm phòng vệ về thanh toán trước bị thu hẹp."
+            )
+        if "chuyển khoản" in brief:
+            return f"Tôi không phủ nhận đã nhận khoản tiền trong {evidence.evidence_id}; vấn đề còn lại là hệ quả của việc chậm giao."
+        if "chưa được bàn giao" in brief:
+            return (
+                f"Tôi không phản đối trực tiếp {evidence.evidence_id}. Nếu biên bản được xem là xác thực, "
+                "nó bất lợi cho lập luận rằng bên bán đã hoàn thành nghĩa vụ giao."
+            )
+        if "khắc phục" in brief:
+            return f"Tôi ghi nhận có thông báo tại {evidence.evidence_id}; tôi chỉ đề nghị xem đúng thời hạn và nội dung được ghi."
+        if "chi phí phát sinh" in brief:
+            return (
+                f"Tôi đề nghị tách {evidence.evidence_id} khỏi nghĩa vụ giao xe. Khoản chi phí có thể xem xét, "
+                "nhưng phải dựa trên chứng từ và mức liên quan trực tiếp."
+            )
+        return f"Tôi không phản đối trực tiếp tài liệu {evidence.evidence_id} trong phạm vi phiên mô phỏng."
+
     def _advance_opening_formalities(self, session: V2TrialSession) -> None:
         turn = self._append_turn(
             session,
@@ -414,8 +511,8 @@ class CourtroomV2RuntimeService:
             speaker=AgentName.CLERK_AGENT,
             speaker_label="Thư ký",
             utterance=(
-                f"Thư ký công bố mở phiên mô phỏng vụ {session.case.title}; "
-                "phiên này chỉ phục vụ mô phỏng và học tập."
+                f"Mời mọi người ổn định. Phiên mô phỏng vụ {session.case.title} bắt đầu; "
+                "toàn bộ nội dung được ghi nhận để học tập và không có hiệu lực như bản án."
             ),
         )
         self._append_act(
@@ -459,7 +556,10 @@ class CourtroomV2RuntimeService:
             trial_stage=TrialProcedureStage.APPEARANCE_CHECK,
             speaker=AgentName.CLERK_AGENT,
             speaker_label="Thư ký",
-            utterance="Thư ký kiểm tra sự có mặt: thẩm phán, thư ký, nguyên đơn và bị đơn đều có mặt.",
+            utterance=(
+                "Thư ký báo cáo: thẩm phán chủ tọa có mặt, thư ký có mặt, nguyên đơn có mặt, "
+                "bị đơn có mặt. Không có yêu cầu hoãn phiên trong hồ sơ mô phỏng."
+            ),
         )
         self._append_act(
             session,
@@ -477,9 +577,9 @@ class CourtroomV2RuntimeService:
             speaker=AgentName.JUDGE_AGENT,
             speaker_label="Thẩm phán",
             utterance=(
-                "Thẩm phán giải thích trình tự: nguyên đơn trình bày, bị đơn đối đáp, "
-                "xem xét chứng cứ, xét hỏi, tranh luận, nói lời sau cùng, nghị án mô phỏng "
-                "và công bố kết quả không ràng buộc."
+                "Trước khi đi vào nội dung, tôi nhắc lại trình tự. Nguyên đơn trình bày yêu cầu, "
+                "bị đơn trả lời, sau đó chúng ta xem từng tài liệu, hỏi lại những điểm còn vênh, "
+                "nghe tranh luận và lời sau cùng. Phần cuối chỉ là kết quả mô phỏng không ràng buộc."
             ),
         )
         self._append_act(
@@ -501,8 +601,9 @@ class CourtroomV2RuntimeService:
             speaker=AgentName.PLAINTIFF_AGENT,
             speaker_label="Nguyên đơn",
             utterance=(
-                "Nguyên đơn trình bày đã thanh toán theo hợp đồng nhưng bị đơn không giao tài sản "
-                "đúng thời hạn, nên yêu cầu giao tài sản hoặc hoàn trả tiền."
+                "Tôi đã ký hợp đồng, chuyển trước số tiền theo thỏa thuận và chờ đến hạn nhận xe. "
+                "Đến thời điểm phải giao, xe vẫn không được bàn giao. Vì vậy tôi đề nghị ghi nhận "
+                "việc bên bán vi phạm nghĩa vụ giao tài sản, trước hết là giao xe hoặc hoàn lại khoản đã nhận."
             ),
             claim_ids=plaintiff_claims,
             evidence_ids=evidence_ids,
@@ -520,8 +621,9 @@ class CourtroomV2RuntimeService:
             speaker=AgentName.DEFENSE_AGENT,
             speaker_label="Bị đơn",
             utterance=(
-                "Bị đơn đối đáp rằng cần làm rõ điều kiện thanh toán phần còn lại trước khi "
-                "kết luận bên bán vi phạm nghĩa vụ giao tài sản."
+                "Tôi không phủ nhận có hợp đồng và khoản tiền đã nhận. Điều tôi muốn làm rõ là phần tiền còn lại "
+                "và cách hai bên hiểu thời điểm thanh toán. Nếu hồ sơ thể hiện phần còn lại chỉ thanh toán sau khi giao xe, "
+                "tôi sẽ không dựa vào điểm đó để phủ nhận toàn bộ nghĩa vụ giao."
             ),
             claim_ids=defense_claims,
             evidence_ids=evidence_ids,
@@ -537,7 +639,10 @@ class CourtroomV2RuntimeService:
             trial_stage=TrialProcedureStage.EVIDENCE_EXAMINATION,
             speaker=AgentName.EVIDENCE_AGENT,
             speaker_label="Bộ phận chứng cứ",
-            utterance=f"Bộ phận chứng cứ trình bày {len(evidence_ids)} chứng cứ chính trong hồ sơ.",
+            utterance=(
+                f"Hồ sơ hiện có {len(evidence_ids)} tài liệu được đánh số. Tôi sẽ đọc ngắn gọn từng tài liệu "
+                "để các bên xác nhận đúng nội dung trước khi thẩm phán xét hỏi."
+            ),
             evidence_ids=evidence_ids,
             status=TurnStatus.NEEDS_REVIEW if self._has_disputed_evidence(session) else TurnStatus.OK,
             risk_notes=(["Có chứng cứ đang bị tranh chấp."] if self._has_disputed_evidence(session) else []),
@@ -555,7 +660,10 @@ class CourtroomV2RuntimeService:
                 trial_stage=TrialProcedureStage.EVIDENCE_EXAMINATION,
                 speaker=AgentName.JUDGE_AGENT,
                 speaker_label="Thẩm phán",
-                utterance=f"Thẩm phán đưa ra xem xét chứng cứ {evidence.evidence_id} và yêu cầu các bên nêu ý kiến.",
+                utterance=(
+                    f"Tài liệu {evidence.evidence_id} được đưa ra xem xét. Đây là {self._evidence_brief(evidence)}. "
+                    "Các bên cho biết có phản đối tính xác thực hoặc cách hiểu nội dung không."
+                ),
                 claim_ids=related_claim_ids,
                 evidence_ids=[evidence.evidence_id],
             )
@@ -564,10 +672,7 @@ class CourtroomV2RuntimeService:
                 trial_stage=TrialProcedureStage.EVIDENCE_EXAMINATION,
                 speaker=AgentName.PLAINTIFF_AGENT,
                 speaker_label="Nguyên đơn",
-                utterance=(
-                    f"Nguyên đơn đề nghị chấp nhận {evidence.evidence_id} vì chứng cứ này hỗ trợ "
-                    "yêu cầu trong hồ sơ."
-                ),
+                utterance=self._plaintiff_evidence_position(evidence),
                 claim_ids=[claim_id for claim_id in related_claim_ids if claim_id in self._claim_ids_for(session, AgentName.PLAINTIFF_AGENT)],
                 evidence_ids=[evidence.evidence_id],
                 status=TurnStatus.NEEDS_REVIEW if disputed else TurnStatus.OK,
@@ -578,10 +683,7 @@ class CourtroomV2RuntimeService:
                 trial_stage=TrialProcedureStage.EVIDENCE_EXAMINATION,
                 speaker=AgentName.DEFENSE_AGENT,
                 speaker_label="Bị đơn",
-                utterance=(
-                    f"Bị đơn {'đề nghị kiểm tra thêm bối cảnh của' if disputed else 'không tranh chấp trực tiếp'} "
-                    f"{evidence.evidence_id} trong phạm vi phiên mô phỏng."
-                ),
+                utterance=self._defense_evidence_position(evidence, disputed),
                 claim_ids=[claim_id for claim_id in related_claim_ids if claim_id in self._claim_ids_for(session, AgentName.DEFENSE_AGENT)],
                 evidence_ids=[evidence.evidence_id],
                 status=TurnStatus.NEEDS_REVIEW if disputed else TurnStatus.OK,
@@ -592,11 +694,11 @@ class CourtroomV2RuntimeService:
                     examination_id=f"EXAM_{len(session.evidence_examinations) + 1:03d}",
                     evidence_id=evidence.evidence_id,
                     introduced_by=AgentName.EVIDENCE_AGENT,
-                    plaintiff_position="Nguyên đơn đề nghị xem xét chứng cứ này để hỗ trợ yêu cầu.",
+                    plaintiff_position=self._plaintiff_evidence_position(evidence),
                     defense_position=(
                         "Bị đơn yêu cầu kiểm tra thêm tính xác thực và bối cảnh."
                         if disputed
-                        else "Bị đơn không tranh chấp trực tiếp chứng cứ này trong demo."
+                        else self._defense_evidence_position(evidence, disputed)
                     ),
                     admissibility=EvidenceAdmissibility.NEEDS_REVIEW if disputed else EvidenceAdmissibility.ADMITTED,
                     related_claim_ids=related_claim_ids,
@@ -614,7 +716,10 @@ class CourtroomV2RuntimeService:
             trial_stage=TrialProcedureStage.JUDGE_EXAMINATION,
             speaker=AgentName.JUDGE_AGENT,
             speaker_label="Thẩm phán",
-            utterance="Thẩm phán hỏi nguyên đơn căn cứ nào xác định thời hạn giao tài sản là nghĩa vụ độc lập.",
+            utterance=(
+                "Tôi hỏi nguyên đơn về các tài liệu đã nộp. Căn cứ nào cho thấy ngày giao tài sản đã được xác định rõ, "
+                "và phần tiền còn lại không phải điều kiện phải hoàn tất trước khi giao?"
+            ),
             claim_ids=self._claim_ids_for(session, AgentName.PLAINTIFF_AGENT),
             evidence_ids=evidence_ids[:1],
         )
@@ -623,7 +728,10 @@ class CourtroomV2RuntimeService:
             trial_stage=TrialProcedureStage.JUDGE_EXAMINATION,
             speaker=AgentName.PLAINTIFF_AGENT,
             speaker_label="Nguyên đơn",
-            utterance="Nguyên đơn trả lời rằng hợp đồng ghi rõ thời hạn giao tài sản và khoản tiền đã thanh toán.",
+            utterance=(
+                "Trong hợp đồng có ngày giao tài sản và điều khoản thanh toán. Tôi đã chuyển trước theo đúng tỷ lệ. "
+                "Phần còn lại được hiểu là thanh toán khi nhận xe, nên tôi không có lý do gì phải trả nốt trước khi xe được bàn giao."
+            ),
             claim_ids=self._claim_ids_for(session, AgentName.PLAINTIFF_AGENT),
             evidence_ids=evidence_ids[:2],
             citation_ids=citation_ids,
@@ -633,7 +741,10 @@ class CourtroomV2RuntimeService:
             trial_stage=TrialProcedureStage.JUDGE_EXAMINATION,
             speaker=AgentName.JUDGE_AGENT,
             speaker_label="Thẩm phán",
-            utterance="Thẩm phán hỏi bị đơn có chứng cứ trực tiếp về điều kiện thanh toán đủ trước khi giao hay không.",
+            utterance=(
+                "Tôi hỏi bị đơn về căn cứ phòng vệ. Ngoài cách anh hiểu hợp đồng, anh có tài liệu nào nói rõ bên mua phải thanh toán đủ 100% "
+                "trước khi bên bán giao tài sản không?"
+            ),
             claim_ids=self._claim_ids_for(session, AgentName.DEFENSE_AGENT),
             evidence_ids=evidence_ids[-1:],
         )
@@ -642,7 +753,10 @@ class CourtroomV2RuntimeService:
             trial_stage=TrialProcedureStage.JUDGE_EXAMINATION,
             speaker=AgentName.DEFENSE_AGENT,
             speaker_label="Bị đơn",
-            utterance="Bị đơn cho rằng cần đối chiếu thêm trao đổi giữa hai bên trước khi kết luận lỗi.",
+            utterance=(
+                "Ở thời điểm này tôi chưa xuất trình được tài liệu riêng ngoài bộ hồ sơ đã nộp. Tôi chỉ đề nghị đối chiếu câu chữ hợp đồng, "
+                "nếu câu chữ không đặt điều kiện thanh toán trước thì điểm phòng vệ của tôi bị thu hẹp."
+            ),
             claim_ids=self._claim_ids_for(session, AgentName.DEFENSE_AGENT),
             evidence_ids=evidence_ids[-1:],
             status=TurnStatus.NEEDS_REVIEW if self._has_disputed_evidence(session) else TurnStatus.OK,
@@ -656,8 +770,9 @@ class CourtroomV2RuntimeService:
             speaker=AgentName.PLAINTIFF_AGENT,
             speaker_label="Nguyên đơn tranh luận",
             utterance=(
-                "Nguyên đơn tranh luận rằng hợp đồng, khoản thanh toán và thời hạn giao tài sản "
-                "đủ để xác định nghĩa vụ giao tài sản đúng hạn."
+                "Từ hợp đồng, chứng từ chuyển khoản và biên bản xác nhận chưa giao, chuỗi sự kiện khá thẳng: "
+                "tôi đã trả tiền trước, ngày giao đã qua, tài sản vẫn chưa được bàn giao. Tôi đề nghị không biến phần tiền còn lại "
+                "thành điều kiện mới nếu hợp đồng không ghi như vậy."
             ),
             claim_ids=self._claim_ids_for(session, AgentName.PLAINTIFF_AGENT),
             evidence_ids=self._evidence_ids(session)[:2],
@@ -669,8 +784,8 @@ class CourtroomV2RuntimeService:
             speaker=AgentName.PLAINTIFF_AGENT,
             speaker_label="Nguyên đơn bổ sung tranh luận",
             utterance=(
-                "Nguyên đơn đề nghị chỉ xem điều kiện thanh toán còn lại là điểm cần giải thích, "
-                "không phải lý do phủ nhận toàn bộ nghĩa vụ giao tài sản."
+                "Về chi phí phát sinh, tôi chỉ đề nghị xem xét trong phạm vi có chứng từ. Nếu phần nào chưa đủ thì có thể tách ra, "
+                "nhưng nghĩa vụ giao xe hoặc hoàn lại tiền đã nhận thì đã có căn cứ rõ hơn."
             ),
             claim_ids=self._claim_ids_for(session, AgentName.PLAINTIFF_AGENT),
             evidence_ids=self._evidence_ids(session)[:1],
@@ -690,8 +805,8 @@ class CourtroomV2RuntimeService:
             speaker=AgentName.DEFENSE_AGENT,
             speaker_label="Bị đơn đối đáp",
             utterance=(
-                "Bị đơn đối đáp rằng không nên kết luận vượt quá phạm vi chứng cứ đã xác thực, "
-                "đặc biệt với điều kiện thanh toán còn lại."
+                "Tôi ghi nhận các tài liệu đã được đọc. Nếu biên bản xác nhận chưa giao là đúng và hợp đồng không buộc thanh toán đủ trước, "
+                "tôi không còn nhiều căn cứ để nói mình không có nghĩa vụ. Tôi chỉ đề nghị phần chi phí phát sinh phải dựa trên chứng từ cụ thể."
             ),
             claim_ids=self._claim_ids_for(session, AgentName.DEFENSE_AGENT),
             evidence_ids=self._evidence_ids(session)[:1],
@@ -705,8 +820,8 @@ class CourtroomV2RuntimeService:
             speaker=AgentName.DEFENSE_AGENT,
             speaker_label="Bị đơn bổ sung đối đáp",
             utterance=(
-                "Bị đơn giữ quan điểm rằng chứng cứ về điều kiện thanh toán cần được đánh giá "
-                "trước khi mô phỏng trách nhiệm bồi thường."
+                "Nói ngắn gọn, tôi không tranh luận để kéo dài vụ việc. Tôi chỉ muốn phần kết luận phân biệt rõ: nghĩa vụ giao hoặc hoàn tiền là một chuyện, "
+                "còn khoản bồi thường thêm thì cần chứng từ và mức thiệt hại cụ thể."
             ),
             claim_ids=self._claim_ids_for(session, AgentName.DEFENSE_AGENT),
             evidence_ids=self._evidence_ids(session)[:1],
@@ -721,8 +836,8 @@ class CourtroomV2RuntimeService:
                 plaintiff_turn_ids=plaintiff_turn_ids,
                 defense_turn_ids=[defense_turn.turn_id, defense_follow_up.turn_id],
                 judge_summary=(
-                    "Tranh luận cho thấy nghĩa vụ giao tài sản có căn cứ ban đầu, "
-                    "nhưng điều kiện thanh toán còn lại vẫn là điểm cần giải thích."
+                    "Tranh luận tập trung vào ba điểm: ngày giao tài sản, điều kiện thanh toán phần còn lại, "
+                    "và mức chi phí phát sinh có chứng từ."
                 ),
                 unresolved_points=self._unresolved_items(session),
             )
@@ -734,7 +849,10 @@ class CourtroomV2RuntimeService:
             trial_stage=TrialProcedureStage.FINAL_STATEMENTS,
             speaker=AgentName.PLAINTIFF_AGENT,
             speaker_label="Nguyên đơn nói lời sau cùng",
-            utterance="Nguyên đơn giữ yêu cầu giao tài sản hoặc hoàn trả khoản tiền đã thanh toán.",
+            utterance=(
+                "Tôi chỉ mong sự việc được nhìn đúng theo giấy tờ. Tôi đã trả tiền, đã chờ đến hạn, và không nhận được tài sản. "
+                "Nếu không giao được xe thì tôi đề nghị hoàn lại khoản tiền đã nhận; phần thiệt hại xin xem theo chứng từ."
+            ),
             claim_ids=self._claim_ids_for(session, AgentName.PLAINTIFF_AGENT),
             evidence_ids=self._evidence_ids(session)[:2],
             citation_ids=self._citation_ids(session)[:1],
@@ -744,7 +862,10 @@ class CourtroomV2RuntimeService:
             trial_stage=TrialProcedureStage.FINAL_STATEMENTS,
             speaker=AgentName.DEFENSE_AGENT,
             speaker_label="Bị đơn nói lời sau cùng",
-            utterance="Bị đơn đề nghị ghi nhận các điểm chưa rõ trước khi đưa ra kết quả mô phỏng.",
+            utterance=(
+                "Tôi đề nghị ghi nhận đúng những gì hồ sơ thể hiện. Nếu kết quả mô phỏng nghiêng về nghĩa vụ giao hoặc hoàn tiền, "
+                "tôi đề nghị vẫn giữ phần chi phí phát sinh trong phạm vi chứng từ đã kiểm tra."
+            ),
             claim_ids=self._claim_ids_for(session, AgentName.DEFENSE_AGENT),
             evidence_ids=self._evidence_ids(session)[:1],
             citation_ids=self._citation_ids(session)[-1:],
@@ -791,8 +912,8 @@ class CourtroomV2RuntimeService:
             speaker=AgentName.JUDGE_AGENT,
             speaker_label="Thẩm phán nghị án mô phỏng",
             utterance=(
-                "Thẩm phán tổng hợp sự kiện đã rõ, điểm còn tranh chấp và căn cứ pháp lý "
-                "trước khi tạo kết quả mô phỏng không ràng buộc."
+                "Hội đồng mô phỏng tạm dừng để tổng hợp. Điểm đã rõ là hợp đồng, khoản tiền đã chuyển và tình trạng giao tài sản. "
+                "Điểm cần cân nhắc là hệ quả của việc không giao đúng hạn và phần chi phí phát sinh có đủ chứng từ hay chưa."
             ),
             claim_ids=session.deliberation.related_claim_ids,
             evidence_ids=session.deliberation.related_evidence_ids,
@@ -838,8 +959,14 @@ class CourtroomV2RuntimeService:
             relief = "Chuyển hồ sơ sang review trước khi mô phỏng kết quả sâu hơn."
             status = TurnStatus.NEEDS_REVIEW
         elif disposition == SimulatedDecisionDisposition.SIMULATED_PLAINTIFF_FAVORED:
-            summary = "Kết quả mô phỏng nghiêng về việc nguyên đơn có căn cứ yêu cầu giao tài sản hoặc hoàn trả tiền."
-            relief = "Mô phỏng hướng xử lý: giao tài sản theo hợp đồng hoặc hoàn trả khoản tiền đã nhận."
+            summary = (
+                "Sau khi đối chiếu hồ sơ, hướng mô phỏng nghiêng về phía nguyên đơn vì "
+                "bị đơn đã nhận tiền, thời hạn giao đã được xác định, nhưng tài sản chưa được bàn giao."
+            )
+            relief = (
+                "Hướng xử lý trong demo là ưu tiên giao tài sản theo hợp đồng; nếu không thực hiện được, "
+                "xem xét hoàn lại khoản tiền đã nhận. Phần chi phí phát sinh chỉ ghi nhận trong phạm vi chứng từ."
+            )
             status = TurnStatus.OK
         elif disposition == SimulatedDecisionDisposition.SIMULATED_PARTIAL_RELIEF:
             summary = "Kết quả mô phỏng chỉ ghi nhận một phần yêu cầu có căn cứ, các phần còn lại cần bổ sung chứng cứ."
@@ -863,9 +990,9 @@ class CourtroomV2RuntimeService:
             summary=summary,
             relief_or_next_step=relief,
             rationale=[
-                "Hợp đồng và khoản thanh toán là căn cứ nền của phiên mô phỏng.",
-                "Thời hạn giao tài sản được xem xét từ chứng cứ hợp đồng.",
-                "Các điểm còn rủi ro được giữ trong checklist review thay vì bị bỏ qua.",
+                "Hợp đồng, chứng từ chuyển khoản và tài liệu về tình trạng chưa giao tạo thành chuỗi căn cứ chính.",
+                "Điều kiện thanh toán phần còn lại được đọc theo nội dung tài liệu, không tự suy diễn thành điều kiện mới.",
+                "Khoản chi phí phát sinh cần chứng từ định lượng riêng, nên được đánh giá tách khỏi nghĩa vụ giao hoặc hoàn tiền.",
             ],
             risk_level=risk,
             non_binding_disclaimer=SIMULATED_DECISION_DISCLAIMER,
@@ -1005,7 +1132,10 @@ class CourtroomV2RuntimeService:
             trial_stage=TrialProcedureStage.CLOSING_RECORD,
             speaker=AgentName.CLERK_AGENT,
             speaker_label="Thư ký",
-            utterance="Thư ký ghi nhận phiên mô phỏng V2 đã kết thúc và lưu biên bản theo thủ tục.",
+            utterance=(
+                "Thư ký ghi nhận phiên mô phỏng đã kết thúc. Biên bản, danh mục chứng cứ, phần tranh luận "
+                "và kết quả mô phỏng không ràng buộc được lưu vào hồ sơ."
+            ),
         )
 
     def _has_disputed_evidence(self, session: V2TrialSession) -> bool:

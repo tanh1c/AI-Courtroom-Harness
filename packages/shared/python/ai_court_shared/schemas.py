@@ -646,7 +646,7 @@ class V2TrialSession(BaseModel):
     fact_check: FactCheckResult | None = None
     citation_verification: CitationVerificationResult | None = None
     dialogue_quality: DialogueQualityReport = Field(
-        default_factory=lambda: DialogueQualityReport(max_utterance_chars=280)
+        default_factory=lambda: DialogueQualityReport(max_utterance_chars=520)
     )
     human_review: HumanReviewGate = Field(
         default_factory=lambda: HumanReviewGate(required=False, blocked=False)
