@@ -1,715 +1,915 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
-import { useState, useEffect } from 'react';
-import { 
-  Bell, 
-  ChevronRight, 
-  ChevronDown, 
-  Search, 
-  Save, 
-  Layout,
-  Briefcase,
+import {useEffect, useMemo, useState} from 'react';
+import {
+  AlertTriangle,
+  Bell,
   BookOpen,
   Bot,
-  Settings,
-  MoreVertical,
-  Play,
-  Pause,
-  ShieldAlert,
-  Scale,
-  Maximize2,
-  FileText,
-  MessageSquare,
-  ShieldCheck,
-  X,
-  FileDown,
-  Bookmark,
+  Briefcase,
   CheckCircle2,
-  Scale3d,
-  UserCheck,
+  ChevronDown,
+  ChevronRight,
+  FileDown,
+  FileText,
+  Loader2,
+  Maximize2,
   Moon,
-  Sun
+  MoreVertical,
+  Pause,
+  Play,
+  RefreshCw,
+  Save,
+  Scale,
+  Scale3d,
+  Settings,
+  ShieldAlert,
+  ShieldCheck,
+  Sun,
+  UserCheck,
+  X,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+
+import {
+  CaseDetail,
+  CaseRecord,
+  CourtroomTurn,
+  V2UiState,
+  advanceV2,
+  exportV2Html,
+  exportV2Markdown,
+  getCase,
+  getV2UiState,
+  healthCheck,
+  listCases,
+  parseCase,
+  runExistingV2Pipeline,
+  startV2,
+} from './api';
+import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar';
+import {Badge} from '@/components/ui/badge';
+import {Button} from '@/components/ui/button';
+import {Card} from '@/components/ui/card';
+import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible';
+import {ScrollArea} from '@/components/ui/scroll-area';
+import {Separator} from '@/components/ui/separator';
+
+const stageLabels: Record<string, string> = {
+  case_preparation: 'Chuẩn bị hồ sơ',
+  opening_formalities: 'Mở phiên',
+  appearance_check: 'Kiểm tra sự có mặt',
+  procedure_explanation: 'Phổ biến thủ tục',
+  plaintiff_claim_statement: 'Nguyên đơn trình bày',
+  defense_response_statement: 'Bị đơn đối đáp',
+  evidence_examination: 'Xem xét chứng cứ',
+  judge_examination: 'HĐXX hỏi',
+  plaintiff_debate: 'Tranh luận',
+  defense_rebuttal: 'Đối đáp',
+  final_statements: 'Lời sau cùng',
+  deliberation: 'Nghị án mô phỏng',
+  simulated_decision: 'Kết quả mô phỏng',
+  closing_record: 'Kết thúc phiên',
+};
+
+const statusLabels: Record<string, string> = {
+  draft: 'Bản nháp',
+  parsed: 'Đã phân tích',
+  simulated: 'Đã mô phỏng',
+  review_required: 'Cần rà soát',
+  report_ready: 'Sẵn sàng báo cáo',
+  ok: 'Ổn',
+  needs_fact_check: 'Cần kiểm chứng',
+  needs_review: 'Cần rà soát',
+  rejected: 'Bị loại',
+  completed: 'Hoàn tất',
+  pending: 'Chờ xử lý',
+};
+
+const speakerColors: Record<string, string> = {
+  plaintiff_agent: 'blue',
+  defense_agent: 'amber',
+  judge_agent: 'purple',
+  clerk_agent: 'slate',
+  evidence_agent: 'emerald',
+  legal_retrieval_agent: 'red',
+  fact_check_agent: 'orange',
+  citation_verifier_agent: 'green',
+};
+
+function labelStage(stage?: string) {
+  if (!stage) return 'Chưa khởi động';
+  return stageLabels[stage] ?? stage.replaceAll('_', ' ');
+}
+
+function labelStatus(status?: string) {
+  if (!status) return 'Chưa có dữ liệu';
+  return statusLabels[status] ?? status.replaceAll('_', ' ');
+}
+
+function badgeVariant(status?: string): 'default' | 'secondary' | 'destructive' | 'outline' {
+  if (!status) return 'outline';
+  if (status === 'report_ready' || status === 'ok' || status === 'completed') return 'secondary';
+  if (status.includes('review') || status.includes('blocked') || status.includes('rejected')) return 'destructive';
+  return 'outline';
+}
+
+function initials(label: string) {
+  return label
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase();
+}
+
+function turnTime(index: number) {
+  const totalMinutes = 9 * 60 + index * 5;
+  const hour = Math.floor(totalMinutes / 60).toString().padStart(2, '0');
+  const minute = (totalMinutes % 60).toString().padStart(2, '0');
+  return `${hour}:${minute}`;
+}
+
+function getCaseTitle(caseDetail: CaseDetail | null, selectedCase: CaseRecord | undefined) {
+  return caseDetail?.record.title || selectedCase?.title || 'Chưa chọn hồ sơ';
+}
 
 export default function App() {
+  const [apiOnline, setApiOnline] = useState(false);
+  const [cases, setCases] = useState<CaseRecord[]>([]);
+  const [selectedCaseId, setSelectedCaseId] = useState('');
+  const [caseDetail, setCaseDetail] = useState<CaseDetail | null>(null);
+  const [uiState, setUiState] = useState<V2UiState | null>(null);
+  const [htmlPreview, setHtmlPreview] = useState('');
+  const [markdownPath, setMarkdownPath] = useState('');
+  const [htmlPath, setHtmlPath] = useState('');
+  const [logs, setLogs] = useState<string[]>([]);
+  const [busyAction, setBusyAction] = useState('');
+  const [error, setError] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(true);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
+  const [showPreview, setShowPreview] = useState(false);
+
+  const selectedCase = useMemo(
+    () => cases.find((item) => item.case_id === selectedCaseId),
+    [cases, selectedCaseId],
+  );
+
+  const parsed = caseDetail?.parsed_case;
+  const facts = parsed?.facts ?? [];
+  const evidence = parsed?.evidence ?? [];
+  const legalIssues = parsed?.legal_issues ?? [];
+  const citations = parsed?.citations ?? [];
+  const transcript = uiState?.transcript ?? [];
+  const timeline = uiState?.timeline ?? [];
+  const currentStageIndex = Math.max(
+    0,
+    timeline.findIndex((item) => item.trial_stage === uiState?.current_stage),
+  );
+  const latestTurn = transcript[transcript.length - 1];
+  const reviewCount =
+    (uiState?.human_review.checklist.length ?? 0) +
+    (uiState?.dialogue_quality.ungrounded_turn_ids.length ?? 0) +
+    (uiState?.decision_guard?.unresolved_items.length ?? 0);
+  const okTurns = transcript.filter((turn) => turn.status === 'ok').length;
+  const needsReviewTurns = transcript.filter((turn) => turn.status !== 'ok').length;
+  const title = getCaseTitle(caseDetail, selectedCase);
+
+  async function refreshCases(preferredCaseId?: string) {
+    setError('');
+    const [online, records] = await Promise.all([healthCheck(), listCases()]);
+    setApiOnline(online);
+    setCases(records);
+    const nextCaseId = preferredCaseId || selectedCaseId || records[0]?.case_id || '';
+    setSelectedCaseId(nextCaseId);
+    if (nextCaseId) {
+      await loadCase(nextCaseId, false);
+    }
+  }
+
+  async function loadCase(caseId: string, showErrors = true) {
+    if (!caseId) return;
+    setError('');
+    setHtmlPreview('');
+    setMarkdownPath('');
+    setHtmlPath('');
+    const detail = await getCase(caseId);
+    setCaseDetail(detail);
+    try {
+      const state = await getV2UiState(caseId);
+      setUiState(state);
+    } catch (exc) {
+      setUiState(null);
+      if (showErrors) {
+        setError(exc instanceof Error ? exc.message : String(exc));
+      }
+    }
+  }
 
   useEffect(() => {
     if (document.documentElement.classList.contains('dark')) {
       setIsDarkMode(true);
     }
+    refreshCases().catch((exc) => {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const toggleDarkMode = () => {
-    if (isDarkMode) {
-      document.documentElement.classList.remove('dark');
-      setIsDarkMode(false);
-    } else {
-      document.documentElement.classList.add('dark');
-      setIsDarkMode(true);
+  function toggleDarkMode() {
+    document.documentElement.classList.toggle('dark');
+    setIsDarkMode(document.documentElement.classList.contains('dark'));
+  }
+
+  async function runAction(action: string, callback: () => Promise<void>) {
+    setBusyAction(action);
+    setError('');
+    try {
+      await callback();
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setBusyAction('');
     }
-  };
+  }
+
+  async function parseSelectedCase() {
+    if (!selectedCaseId) return;
+    await runAction('parse', async () => {
+      setLogs((current) => [...current, 'Phân tích hồ sơ và trích xuất fact/evidence/citation']);
+      await parseCase(selectedCaseId);
+      await loadCase(selectedCaseId, false);
+    });
+  }
+
+  async function startSelectedV2() {
+    if (!selectedCaseId) return;
+    await runAction('start', async () => {
+      setLogs((current) => [...current, 'Khởi động phiên tòa mô phỏng V2']);
+      await startV2(selectedCaseId);
+      const state = await getV2UiState(selectedCaseId);
+      setUiState(state);
+      await refreshCases(selectedCaseId);
+    });
+  }
+
+  async function advanceSelectedV2() {
+    if (!selectedCaseId) return;
+    await runAction('advance', async () => {
+      setLogs((current) => [...current, `Advance từ stage: ${labelStage(uiState?.current_stage)}`]);
+      const state = await advanceV2(selectedCaseId);
+      setUiState(state);
+      await refreshCases(selectedCaseId);
+    });
+  }
+
+  async function runFullV2() {
+    if (!selectedCaseId) return;
+    await runAction('full', async () => {
+      setLogs([]);
+      setHtmlPreview('');
+      const result = await runExistingV2Pipeline(selectedCaseId, (message) => {
+        setLogs((current) => [...current, message]);
+      });
+      setUiState(result.uiState);
+      setMarkdownPath(result.markdownPath || '');
+      setHtmlPath(result.htmlPath || '');
+      setHtmlPreview(result.html || '');
+      setShowPreview(Boolean(result.html));
+      await refreshCases(selectedCaseId);
+    });
+  }
+
+  async function exportMarkdown() {
+    if (!selectedCaseId) return;
+    await runAction('markdown', async () => {
+      const path = await exportV2Markdown(selectedCaseId);
+      setMarkdownPath(path);
+      setLogs((current) => [...current, `Đã xuất Markdown: ${path}`]);
+    });
+  }
+
+  async function exportHtml() {
+    if (!selectedCaseId) return;
+    await runAction('html', async () => {
+      const result = await exportV2Html(selectedCaseId);
+      setHtmlPath(result.htmlPath);
+      setHtmlPreview(result.html);
+      setShowPreview(true);
+      setLogs((current) => [...current, `Đã xuất HTML: ${result.htmlPath}`]);
+    });
+  }
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden font-sans">
-      {/* Top Header */}
-      <header className="h-16 border-b border-border flex items-center justify-between px-4 shrink-0 bg-background/95 backdrop-blur z-10 relative">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3 text-primary font-serif font-bold leading-[1.1] uppercase tracking-widest pl-2">
-            <Scale3d className="w-9 h-9" />
+    <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
+      <header className="relative z-10 flex h-16 shrink-0 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur">
+        <div className="flex min-w-0 items-center gap-4">
+          <div className="flex shrink-0 items-center gap-3 pl-2 font-serif font-bold uppercase leading-[1.1] tracking-widest text-primary">
+            <Scale3d className="h-9 w-9" />
             <div className="flex flex-col pt-1">
               <span className="text-xl">AI Courtroom</span>
-              <span className="text-[12px] tracking-[0.4em] text-primary/70 font-sans">Harness</span>
+              <span className="font-sans text-[12px] tracking-[0.4em] text-primary/70">Harness</span>
             </div>
           </div>
-          <Separator orientation="vertical" className="h-8 mx-4" />
-          <div className="flex flex-col">
-            <h1 className="text-sm font-semibold">Tranh chấp hợp đồng vay tài sản</h1>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-              <span>Số: 12/2024/TLST-DS</span>
-              <Badge variant="secondary" className="bg-muted text-muted-foreground hover:bg-muted font-normal h-5 border border-border/50">Đang xử lý</Badge>
+          <Separator orientation="vertical" className="mx-4 h-8" />
+          <div className="flex min-w-0 flex-col">
+            <h1 className="truncate text-sm font-semibold">{title}</h1>
+            <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+              <span>{selectedCaseId || 'Chưa chọn case'}</span>
+              <Badge variant={badgeVariant(uiState?.status || selectedCase?.status)} className="h-5 border border-border/50 bg-muted font-normal text-muted-foreground hover:bg-muted">
+                {labelStatus(uiState?.status || selectedCase?.status)}
+              </Badge>
+              <Badge variant={apiOnline ? 'secondary' : 'destructive'} className="h-5">
+                {apiOnline ? 'API online' : 'API offline'}
+              </Badge>
             </div>
           </div>
         </div>
-        
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" className="h-9 gap-2 border-border/50 bg-background hover:bg-accent/50 text-muted-foreground font-normal">
-            <Save className="w-4 h-4" /> Lưu
+
+        <div className="flex shrink-0 items-center gap-3">
+          <Button variant="outline" size="sm" className="h-9 gap-2 border-border/50 bg-background font-normal text-muted-foreground hover:bg-accent/50" disabled={Boolean(busyAction)} onClick={() => refreshCases(selectedCaseId)}>
+            <RefreshCw className={`h-4 w-4 ${busyAction ? 'animate-spin' : ''}`} /> Làm mới
           </Button>
-          <Button size="sm" className="h-9 gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold border-none rounded">
-            <FileText className="w-4 h-4" /> Tạo báo cáo <ChevronDown className="w-4 h-4 opacity-70" />
+          <Button size="sm" className="h-9 gap-2 rounded border-none bg-primary font-semibold text-primary-foreground hover:bg-primary/90" disabled={!selectedCaseId || Boolean(busyAction)} onClick={runFullV2}>
+            {busyAction === 'full' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+            Tạo báo cáo <ChevronDown className="h-4 w-4 opacity-70" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={toggleDarkMode} className="h-9 w-9 text-muted-foreground hover:bg-accent/50 group">
-             {isDarkMode ? <Sun className="w-4 h-4 group-hover:text-primary transition-colors" /> : <Moon className="w-4 h-4 group-hover:text-primary transition-colors" />}
+          <Button variant="ghost" size="icon" onClick={toggleDarkMode} className="h-9 w-9 text-muted-foreground hover:bg-accent/50">
+            {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
-          <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:bg-accent/50 group relative">
-            <Bell className="w-4 h-4 group-hover:text-primary transition-colors" />
-            <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-destructive rounded-full border border-background"></span>
+          <Button variant="ghost" size="icon" className="relative h-9 w-9 text-muted-foreground hover:bg-accent/50">
+            <Bell className="h-4 w-4" />
+            {reviewCount > 0 && <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full border border-background bg-destructive" />}
           </Button>
-          <Separator orientation="vertical" className="h-6 mx-1" />
+          <Separator orientation="vertical" className="mx-1 h-6" />
           <div className="flex items-center gap-3 pl-2">
             <Avatar className="h-8 w-8 ring-1 ring-border/50">
               <AvatarImage src="https://i.pravatar.cc/150?u=a042581f4e29026704d" alt="User" />
               <AvatarFallback className="bg-muted text-xs">NV</AvatarFallback>
             </Avatar>
-            <div className="flex flex-col hidden sm:flex">
+            <div className="hidden flex-col sm:flex">
               <span className="text-sm font-medium leading-none">Nguyễn Văn A</span>
-              <span className="text-[10px] text-muted-foreground mt-1">Thẩm phán</span>
+              <span className="mt-1 text-[10px] text-muted-foreground">Thẩm phán</span>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden relative">
-        
-        {/* Left Sidebar */}
-        <aside className={`${isLeftSidebarOpen ? 'w-72 border-r' : 'w-0 border-r-0'} border-border bg-card/30 flex flex-col shrink-0 transition-all duration-300 relative z-20`}>
-          <div className={`w-72 flex flex-col h-full overflow-hidden transition-opacity duration-300 ${isLeftSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-            <div className="p-3 border-b border-border/50 shrink-0">
-              <Button variant="ghost" onClick={() => setIsLeftSidebarOpen(false)} className="w-full justify-between text-muted-foreground hover:text-foreground h-9 font-normal">
+      <div className="relative flex flex-1 overflow-hidden">
+        <aside className={`${isLeftSidebarOpen ? 'w-72 border-r' : 'w-0 border-r-0'} relative z-20 flex shrink-0 flex-col border-border bg-card/30 transition-all duration-300`}>
+          <div className={`flex h-full w-72 flex-col overflow-hidden transition-opacity duration-300 ${isLeftSidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+            <div className="shrink-0 border-b border-border/50 p-3">
+              <Button variant="ghost" onClick={() => setIsLeftSidebarOpen(false)} className="h-9 w-full justify-between font-normal text-muted-foreground hover:text-foreground">
                 <div className="flex items-center gap-2">
-                  <ChevronRight className="w-4 h-4 rotate-180" /> Thu gọn
+                  <ChevronRight className="h-4 w-4 rotate-180" /> Thu gọn
                 </div>
-                <ChevronRight className="w-3 h-3 opacity-50" />
+                <ChevronRight className="h-3 w-3 opacity-50" />
               </Button>
             </div>
-            
+
             <ScrollArea className="flex-1">
-              <div className="p-3 space-y-1 w-72">
-              <Collapsible defaultOpen>
-                <CollapsibleTrigger className="flex items-center justify-between w-full p-2 text-sm font-medium hover:bg-accent rounded-md group">
-                  <div className="flex items-center gap-2 text-primary">
-                    <FileText className="w-4 h-4" />
-                    <span className="uppercase tracking-wide text-xs font-semibold">Tóm tắt vụ án</span>
+              <div className="w-72 space-y-2 p-3">
+                <div className="space-y-2 rounded-lg border border-border/50 bg-background p-3">
+                  <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Hồ sơ từ BE</label>
+                  <select
+                    className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm outline-none focus:border-primary"
+                    value={selectedCaseId}
+                    onChange={(event) => {
+                      const nextCaseId = event.target.value;
+                      setSelectedCaseId(nextCaseId);
+                      loadCase(nextCaseId).catch((exc) => setError(exc instanceof Error ? exc.message : String(exc)));
+                    }}
+                  >
+                    <option value="">Chọn hồ sơ</option>
+                    {cases.map((item) => (
+                      <option key={item.case_id} value={item.case_id}>
+                        {item.case_id} - {item.title}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" size="sm" className="h-8 gap-1" disabled={!selectedCaseId || Boolean(busyAction)} onClick={parseSelectedCase}>
+                      {busyAction === 'parse' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                      Parse
+                    </Button>
+                    <Button variant="outline" size="sm" className="h-8 gap-1" disabled={!selectedCaseId || Boolean(busyAction)} onClick={startSelectedV2}>
+                      {busyAction === 'start' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+                      Start V2
+                    </Button>
                   </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <span className="text-xs bg-muted px-1.5 py-0.5 rounded-sm">5</span>
-                    <ChevronDown className="w-3 h-3 group-data-[state=open]:rotate-180 transition-transform" />
-                  </div>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pt-2 pb-4 space-y-3 px-2">
-                  <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
-                    <span className="text-muted-foreground">Nguyên đơn</span>
-                    <span className="font-medium text-foreground text-right">Ông Trần Văn Nam</span>
-                  </div>
-                  <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
-                    <span className="text-muted-foreground">Bị đơn</span>
-                    <span className="font-medium text-foreground text-right">Ông Lê Văn Hùng</span>
-                  </div>
-                  <Separator className="bg-border/50" />
-                  <div className="flex flex-col gap-1 text-sm">
-                    <span className="text-muted-foreground">Loại tranh chấp</span>
-                    <span className="font-medium text-foreground">Tranh chấp hợp đồng vay tài sản</span>
-                  </div>
-                  <div className="flex flex-col gap-1 text-sm">
-                    <span className="text-muted-foreground">Giá trị tài sản tranh chấp</span>
-                    <span className="font-medium text-primary">500.000.000 VNĐ</span>
-                  </div>
-                  <div className="flex flex-col gap-1 text-sm">
-                    <span className="text-muted-foreground">Tòa án</span>
-                    <span className="font-medium text-foreground">TAND Quận 1,<br/>TP. Hồ Chí Minh</span>
-                  </div>
-                  <Button variant="outline" size="sm" className="w-full mt-2 border-border/50">Xem chi tiết</Button>
-                </CollapsibleContent>
-              </Collapsible>
+                </div>
 
-              <Separator className="bg-border/30 my-2" />
+                <Collapsible defaultOpen>
+                  <CollapsibleTrigger className="flex w-full items-center justify-between rounded-md p-2 text-sm font-medium hover:bg-accent">
+                    <div className="flex items-center gap-2 text-primary">
+                      <FileText className="h-4 w-4" />
+                      <span className="text-xs font-semibold uppercase tracking-wide">Tóm tắt vụ án</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <span className="rounded-sm bg-muted px-1.5 py-0.5 text-xs">{facts.length}</span>
+                      <ChevronDown className="h-3 w-3" />
+                    </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-3 px-2 pb-4 pt-2">
+                    <InfoPair label="Loại" value={caseDetail?.record.case_type.replaceAll('_', ' ') || 'Chưa có'} />
+                    <InfoPair label="Ngôn ngữ" value={caseDetail?.record.language || 'vi'} />
+                    <InfoPair label="Đính kèm" value={`${caseDetail?.record.attachment_count ?? 0} file`} />
+                    <Separator className="bg-border/50" />
+                    <div className="space-y-2">
+                      <span className="text-sm text-muted-foreground">Narrative</span>
+                      <p className="line-clamp-5 text-sm leading-6 text-foreground">{caseDetail?.case_input.narrative || 'Chưa có mô tả hồ sơ.'}</p>
+                    </div>
+                    <Button variant="outline" size="sm" className="mt-2 w-full border-border/50" disabled={!selectedCaseId} onClick={() => loadCase(selectedCaseId)}>
+                      Xem dữ liệu mới nhất
+                    </Button>
+                  </CollapsibleContent>
+                </Collapsible>
 
-              <Collapsible>
-                <CollapsibleTrigger className="flex items-center justify-between w-full p-2 text-sm font-medium hover:bg-accent rounded-md text-muted-foreground group">
-                  <div className="flex items-center gap-2">
-                    <Scale className="w-4 h-4" />
-                    <span className="uppercase tracking-wide text-xs font-semibold">Chứng cứ</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs bg-muted px-1.5 py-0.5 rounded-sm">5</span>
-                    <ChevronDown className="w-3 h-3 group-data-[state=open]:rotate-180 transition-transform" />
-                  </div>
-                </CollapsibleTrigger>
-              </Collapsible>
+                <Separator className="my-2 bg-border/30" />
+                <MiniSection icon={Scale} title="Chứng cứ" count={evidence.length} items={evidence.map((item) => `${item.evidence_id}: ${item.content}`)} />
+                <MiniSection icon={BookOpen} title="Vấn đề pháp lý" count={legalIssues.length} items={legalIssues.map((item) => item.title)} />
+                <MiniSection icon={ShieldAlert} title="Fact đã trích xuất" count={facts.length} items={facts.map((item) => item.content)} />
 
-              <Collapsible>
-                <CollapsibleTrigger className="flex items-center justify-between w-full p-2 text-sm font-medium hover:bg-accent rounded-md text-muted-foreground group">
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="w-4 h-4" />
-                    <span className="uppercase tracking-wide text-xs font-semibold">Vấn đề pháp lý</span>
+                <Card className="border-border/50 bg-background p-3 shadow-sm">
+                  <div className="mb-3 flex items-center gap-2 text-primary">
+                    <Bot className="h-4 w-4" />
+                    <span className="text-xs font-semibold uppercase tracking-wide">Run log</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs bg-muted px-1.5 py-0.5 rounded-sm">3</span>
-                    <ChevronDown className="w-3 h-3 group-data-[state=open]:rotate-180 transition-transform" />
+                  <div className="space-y-2 text-xs leading-5 text-muted-foreground">
+                    {logs.slice(-5).map((item, index) => (
+                      <div key={`${item}-${index}`} className="flex gap-2">
+                        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                        <span>{item}</span>
+                      </div>
+                    ))}
+                    {logs.length === 0 && <p>Chưa chạy thao tác nào trong phiên này.</p>}
                   </div>
-                </CollapsibleTrigger>
-              </Collapsible>
+                </Card>
+              </div>
+            </ScrollArea>
 
-              <Collapsible>
-                <CollapsibleTrigger className="flex items-center justify-between w-full p-2 text-sm font-medium hover:bg-accent rounded-md text-muted-foreground group">
-                  <div className="flex items-center gap-2">
-                    <MessageSquare className="w-4 h-4" />
-                    <span className="uppercase tracking-wide text-xs font-semibold">Yêu cầu của các bên</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs bg-muted px-1.5 py-0.5 rounded-sm">2</span>
-                    <ChevronDown className="w-3 h-3 group-data-[state=open]:rotate-180 transition-transform" />
-                  </div>
-                </CollapsibleTrigger>
-              </Collapsible>
+            <div className="grid shrink-0 grid-cols-4 gap-1 border-t border-border/50 bg-background/50 p-2">
+              <SidebarNav icon={Briefcase} label="Hồ sơ" active />
+              <SidebarNav icon={BookOpen} label="Thư viện" />
+              <SidebarNav icon={Bot} label="Trợ lý AI" />
+              <SidebarNav icon={Settings} label="Cài đặt" />
             </div>
-          </ScrollArea>
-          
-          <div className="border-t border-border/50 p-2 grid grid-cols-4 gap-1 bg-background/50">
-            <Button variant="ghost" className="flex flex-col gap-1 h-auto py-2 px-1 text-muted-foreground hover:text-primary">
-              <Briefcase className="w-4 h-4" />
-              <span className="text-[10px]">Hồ sơ vụ án</span>
-            </Button>
-            <Button variant="ghost" className="flex flex-col gap-1 h-auto py-2 px-1 text-muted-foreground hover:text-primary">
-              <BookOpen className="w-4 h-4" />
-              <span className="text-[10px]">Thư viện</span>
-            </Button>
-            <Button variant="ghost" className="flex flex-col gap-1 h-auto py-2 px-1 text-primary bg-primary/5">
-              <Bot className="w-4 h-4" />
-              <span className="text-[10px]">Trợ lý AI</span>
-            </Button>
-            <Button variant="ghost" className="flex flex-col gap-1 h-auto py-2 px-1 text-muted-foreground hover:text-primary">
-              <Settings className="w-4 h-4" />
-              <span className="text-[10px]">Cài đặt</span>
-            </Button>
-          </div>
           </div>
 
           {!isLeftSidebarOpen && (
-             <Button 
-               variant="outline" 
-               size="icon" 
-               onClick={() => setIsLeftSidebarOpen(true)}
-               className="absolute top-3 -right-3 sm:-right-4 translate-x-full z-50 h-8 w-8 rounded-full shadow-md bg-background border-border text-foreground hover:bg-muted"
-             >
-               <ChevronRight className="w-4 h-4" />
-             </Button>
+            <Button variant="outline" size="icon" onClick={() => setIsLeftSidebarOpen(true)} className="absolute -right-3 top-3 z-50 h-8 w-8 translate-x-full rounded-full border-border bg-background shadow-md hover:bg-muted sm:-right-4">
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           )}
         </aside>
 
-        {/* Center Main Stage */}
-        <main className="flex-1 flex flex-col min-w-0 p-4 pb-20 relative bg-background">
-            
-            <Card className="flex-1 flex flex-col shadow-xl overflow-hidden relative z-10 rounded-xl border-none">
-              {/* Fake paper background */}
-              <div className="absolute inset-0 bg-background z-0"></div>
-              {/* Paper texture noise (optional but adds to the look) */}
-              <div className="absolute inset-0 opacity-[0.01] mix-blend-multiply z-0" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`}}></div>
-
-              {/* Header */}
-              <div className="flex items-center justify-between p-4 border-b border-border relative z-10 bg-muted/30 text-foreground">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center text-primary">
-                    <Scale3d className="w-5 h-5" />
-                  </div>
-                  <h2 className="text-lg font-serif font-bold tracking-wide uppercase text-foreground">Biên bản phiên tòa <span className="text-primary font-sans text-[10px] tracking-normal ml-2 font-medium bg-primary/10 px-2 py-0.5 rounded-full relative top-[-2px] uppercase pb-[3px]">• Trực tiếp</span></h2>
+        <main className="relative flex min-w-0 flex-1 flex-col bg-background p-4 pb-20">
+          <Card className="relative z-10 flex flex-1 flex-col overflow-hidden rounded-xl border-none shadow-xl">
+            <div className="absolute inset-0 z-0 bg-background" />
+            <div className="relative z-10 flex items-center justify-between border-b border-border bg-muted/30 p-4 text-foreground">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded bg-primary/10 text-primary">
+                  <Scale3d className="h-5 w-5" />
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="h-8 text-xs font-medium border-border bg-background/50 hover:bg-muted text-foreground">
-                    <Maximize2 className="w-3.5 h-3.5 mr-2" /> Xem toàn bộ tiến trình
-                  </Button>
-                  <Button variant="outline" size="icon" className="h-8 w-8 border-border bg-background/50 hover:bg-muted text-foreground">
-                    <Settings className="w-4 h-4" />
-                  </Button>
+                <h2 className="truncate font-serif text-lg font-bold uppercase tracking-wide text-foreground">
+                  Biên bản phiên tòa
+                  <span className="relative top-[-2px] ml-2 rounded-full bg-primary/10 px-2 py-0.5 pb-[3px] font-sans text-[10px] font-medium uppercase tracking-normal text-primary">
+                    {uiState ? 'Trực tiếp từ BE v2' : 'Chưa có V2'}
+                  </span>
+                </h2>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="h-8 border-border bg-background/50 text-xs font-medium hover:bg-muted" disabled={!selectedCaseId || Boolean(busyAction)} onClick={advanceSelectedV2}>
+                  {busyAction === 'advance' ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Play className="mr-2 h-3.5 w-3.5" />}
+                  Advance stage
+                </Button>
+                <Button variant="outline" size="icon" className="h-8 w-8 border-border bg-background/50 hover:bg-muted" onClick={() => setShowPreview((current) => !current)} disabled={!htmlPreview}>
+                  <Maximize2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="relative z-10 flex h-[72px] select-none items-center border-b border-border p-0 text-foreground">
+              <div className="absolute left-12 right-12 top-[20px] z-0 h-[2px] bg-border" />
+              <div className="absolute left-12 top-[20px] z-0 h-[2px] bg-primary transition-all" style={{width: `${timeline.length ? (currentStageIndex / Math.max(timeline.length - 1, 1)) * 100 : 0}%`}} />
+              {(timeline.length ? timeline : [{trial_stage: 'case_preparation', label: 'Case preparation', status: 'pending', turn_ids: []}]).slice(0, 6).map((item, index) => {
+                const active = item.trial_stage === uiState?.current_stage;
+                const completed = item.status === 'completed';
+                return (
+                  <div className={`relative z-10 flex h-full flex-1 flex-col items-center justify-center pt-1 ${active ? '' : 'opacity-60'}`} key={item.trial_stage}>
+                    {active && <div className="absolute inset-x-2 bottom-0 top-[2px] z-0 rounded-t-lg bg-primary/5" />}
+                    {active && <div className="absolute inset-x-2 top-0 z-0 h-[3px] rounded-t-lg bg-primary" />}
+                    <div className={`${completed ? 'border-primary bg-primary text-primary-foreground' : active ? 'border-primary bg-background text-primary' : 'border-border bg-background text-muted-foreground'} z-10 mb-1 flex h-8 w-8 items-center justify-center rounded-full border-2 text-sm font-bold shadow-sm`}>
+                      {index + 1}
+                    </div>
+                    <span className={`${active ? 'text-primary' : 'text-foreground'} relative z-10 max-w-[120px] truncate text-[10px] font-bold uppercase tracking-wider`}>
+                      {labelStage(item.trial_stage)}
+                    </span>
+                    <span className="relative z-10 mt-0.5 text-[10px] text-muted-foreground">{item.turn_ids.length} lượt</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <ScrollArea className="relative z-10 flex-1 p-6 px-10">
+              <div className="absolute bottom-6 left-[83px] top-8 w-px bg-border" />
+              <div className="relative z-10 mx-auto max-w-4xl space-y-8">
+                {transcript.map((turn, index) => (
+                  <div key={turn.turn_id}>
+                    <TranscriptItem turn={turn} index={index} />
+                  </div>
+                ))}
+                {transcript.length === 0 && (
+                  <div className="rounded-lg border border-dashed border-border bg-muted/30 p-8 text-center">
+                    <Scale className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+                    <p className="font-medium">Chưa có biên bản V2 cho hồ sơ này.</p>
+                    <p className="mt-1 text-sm text-muted-foreground">Bấm Parse, Start V2 hoặc Tạo báo cáo để lấy dữ liệu thật từ backend.</p>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+
+            <div className="relative z-20 m-0 overflow-hidden rounded-b-xl border-t border-border bg-muted/50 p-4">
+              <div className="absolute left-0 right-0 top-0 h-[30px] bg-gradient-to-b from-primary/5 to-transparent" />
+              <div className="relative z-10 mb-3 flex items-center gap-2">
+                <Scale className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-primary">Nhận định của Thẩm phán</h3>
+              </div>
+              <div className="relative z-10 mb-4 grid grid-cols-3 gap-4">
+                <JudgePanel title="Tóm tắt tranh tụng" items={(uiState?.deliberation?.established_facts ?? facts.slice(0, 3).map((fact) => fact.content)).slice(0, 3)} />
+                <JudgePanel title="Rủi ro / điểm mở" badge="AI" items={(uiState?.decision_guard?.unresolved_items ?? uiState?.human_review.checklist ?? []).slice(0, 3)} muted />
+                <div className="flex flex-col">
+                  <h4 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-foreground/80">Ghi chú / kết quả mô phỏng</h4>
+                  <textarea
+                    className="min-h-[120px] flex-1 resize-none rounded-lg border border-border bg-background p-3 text-sm leading-6 text-foreground shadow-sm placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
+                    value={uiState?.simulated_decision?.summary || latestTurn?.utterance || ''}
+                    readOnly
+                    placeholder="Kết quả mô phỏng sẽ xuất hiện sau stage simulated_decision..."
+                  />
+                  <div className="mt-1.5 text-right text-[10px] text-muted-foreground">{uiState?.simulated_decision?.risk_level ? `Risk: ${uiState.simulated_decision.risk_level}` : 'BE v2'}</div>
                 </div>
               </div>
-
-              {/* Stepper */}
-              <div className="flex items-center p-0 border-b border-border select-none relative h-[72px] z-10 text-foreground">
-                 <div className="absolute top-[20px] left-12 right-12 h-[2px] bg-border z-0"></div>
-                 <div className="absolute top-[20px] left-12 w-[35%] h-[2px] bg-primary z-0"></div>
-                 
-                 <div className="flex-1 flex flex-col items-center justify-center relative z-10 h-full cursor-pointer group pt-1">
-                    <div className="w-8 h-8 bg-primary border-2 border-primary rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium mb-1 z-10 shadow-sm">1</div>
-                    <span className="text-[10px] font-bold tracking-wider uppercase text-foreground">Mở phiên</span>
-                    <span className="text-[10px] text-muted-foreground mt-0.5">09:00</span>
-                 </div>
-                 
-                 <div className="flex-1 flex flex-col items-center justify-center relative z-10 h-full pt-1">
-                    <div className="absolute inset-x-2 bottom-0 top-[2px] bg-primary/5 rounded-t-lg z-0"></div>
-                    <div className="absolute inset-x-2 top-0 h-[3px] bg-primary rounded-t-lg z-0"></div>
-                    
-                    <div className="w-8 h-8 bg-background border-2 border-primary rounded-full flex items-center justify-center text-primary text-sm font-bold mb-1 z-10">2</div>
-                    <span className="text-[10px] font-bold tracking-wider uppercase text-primary relative z-10">Tranh tụng</span>
-                    <span className="text-[10px] text-primary/70 font-medium relative z-10 mt-0.5">09:15</span>
-                 </div>
-                 
-                 <div className="flex-1 flex flex-col items-center justify-center relative z-10 h-full opacity-50 cursor-pointer hover:opacity-100 transition-opacity pt-1">
-                    <div className="w-8 h-8 bg-background border-2 border-border text-muted-foreground rounded-full flex items-center justify-center text-sm font-medium mb-1 z-10">3</div>
-                    <span className="text-[10px] font-bold tracking-wider uppercase text-foreground">Nhận định sơ bộ</span>
-                    <span className="text-[10px] text-muted-foreground mt-0.5">10:30</span>
-                 </div>
-                 
-                 <div className="flex-1 flex flex-col items-center justify-center relative z-10 h-full opacity-50 cursor-pointer hover:opacity-100 transition-opacity pt-1">
-                    <div className="w-8 h-8 bg-background border-2 border-border text-muted-foreground rounded-full flex items-center justify-center text-sm font-medium mb-1 z-10">4</div>
-                    <span className="text-[10px] font-bold tracking-wider uppercase text-foreground">Kết thúc phiên</span>
-                    <span className="text-[10px] text-muted-foreground mt-0.5">10:45</span>
-                 </div>
+              <div className="relative z-10 flex gap-4">
+                <Button className="w-[180px] gap-2 border-none bg-primary font-bold text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90" disabled={!selectedCaseId || Boolean(busyAction)} onClick={advanceSelectedV2}>
+                  {busyAction === 'advance' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />} Tiếp tục phiên
+                </Button>
+                <Button variant="outline" className="flex-1 gap-2 border-border bg-background font-medium hover:bg-muted">
+                  <Pause className="h-4 w-4 fill-current opacity-70" /> Tạm dừng
+                </Button>
+                <Button variant="outline" className="flex-1 gap-2 border-border bg-background font-medium hover:bg-muted" disabled={!selectedCaseId || Boolean(busyAction)} onClick={exportHtml}>
+                  {busyAction === 'html' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4 text-primary" />} Xuất HTML
+                </Button>
+                <Button variant="outline" className="flex-1 gap-2 border-border bg-background font-medium hover:bg-muted" disabled={!selectedCaseId || Boolean(busyAction)} onClick={runFullV2}>
+                  {busyAction === 'full' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Scale className="h-4 w-4 text-primary" />} Chạy đầy đủ
+                </Button>
               </div>
-
-              {/* Transcript Area */}
-              <ScrollArea className="flex-1 p-6 px-10 relative z-10">
-                 <div className="absolute left-[83px] top-8 bottom-6 w-px bg-border"></div>
-                 
-                 <div className="space-y-8 relative z-10 max-w-4xl mx-auto">
-                    {/* Item 1 */}
-                    <div className="flex gap-4 group">
-                      <div className="w-12 text-right pt-1 shrink-0">
-                        <span className="text-xs text-muted-foreground font-mono">09:15</span>
-                      </div>
-                      <div className="w-8 h-8 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20 flex items-center justify-center shrink-0 relative mt-0.5">
-                         <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center">
-                            <span className="text-[12px] font-bold">N</span>
-                         </div>
-                         <div className="absolute -left-[24px] top-1/2 w-[22px] h-px bg-blue-500/30"></div>
-                         <div className="absolute -left-[26px] top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-                      </div>
-                      <div className="flex-1 pt-1 pb-4">
-                        <div className="flex items-center justify-between mb-1">
-                          <h4 className="text-[13px] font-bold text-blue-600 uppercase tracking-wide">Nguyên đơn <span className="text-muted-foreground font-normal normal-case tracking-normal ml-1">– Trình bày yêu cầu</span></h4>
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground"><Bookmark className="w-3.5 h-3.5" /></Button>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground"><CheckCircle2 className="w-3.5 h-3.5" /></Button>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground"><MoreVertical className="w-3.5 h-3.5" /></Button>
-                          </div>
-                        </div>
-                        <p className="text-[13px] text-foreground/90 leading-[1.6] mb-2"><span className="font-semibold text-foreground">Bị đơn:</span> Trình bày yêu cầu, đưa ra chứng cứ, phân tích một phần yêu cầu.</p>
-                        <p className="text-[13px] text-foreground/90 leading-[1.6]"><span className="font-semibold text-foreground">HĐXX:</span> Hỏi – Đáp các bên.</p>
-                      </div>
-                    </div>
-
-                    {/* Item 2 */}
-                    <div className="flex gap-4 group">
-                      <div className="w-12 text-right pt-1 shrink-0">
-                        <span className="text-xs text-muted-foreground font-mono">09:22</span>
-                      </div>
-                      <div className="w-8 h-8 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center shrink-0 relative mt-0.5 z-10">
-                         <div className="w-6 h-6 rounded-full bg-amber-500/20 flex items-center justify-center">
-                            <span className="text-[12px] font-bold">B</span>
-                         </div>
-                      </div>
-                      <div className="flex-1 pt-1 pb-4">
-                        <div className="flex items-center justify-between mb-1">
-                          <h4 className="text-[13px] font-bold text-amber-600 uppercase tracking-wide">Bị đơn <span className="text-muted-foreground font-normal normal-case tracking-normal ml-1">– Trình bày ý kiến</span></h4>
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground"><Bookmark className="w-3.5 h-3.5" /></Button>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground"><CheckCircle2 className="w-3.5 h-3.5" /></Button>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground"><MoreVertical className="w-3.5 h-3.5" /></Button>
-                          </div>
-                        </div>
-                        <p className="text-[13px] text-foreground/90 leading-[1.6] mb-2"><span className="font-semibold text-foreground">Bị đơn:</span> Trình bày ý kiến, đưa ra chứng cứ, phản đối một phần yêu cầu.</p>
-                        <p className="text-[13px] text-foreground/90 leading-[1.6]"><span className="font-semibold text-foreground">Kiểm sát viên:</span> Phát biểu ý kiến.</p>
-                      </div>
-                    </div>
-
-                    {/* Item 3 */}
-                    <div className="flex gap-4 group">
-                      <div className="w-12 text-right pt-1 shrink-0">
-                        <span className="text-xs text-muted-foreground font-mono">09:28</span>
-                      </div>
-                      <div className="w-8 h-8 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shrink-0 relative mt-0.5 z-10 shadow-[0_0_10px_rgba(37,99,235,0.1)]">
-                         <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
-                            <Scale className="w-3.5 h-3.5" />
-                         </div>
-                      </div>
-                      <div className="flex-1 pt-1 pb-4">
-                        <div className="flex items-center justify-between mb-1">
-                          <h4 className="text-[13px] font-bold text-primary uppercase tracking-wide">HĐXX <span className="text-muted-foreground font-normal normal-case tracking-normal ml-1">– Hỏi đáp các bên</span></h4>
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground"><Bookmark className="w-3.5 h-3.5" /></Button>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground"><CheckCircle2 className="w-3.5 h-3.5" /></Button>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground"><MoreVertical className="w-3.5 h-3.5" /></Button>
-                          </div>
-                        </div>
-                        <p className="text-[13px] text-foreground/90 leading-[1.6] mb-2"><span className="font-semibold text-foreground">Thẩm phán:</span> Đặt câu hỏi để làm rõ nội dung tranh chấp.</p>
-                        <p className="text-[13px] text-foreground/90 leading-[1.6]"><span className="font-semibold text-foreground">Các bên:</span> Trả lời theo yêu cầu của HĐXX.</p>
-                      </div>
-                    </div>
-                    
-                    {/* Item 4 */}
-                    <div className="flex gap-4 group">
-                      <div className="w-12 text-right pt-1 shrink-0">
-                        <span className="text-xs text-muted-foreground font-mono">09:35</span>
-                      </div>
-                      <div className="w-8 h-8 rounded-full bg-purple-500/10 text-purple-600 border border-purple-500/20 flex items-center justify-center shrink-0 relative mt-0.5 z-10">
-                         <div className="w-6 h-6 rounded-full bg-purple-500/20 flex items-center justify-center">
-                            <span className="text-[12px] font-bold">K</span>
-                         </div>
-                      </div>
-                      <div className="flex-1 pt-1 pb-4">
-                        <div className="flex items-center justify-between mb-1">
-                          <h4 className="text-[13px] font-bold text-purple-600 uppercase tracking-wide">Kiểm sát viên <span className="text-muted-foreground font-normal normal-case tracking-normal ml-1">– Phát biểu ý kiến</span></h4>
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground"><Bookmark className="w-3.5 h-3.5" /></Button>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground"><CheckCircle2 className="w-3.5 h-3.5" /></Button>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground"><MoreVertical className="w-3.5 h-3.5" /></Button>
-                          </div>
-                        </div>
-                        <p className="text-[13px] text-foreground/90 leading-[1.6]"><span className="font-semibold text-foreground">Kiểm sát viên:</span> Phát biểu ý kiến về việc tuân theo pháp luật trong quá trình giải quyết vụ án.</p>
-                      </div>
-                    </div>
-
-                    {/* Item 5 */}
-                    <div className="flex gap-4 group pb-4">
-                      <div className="w-12 text-right pt-1 shrink-0">
-                        <span className="text-xs text-muted-foreground font-mono">09:40</span>
-                      </div>
-                      <div className="w-8 h-8 rounded-full bg-slate-500/10 text-slate-600 border border-slate-500/20 flex items-center justify-center shrink-0 relative mt-0.5 z-10">
-                         <div className="w-6 h-6 rounded-full bg-slate-500/20 flex items-center justify-center">
-                            <span className="text-[12px] font-bold">T</span>
-                         </div>
-                      </div>
-                      <div className="flex-1 pt-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <h4 className="text-[13px] font-bold text-slate-600 uppercase tracking-wide">Thư ký <span className="text-muted-foreground font-normal normal-case tracking-normal ml-1">– Ghi nhận</span></h4>
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground"><Bookmark className="w-3.5 h-3.5" /></Button>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground"><CheckCircle2 className="w-3.5 h-3.5" /></Button>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground"><MoreVertical className="w-3.5 h-3.5" /></Button>
-                          </div>
-                        </div>
-                        <p className="text-[13px] text-foreground/90 leading-[1.6]"><span className="font-semibold text-foreground">Thư ký:</span> Ghi nhận toàn bộ diễn biến phiên tòa, lời trình bày và tài liệu được đưa ra.</p>
-                      </div>
-                    </div>
-                 </div>
-              </ScrollArea>
-
-              {/* Judge's Assessment Panel */}
-              <div className="p-4 bg-muted/50 border-t border-border relative overflow-hidden z-20 m-0 rounded-b-xl border-none">
-                <div className="absolute top-0 left-0 right-0 h-[30px] bg-gradient-to-b from-primary/5 to-transparent"></div>
-                <div className="flex items-center gap-2 mb-3 relative z-10">
-                  <Scale className="w-4 h-4 text-primary" />
-                  <h3 className="text-sm font-semibold tracking-wider uppercase text-primary">Nhận định của Thẩm phán</h3>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4 mb-4 relative z-10">
-                  {/* Col 1 */}
-                  <div className="bg-background border border-border rounded-lg p-3 px-4 shadow-sm">
-                    <h4 className="text-[11px] font-semibold text-foreground/80 mb-3 uppercase tracking-wider">Tóm tắt tranh tụng</h4>
-                    <ul className="space-y-3 text-xs text-muted-foreground leading-relaxed">
-                      <li className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" /> <span>Các bên đã trình bày đầy đủ yêu cầu và ý kiến.</span></li>
-                      <li className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" /> <span>Một số chứng cứ cần được xác minh thêm.</span></li>
-                      <li className="flex gap-2 items-start">
-                         <div className="w-4 h-4 rounded-full border border-primary flex items-center justify-center shrink-0 mt-0.5"><div className="w-1.5 h-1.5 bg-primary rounded-full"></div></div> 
-                         <span>Chưa thống nhất về khoản vay và thời điểm vay.</span>
-                      </li>
-                    </ul>
-                  </div>
-                  {/* Col 2 */}
-                  <div className="bg-background border border-border rounded-lg p-3 px-4 flex flex-col shadow-sm">
-                    <div className="flex items-center gap-2 mb-3">
-                       <h4 className="text-[11px] font-semibold text-foreground/80 uppercase tracking-wider">Đề xuất AI</h4>
-                       <span className="bg-muted text-muted-foreground text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider border border-border font-bold">AI</span>
-                    </div>
-                    <ul className="space-y-3 text-xs text-muted-foreground leading-relaxed flex-1">
-                      <li className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-muted-foreground/50 shrink-0 mt-0.5" /> <span>Xác minh hợp đồng vay và biên nhận.</span></li>
-                      <li className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-muted-foreground/50 shrink-0 mt-0.5" /> <span>Đối chiếu chứng cứ thanh toán (nếu có).</span></li>
-                      <li className="flex gap-2 items-start"><CheckCircle2 className="w-4 h-4 text-muted-foreground/50 shrink-0 mt-0.5" /> <span>Làm rõ lãi suất và thời điểm vay.</span></li>
-                    </ul>
-                    <Button variant="link" className="text-primary text-[11px] h-auto p-0 mt-2 font-medium justify-start hover:text-primary/80">
-                       Xem chi tiết đề xuất <ChevronRight className="w-3 h-3 ml-1" />
-                    </Button>
-                  </div>
-                  {/* Col 3 */}
-                  <div className="flex flex-col">
-                    <h4 className="text-[11px] font-semibold text-foreground/80 mb-3 uppercase tracking-wider">Ghi chú của thẩm phán</h4>
-                    <textarea 
-                      className="flex-1 w-full bg-background border border-border rounded-lg p-3 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:border-primary/50 transition-colors shadow-sm"
-                      placeholder="Nhập ghi chú hoặc nhận định sơ bộ..."
-                    ></textarea>
-                     <div className="text-[10px] text-muted-foreground text-right mt-1.5">0/1000</div>
-                  </div>
-                </div>
-
-                <div className="flex gap-4 relative z-10">
-                  <Button className="w-[180px] gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold border-none shadow-md shadow-primary/20">
-                    <Play className="w-4 h-4 fill-current" /> Tiếp tục phiên
-                  </Button>
-                  <Button variant="outline" className="flex-1 gap-2 bg-background hover:bg-muted text-foreground font-medium transition-colors border-border">
-                    <Pause className="w-4 h-4 fill-current opacity-70" /> Tạm dừng
-                  </Button>
-                  <Button variant="outline" className="flex-1 gap-2 bg-background hover:bg-muted text-foreground font-medium transition-colors border-border group">
-                    <ShieldCheck className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" /> Xác minh
-                  </Button>
-                  <Button variant="outline" className="flex-1 gap-2 bg-background hover:bg-muted text-foreground font-medium transition-colors border-border group">
-                    <Scale className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" /> Tạo nhận định
-                  </Button>
-                </div>
-              </div>
-            </Card>
+            </div>
+          </Card>
         </main>
 
-        {/* Right Sidebar */}
-        <aside className={`${isRightSidebarOpen ? 'w-80 border-l' : 'w-0 border-l-0'} border-border bg-card/30 flex flex-col shrink-0 transition-all duration-300 relative z-20`}>
-          <div className={`w-80 flex flex-col h-full overflow-hidden transition-opacity duration-300 ${isRightSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-            <div className="p-3 border-b border-border/50 shrink-0">
-              <Button variant="ghost" onClick={() => setIsRightSidebarOpen(false)} className="w-full justify-between text-muted-foreground hover:text-foreground h-9 font-normal">
+        <aside className={`${isRightSidebarOpen ? 'w-80 border-l' : 'w-0 border-l-0'} relative z-20 flex shrink-0 flex-col border-border bg-card/30 transition-all duration-300`}>
+          <div className={`flex h-full w-80 flex-col overflow-hidden transition-opacity duration-300 ${isRightSidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+            <div className="shrink-0 border-b border-border/50 p-3">
+              <Button variant="ghost" onClick={() => setIsRightSidebarOpen(false)} className="h-9 w-full justify-between font-normal text-muted-foreground hover:text-foreground">
                 <div className="flex items-center gap-2">
-                  <ChevronRight className="w-4 h-4" /> Thu gọn
+                  <ChevronRight className="h-4 w-4" /> Thu gọn
                 </div>
               </Button>
             </div>
-            
+
             <ScrollArea className="flex-1">
-              <div className="p-3 space-y-3 w-80">
-              {/* Citadel/Legal Citations */}
-              <Card className="bg-background border-border/50 overflow-hidden shadow-sm">
-                 <Collapsible defaultOpen className="flex flex-col">
-                    <CollapsibleTrigger className="flex items-center justify-between w-full p-3 hover:bg-accent/50 transition-colors">
-                       <div className="flex items-center gap-2 text-primary">
-                          <BookOpen className="w-4 h-4" />
-                          <span className="uppercase tracking-wide text-xs font-semibold">Trích dẫn pháp luật</span>
-                       </div>
-                       <div className="flex items-center gap-2 text-muted-foreground">
-                          <span className="text-xs bg-muted px-1.5 py-0.5 rounded-sm">4</span>
-                          <ChevronDown className="w-3 h-3 transition-transform" />
-                       </div>
+              <div className="w-80 space-y-3 p-3">
+                <Card className="border-border/50 bg-background shadow-sm">
+                  <Collapsible defaultOpen className="flex flex-col">
+                    <CollapsibleTrigger className="flex w-full items-center justify-between p-3 transition-colors hover:bg-accent/50">
+                      <div className="flex items-center gap-2 text-primary">
+                        <BookOpen className="h-4 w-4" />
+                        <span className="text-xs font-semibold uppercase tracking-wide">Trích dẫn pháp luật</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <span className="rounded-sm bg-muted px-1.5 py-0.5 text-xs">{citations.length}</span>
+                        <ChevronDown className="h-3 w-3" />
+                      </div>
                     </CollapsibleTrigger>
-                    <CollapsibleContent className="p-3 pt-0 space-y-3">
-                       <div className="flex gap-3 group">
-                          <div className="w-8 h-8 rounded bg-red-900/10 text-red-500 border border-red-900/20 flex items-center justify-center shrink-0">
-                            <BookOpen className="w-4 h-4" />
+                    <CollapsibleContent className="space-y-3 p-3 pt-0">
+                      {citations.slice(0, 5).map((item) => (
+                        <div className="flex gap-3" key={item.citation_id}>
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-red-900/20 bg-red-900/10 text-red-500">
+                            <BookOpen className="h-4 w-4" />
                           </div>
-                          <div className="flex-1 min-w-0">
-                             <div className="flex items-center justify-between">
-                               <h5 className="text-sm font-semibold truncate text-foreground/90">Điều 463 Bộ luật Dân sự 2015</h5>
-                             </div>
-                             <p className="text-xs text-muted-foreground truncate mb-1">Hợp đồng vay tài sản</p>
-                             <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-green-500/30 text-green-500 bg-green-500/5">Đã xác minh</Badge>
+                          <div className="min-w-0 flex-1">
+                            <h5 className="truncate text-sm font-semibold text-foreground/90">{item.article}</h5>
+                            <p className="mb-1 truncate text-xs text-muted-foreground">{item.title}</p>
+                            <Badge variant="outline" className="h-4 border-green-500/30 bg-green-500/5 px-1.5 py-0 text-[9px] text-green-600">
+                              score {item.retrieval_score.toFixed(2)}
+                            </Badge>
                           </div>
-                       </div>
-                       
-                       <div className="flex gap-3 group">
-                          <div className="w-8 h-8 rounded bg-red-900/10 text-red-500 border border-red-900/20 flex items-center justify-center shrink-0">
-                            <BookOpen className="w-4 h-4" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                             <h5 className="text-sm font-semibold truncate text-foreground/90">Điều 466 Bộ luật Dân sự 2015</h5>
-                             <p className="text-xs text-muted-foreground truncate mb-1">Nghĩa vụ trả nợ</p>
-                             <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-green-500/30 text-green-500 bg-green-500/5">Đã xác minh</Badge>
-                          </div>
-                       </div>
-
-                       <div className="flex gap-3 group">
-                          <div className="w-8 h-8 rounded bg-red-900/10 text-red-500 border border-red-900/20 flex items-center justify-center shrink-0">
-                            <BookOpen className="w-4 h-4" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                             <h5 className="text-sm font-semibold truncate text-foreground/90">Điều 357 Bộ luật Dân sự 2015</h5>
-                             <p className="text-xs text-muted-foreground truncate mb-1">Lãi suất</p>
-                             <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-green-500/30 text-green-500 bg-green-500/5">Đã xác minh</Badge>
-                          </div>
-                       </div>
-
-                       <div className="flex gap-3 group">
-                          <div className="w-8 h-8 rounded bg-red-900/10 text-red-500 border border-red-900/20 flex items-center justify-center shrink-0">
-                            <BookOpen className="w-4 h-4" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                             <h5 className="text-sm font-semibold truncate text-foreground/90">Nghị quyết 01/2019/NQ-HĐTP</h5>
-                             <p className="text-xs text-muted-foreground truncate mb-1">Hướng dẫn áp dụng BL luật Dân sự...</p>
-                             <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-green-500/30 text-green-500 bg-green-500/5">Đã xác minh</Badge>
-                          </div>
-                       </div>
-
-                       <Button variant="link" className="w-full text-xs text-muted-foreground mt-2 pb-0 justify-end h-auto p-0">Xem tất cả <ChevronRight className="w-3 h-3 ml-1" /></Button>
+                        </div>
+                      ))}
+                      {citations.length === 0 && <p className="text-sm text-muted-foreground">Chưa có citation từ parsed case.</p>}
                     </CollapsibleContent>
-                 </Collapsible>
-              </Card>
+                  </Collapsible>
+                </Card>
 
-              {/* Audit */}
-              <Collapsible>
-                <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-background border border-border/50 hover:bg-accent/50 rounded-lg transition-colors group">
-                  <div className="flex items-center gap-2 text-muted-foreground group-hover:text-primary transition-colors">
-                    <ShieldAlert className="w-4 h-4" />
-                    <span className="uppercase tracking-wide text-xs font-semibold">Kiểm toán & Rà soát</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <span className="text-xs bg-muted px-1.5 py-0.5 rounded-sm">3</span>
-                    <ChevronDown className="w-3 h-3 group-data-[state=open]:rotate-180 transition-transform" />
-                  </div>
-                </CollapsibleTrigger>
-              </Collapsible>
+                <RightToggle icon={ShieldAlert} title="Kiểm toán & Rà soát" count={reviewCount} />
+                <RightToggle icon={UserCheck} title="Rà soát của con người" count={uiState?.human_review.checklist.length ?? 0} />
 
-              {/* Human Review */}
-              <Collapsible>
-                <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-background border border-border/50 hover:bg-accent/50 rounded-lg transition-colors group">
-                  <div className="flex items-center gap-2 text-muted-foreground group-hover:text-primary transition-colors">
-                    <UserCheck className="w-4 h-4" />
-                    <span className="uppercase tracking-wide text-xs font-semibold">Rà soát của con người</span>
+                <Card className="border-border/50 bg-background p-4 shadow-sm">
+                  <div className="mb-4 flex items-center gap-2 text-primary">
+                    <Scale className="h-4 w-4" />
+                    <span className="text-xs font-semibold uppercase tracking-wide">Cờ xác minh / Trạng thái</span>
                   </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <span className="text-xs bg-muted px-1.5 py-0.5 rounded-sm">1</span>
-                    <ChevronDown className="w-3 h-3 group-data-[state=open]:rotate-180 transition-transform" />
+                  <div className="space-y-3 text-sm">
+                    <StatusLine label="Đã xác minh" count={okTurns} tone="green" />
+                    <StatusLine label="Cần rà soát" count={needsReviewTurns} tone="yellow" strong />
+                    <StatusLine label="Ungrounded" count={uiState?.dialogue_quality.ungrounded_turn_ids.length ?? 0} tone="zinc" />
                   </div>
-                </CollapsibleTrigger>
-              </Collapsible>
+                  <Separator className="my-3 bg-border/50" />
+                  <div className="flex items-center justify-between text-sm font-semibold">
+                    <span>Tổng lượt thoại</span>
+                    <span>{transcript.length}</span>
+                  </div>
+                </Card>
 
-              {/* Verification Flags */}
-              <Card className="bg-background border-border/50 p-4 shadow-sm">
-                 <div className="flex items-center gap-2 text-primary mb-4">
-                    <Scale className="w-4 h-4" />
-                    <span className="uppercase tracking-wide text-xs font-semibold">Cờ xác minh / Trạng thái</span>
-                 </div>
-                 
-                 <div className="space-y-3 text-sm">
-                    <div className="flex justify-between items-center group cursor-pointer">
-                       <div className="flex items-center gap-2">
-                         <div className="w-3 h-3 rounded-full bg-green-500/20 border border-green-500/50 flex items-center justify-center">
-                            <CheckCircle2 className="w-2 h-2 text-green-500" />
-                         </div>
-                         <span className="text-muted-foreground group-hover:text-foreground transition-colors">Đã xác minh</span>
-                       </div>
-                       <span className="bg-muted px-2 py-0.5 rounded text-xs">12</span>
+                <Card className="border-border/50 bg-background p-4 shadow-sm">
+                  <div className="mb-3 flex items-center gap-2 text-primary">
+                    <ShieldCheck className="h-4 w-4" />
+                    <span className="text-xs font-semibold uppercase tracking-wide">Kết quả mô phỏng</span>
+                  </div>
+                  {uiState?.simulated_decision ? (
+                    <div className="space-y-3 text-sm">
+                      <Badge variant={badgeVariant(uiState.simulated_decision.risk_level)}>{uiState.simulated_decision.disposition}</Badge>
+                      <p className="leading-6 text-muted-foreground">{uiState.simulated_decision.relief_or_next_step}</p>
+                      <ul className="space-y-2 text-xs leading-5 text-muted-foreground">
+                        {uiState.simulated_decision.rationale.slice(0, 3).map((item) => (
+                          <li className="flex gap-2" key={item}>
+                            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                    <div className="flex justify-between items-center group cursor-pointer">
-                       <div className="flex items-center gap-2">
-                         <div className="w-3 h-3 rounded-full bg-yellow-500/20 border border-yellow-500/50 flex items-center justify-center relative">
-                            <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full"></span>
-                         </div>
-                         <span className="text-foreground font-medium group-hover:underline">Chờ xác minh</span>
-                       </div>
-                       <span className="bg-primary/10 text-primary px-2 py-0.5 rounded text-xs font-medium border border-primary/20">5</span>
-                    </div>
-                    <div className="flex justify-between items-center group cursor-pointer">
-                       <div className="flex items-center gap-2">
-                         <div className="w-3 h-3 rounded-full bg-zinc-500/20 border border-zinc-500/50 flex items-center justify-center">
-                            <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full"></span>
-                         </div>
-                         <span className="text-muted-foreground group-hover:text-foreground transition-colors">Chưa phân loại</span>
-                       </div>
-                       <span className="bg-muted px-2 py-0.5 rounded text-xs">2</span>
-                    </div>
-                 </div>
-                 
-                 <Separator className="my-3 bg-border/50" />
-                 
-                 <div className="flex justify-between items-center text-sm font-semibold">
-                    <span className="text-foreground">Tổng cộng</span>
-                    <span>19</span>
-                 </div>
-              </Card>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Decision sẽ xuất hiện sau stage simulated_decision.</p>
+                  )}
+                </Card>
 
-            </div>
-          </ScrollArea>
+                {error && (
+                  <Card className="border-destructive/30 bg-background p-4 text-sm shadow-sm">
+                    <div className="flex gap-2">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                      <p className="leading-5">{error}</p>
+                    </div>
+                  </Card>
+                )}
+              </div>
+            </ScrollArea>
           </div>
 
           {!isRightSidebarOpen && (
-             <Button 
-               variant="outline" 
-               size="icon" 
-               onClick={() => setIsRightSidebarOpen(true)}
-               className="absolute top-3 -left-3 sm:-left-4 -translate-x-full h-8 w-8 rounded-full shadow-md bg-background border-border text-foreground hover:bg-muted"
-             >
-               <ChevronRight className="w-4 h-4 rotate-180" />
-             </Button>
+            <Button variant="outline" size="icon" onClick={() => setIsRightSidebarOpen(true)} className="absolute -left-3 top-3 h-8 w-8 -translate-x-full rounded-full border-border bg-background shadow-md hover:bg-muted sm:-left-4">
+              <ChevronRight className="h-4 w-4 rotate-180" />
+            </Button>
           )}
         </aside>
 
-        {/* Bottom Banner - Report Preview */}
-        <div className="absolute bottom-4 left-4 right-4 bg-background border border-border shadow-xl rounded-lg p-3 flex items-center justify-between z-20 text-foreground">
-           <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-muted-foreground" />
-                <span className="font-semibold text-sm uppercase tracking-wide">Xem trước báo cáo</span>
-                <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-none text-[10px] font-medium h-5 ml-1">Bản nháp</Badge>
-              </div>
-              
-              <div className="h-6 w-px bg-border mx-2"></div>
-              
-              <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">
-                 <div className="flex items-center gap-2 text-green-600">
-                    <div className="w-4 h-4 rounded-full bg-green-600 flex items-center justify-center text-white"><CheckCircle2 className="w-3 h-3" /></div>
-                    Thông tin vụ án
-                 </div>
-                 <div className="w-6 h-px bg-border mx-1"></div>
-                 <div className="flex items-center gap-2 text-primary">
-                    <div className="w-4 h-4 rounded-full bg-primary flex items-center justify-center text-white text-[10px] font-bold">2</div>
-                    Diễn biến phiên tòa
-                 </div>
-                 <div className="w-6 h-px bg-border mx-1"></div>
-                 <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-[10px] font-bold">3</div>
-                    Nhận định & căn cứ
-                 </div>
-                 <div className="w-6 h-px bg-border mx-1"></div>
-                 <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-[10px] font-bold">4</div>
-                    Quyết định dự thảo
-                 </div>
-              </div>
-           </div>
+        <div className="absolute bottom-4 left-4 right-4 z-20 flex items-center justify-between rounded-lg border border-border bg-background p-3 text-foreground shadow-xl">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-muted-foreground" />
+              <span className="text-sm font-semibold uppercase tracking-wide">Xem trước báo cáo</span>
+              <Badge variant="secondary" className="ml-1 h-5 border-none bg-blue-500/10 text-[10px] font-medium text-blue-600">
+                {htmlPreview ? 'Đã xuất' : 'Bản nháp'}
+              </Badge>
+            </div>
+            <div className="mx-2 h-6 w-px bg-border" />
+            <div className="flex items-center gap-2 truncate text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+              <ProgressPill done={Boolean(parsed)} label="Thông tin vụ án" index={1} />
+              <ProgressBar />
+              <ProgressPill done={transcript.length > 0} active={Boolean(uiState && !uiState.simulated_decision)} label="Diễn biến phiên tòa" index={2} />
+              <ProgressBar />
+              <ProgressPill done={Boolean(uiState?.deliberation)} active={Boolean(uiState?.deliberation && !uiState?.simulated_decision)} label="Nhận định & căn cứ" index={3} />
+              <ProgressBar />
+              <ProgressPill done={Boolean(uiState?.simulated_decision)} active={Boolean(uiState?.simulated_decision)} label="Quyết định dự thảo" index={4} />
+            </div>
+          </div>
 
-           <div className="flex items-center gap-3">
-              <Button variant="outline" size="sm" className="h-9 gap-2 border-border text-foreground hover:bg-muted font-medium">
-                Xuất Word <FileDown className="w-4 h-4 text-blue-500" />
-              </Button>
-              <Button variant="outline" size="sm" className="h-9 gap-2 border-border text-foreground hover:bg-muted font-medium">
-                Xuất PDF <FileDown className="w-4 h-4 text-red-500" />
-              </Button>
-              <Button size="sm" className="h-9 gap-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-semibold ml-2">
-                Mở đầy đủ <Maximize2 className="w-3.5 h-3.5" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground ml-2 hover:bg-muted hover:text-foreground">
-                <X className="w-5 h-5" />
-              </Button>
-           </div>
+          <div className="flex shrink-0 items-center gap-3">
+            <Button variant="outline" size="sm" className="h-9 gap-2 border-border font-medium hover:bg-muted" disabled={!selectedCaseId || Boolean(busyAction)} onClick={exportMarkdown}>
+              Xuất MD <FileDown className="h-4 w-4 text-blue-500" />
+            </Button>
+            <Button variant="outline" size="sm" className="h-9 gap-2 border-border font-medium hover:bg-muted" disabled={!selectedCaseId || Boolean(busyAction)} onClick={exportHtml}>
+              Xuất HTML <FileDown className="h-4 w-4 text-red-500" />
+            </Button>
+            <Button size="sm" className="ml-2 h-9 gap-2 border border-primary/20 bg-primary/10 font-semibold text-primary hover:bg-primary/20" disabled={!htmlPreview} onClick={() => setShowPreview(true)}>
+              Mở đầy đủ <Maximize2 className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="ml-2 h-9 w-9 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setShowPreview(false)}>
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
+
+        {showPreview && htmlPreview && (
+          <div className="absolute inset-6 z-30 rounded-xl border border-border bg-background shadow-2xl">
+            <div className="flex h-12 items-center justify-between border-b px-4">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">HTML report preview</p>
+                <p className="truncate text-xs text-muted-foreground">{htmlPath || markdownPath}</p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setShowPreview(false)}>
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            <iframe className="h-[calc(100%-3rem)] w-full bg-white" srcDoc={htmlPreview} title="V2 report preview" />
+          </div>
+        )}
       </div>
     </div>
   );
+}
+
+function InfoPair({label, value}: {label: string; value: string}) {
+  return (
+    <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="truncate text-right font-medium text-foreground">{value}</span>
+    </div>
+  );
+}
+
+function MiniSection({icon: Icon, title, count, items}: {icon: typeof Scale; title: string; count: number; items: string[]}) {
+  return (
+    <Collapsible>
+      <CollapsibleTrigger className="flex w-full items-center justify-between rounded-md p-2 text-sm font-medium text-muted-foreground hover:bg-accent">
+        <div className="flex items-center gap-2">
+          <Icon className="h-4 w-4" />
+          <span className="text-xs font-semibold uppercase tracking-wide">{title}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="rounded-sm bg-muted px-1.5 py-0.5 text-xs">{count}</span>
+          <ChevronDown className="h-3 w-3" />
+        </div>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="space-y-2 px-2 pb-3 pt-1">
+        {items.slice(0, 4).map((item) => (
+          <p className="line-clamp-2 rounded-md bg-background px-2 py-1.5 text-xs leading-5 text-muted-foreground" key={item}>
+            {item}
+          </p>
+        ))}
+        {items.length === 0 && <p className="px-2 text-xs text-muted-foreground">Chưa có dữ liệu.</p>}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function SidebarNav({icon: Icon, label, active = false}: {icon: typeof Briefcase; label: string; active?: boolean}) {
+  return (
+    <Button variant="ghost" className={`flex h-auto flex-col gap-1 px-1 py-2 ${active ? 'bg-primary/5 text-primary' : 'text-muted-foreground hover:text-primary'}`}>
+      <Icon className="h-4 w-4" />
+      <span className="text-[10px]">{label}</span>
+    </Button>
+  );
+}
+
+function TranscriptItem({turn, index}: {turn: CourtroomTurn; index: number}) {
+  const tone = speakerColors[turn.speaker] ?? 'slate';
+  const toneClass =
+    tone === 'blue'
+      ? 'border-blue-500/20 bg-blue-500/10 text-blue-600'
+      : tone === 'amber'
+        ? 'border-amber-500/20 bg-amber-500/10 text-amber-600'
+        : tone === 'emerald'
+          ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600'
+          : tone === 'red'
+            ? 'border-red-500/20 bg-red-500/10 text-red-600'
+            : tone === 'purple'
+              ? 'border-purple-500/20 bg-purple-500/10 text-purple-600'
+              : 'border-slate-500/20 bg-slate-500/10 text-slate-600';
+
+  return (
+    <div className="group flex gap-4">
+      <div className="w-12 shrink-0 pt-1 text-right">
+        <span className="font-mono text-xs text-muted-foreground">{turnTime(index)}</span>
+      </div>
+      <div className={`relative mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border ${toneClass}`}>
+        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-current/10">
+          <span className="text-[12px] font-bold">{initials(turn.speaker_label || turn.speaker)}</span>
+        </div>
+        <div className="absolute -left-[24px] top-1/2 h-px w-[22px] bg-current/30" />
+        <div className="absolute -left-[26px] top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-current" />
+      </div>
+      <div className="flex-1 pb-4 pt-1">
+        <div className="mb-1 flex items-center justify-between gap-3">
+          <h4 className="truncate text-[13px] font-bold uppercase tracking-wide text-foreground">
+            {turn.speaker_label || turn.speaker}
+            <span className="ml-1 font-normal normal-case tracking-normal text-muted-foreground">- {labelStage(turn.trial_stage)}</span>
+          </h4>
+          <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+            <Badge variant={badgeVariant(turn.status)}>{labelStatus(turn.status)}</Badge>
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground">
+              <MoreVertical className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+        <p className="text-[15px] leading-7 text-foreground/90">{turn.utterance}</p>
+        {(turn.evidence_ids.length > 0 || turn.citation_ids.length > 0 || turn.risk_notes.length > 0) && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {turn.evidence_ids.map((item) => (
+              <Badge variant="outline" key={item}>
+                <ShieldCheck className="h-3 w-3" />
+                {item}
+              </Badge>
+            ))}
+            {turn.citation_ids.map((item) => (
+              <Badge variant="secondary" key={item}>
+                <BookOpen className="h-3 w-3" />
+                {item}
+              </Badge>
+            ))}
+            {turn.risk_notes.map((item) => (
+              <Badge variant="destructive" key={item}>
+                <AlertTriangle className="h-3 w-3" />
+                {item}
+              </Badge>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function JudgePanel({title, items, badge, muted = false}: {title: string; items: string[]; badge?: string; muted?: boolean}) {
+  return (
+    <div className="rounded-lg border border-border bg-background px-4 py-3 shadow-sm">
+      <div className="mb-3 flex items-center gap-2">
+        <h4 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/80">{title}</h4>
+        {badge && <span className="rounded border border-border bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-muted-foreground">{badge}</span>}
+      </div>
+      <ul className="space-y-3 text-xs leading-relaxed text-muted-foreground">
+        {items.length > 0 ? (
+          items.map((item) => (
+            <li className="flex items-start gap-2" key={item}>
+              <CheckCircle2 className={`mt-0.5 h-4 w-4 shrink-0 ${muted ? 'text-muted-foreground/50' : 'text-primary'}`} />
+              <span>{item}</span>
+            </li>
+          ))
+        ) : (
+          <li className="text-muted-foreground">Chưa có dữ liệu từ stage này.</li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
+function RightToggle({icon: Icon, title, count}: {icon: typeof ShieldAlert; title: string; count: number}) {
+  return (
+    <Collapsible>
+      <CollapsibleTrigger className="group flex w-full items-center justify-between rounded-lg border border-border/50 bg-background p-3 transition-colors hover:bg-accent/50">
+        <div className="flex items-center gap-2 text-muted-foreground transition-colors group-hover:text-primary">
+          <Icon className="h-4 w-4" />
+          <span className="text-xs font-semibold uppercase tracking-wide">{title}</span>
+        </div>
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <span className="rounded-sm bg-muted px-1.5 py-0.5 text-xs">{count}</span>
+          <ChevronDown className="h-3 w-3" />
+        </div>
+      </CollapsibleTrigger>
+    </Collapsible>
+  );
+}
+
+function StatusLine({label, count, tone, strong = false}: {label: string; count: number; tone: 'green' | 'yellow' | 'zinc'; strong?: boolean}) {
+  const toneClass =
+    tone === 'green'
+      ? 'border-green-500/50 bg-green-500/20 text-green-600'
+      : tone === 'yellow'
+        ? 'border-yellow-500/50 bg-yellow-500/20 text-yellow-600'
+        : 'border-zinc-500/50 bg-zinc-500/20 text-zinc-600';
+  return (
+    <div className="group flex cursor-pointer items-center justify-between">
+      <div className="flex items-center gap-2">
+        <div className={`flex h-3 w-3 items-center justify-center rounded-full border ${toneClass}`}>
+          {tone === 'green' ? <CheckCircle2 className="h-2 w-2" /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
+        </div>
+        <span className={strong ? 'font-medium text-foreground group-hover:underline' : 'text-muted-foreground transition-colors group-hover:text-foreground'}>{label}</span>
+      </div>
+      <span className={strong ? 'rounded border border-primary/20 bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary' : 'rounded bg-muted px-2 py-0.5 text-xs'}>{count}</span>
+    </div>
+  );
+}
+
+function ProgressPill({label, index, done = false, active = false}: {label: string; index: number; done?: boolean; active?: boolean}) {
+  return (
+    <div className={`flex items-center gap-2 ${done ? 'text-green-600' : active ? 'text-primary' : ''}`}>
+      <div className={`${done ? 'bg-green-600 text-white' : active ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'} flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold`}>
+        {done ? <CheckCircle2 className="h-3 w-3" /> : index}
+      </div>
+      <span className="hidden lg:inline">{label}</span>
+    </div>
+  );
+}
+
+function ProgressBar() {
+  return <div className="mx-1 h-px w-6 bg-border" />;
 }
