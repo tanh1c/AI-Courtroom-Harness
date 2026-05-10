@@ -149,6 +149,7 @@ export default function App() {
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
   const [showPreview, setShowPreview] = useState(false);
   const [showReportBar, setShowReportBar] = useState(true);
+  const [showJudgeModal, setShowJudgeModal] = useState(false);
 
   const selectedCase = useMemo(
     () => cases.find((item) => item.case_id === selectedCaseId),
@@ -174,6 +175,10 @@ export default function App() {
   const okTurns = transcript.filter((turn) => turn.status === 'ok').length;
   const needsReviewTurns = transcript.filter((turn) => turn.status !== 'ok').length;
   const title = getCaseTitle(caseDetail, selectedCase);
+  const timelineItems = timeline.length ? timeline : [{trial_stage: 'case_preparation', label: 'Case preparation', status: 'pending', turn_ids: []}];
+  const judgeSummaryItems = (uiState?.deliberation?.established_facts ?? facts.slice(0, 3).map((fact) => fact.content)).slice(0, 3);
+  const judgeRiskItems = (uiState?.decision_guard?.unresolved_items ?? uiState?.human_review.checklist ?? []).slice(0, 3);
+  const judgeNote = uiState?.simulated_decision?.summary || latestTurn?.utterance || '';
 
   async function refreshCases(preferredCaseId?: string) {
     setError('');
@@ -489,27 +494,28 @@ export default function App() {
               </div>
             </div>
 
-            <div className="relative z-10 h-[104px] select-none overflow-x-auto border-b border-border text-foreground">
-              <div className="relative flex h-full min-w-max px-6">
-                <div className="absolute left-24 right-24 top-[28px] z-0 h-[2px] bg-border" />
-                <div
-                  className="absolute left-24 top-[28px] z-0 h-[2px] bg-primary transition-all"
-                  style={{width: `calc((100% - 12rem) * ${timeline.length ? currentStageIndex / Math.max(timeline.length - 1, 1) : 0})`}}
-                />
-                {(timeline.length ? timeline : [{trial_stage: 'case_preparation', label: 'Case preparation', status: 'pending', turn_ids: []}]).map((item, index) => {
+            <div className="relative z-10 h-[104px] select-none overflow-x-auto border-b border-border text-foreground [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-track]:bg-transparent">
+              <div className="relative flex h-full min-w-max px-5">
+                {timelineItems.map((item, index) => {
                   const active = item.trial_stage === uiState?.current_stage;
                   const completed = item.status === 'completed';
+                  const past = index <= currentStageIndex;
                   return (
-                    <div className={`relative z-10 flex h-full w-36 shrink-0 flex-col items-center justify-center px-2 pt-2 ${active ? '' : 'opacity-70'}`} key={item.trial_stage}>
-                      {active && <div className="absolute inset-x-2 bottom-0 top-[2px] z-0 rounded-t-lg bg-primary/5" />}
-                      {active && <div className="absolute inset-x-2 top-0 z-0 h-[3px] rounded-t-lg bg-primary" />}
-                      <div className={`${completed ? 'border-primary bg-primary text-primary-foreground' : active ? 'border-primary bg-background text-primary' : 'border-border bg-background text-muted-foreground'} z-10 mb-2 flex h-10 w-10 items-center justify-center rounded-full border-2 text-base font-bold shadow-sm`}>
-                        {index + 1}
+                    <div className="relative flex h-full w-40 shrink-0 flex-col items-center px-3 pt-4" key={item.trial_stage}>
+                      <div className={`${past ? 'bg-primary/70' : 'bg-border'} absolute left-0 right-0 top-[33px] z-0 h-px ${index === 0 ? 'left-1/2' : ''} ${index === timelineItems.length - 1 ? 'right-1/2' : ''}`} />
+                      {active && <div className="absolute inset-x-2 bottom-0 top-[3px] z-0 rounded-t-md bg-primary/5 ring-1 ring-primary/10" />}
+                      <div className="relative z-10 flex h-10 items-center justify-center">
+                        <div className={`${completed ? 'border-primary bg-primary text-primary-foreground' : active ? 'border-primary bg-background text-primary' : 'border-border bg-background text-muted-foreground'} flex h-8 w-8 items-center justify-center rounded-full border-2 text-sm font-bold shadow-sm`}>
+                          {index + 1}
+                        </div>
+                        <span className={`${active ? 'border-primary/30 bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground'} absolute left-[calc(50%+1.25rem)] top-1/2 flex h-5 min-w-12 -translate-y-1/2 items-center justify-center rounded-full border px-1.5 text-[10px] font-medium`}>
+                          {item.turn_ids.length} lượt
+                        </span>
                       </div>
-                      <span className={`${active ? 'text-primary' : 'text-foreground'} relative z-10 line-clamp-2 min-h-8 text-center text-[11px] font-bold uppercase leading-4 tracking-wide`}>
+                      <span className={`${active ? 'text-primary' : 'text-foreground'} relative z-10 mt-2 line-clamp-2 min-h-8 text-center text-[11px] font-semibold uppercase leading-4 tracking-wide`}>
                         {labelStage(item.trial_stage)}
                       </span>
-                      <span className="relative z-10 mt-1 text-[11px] text-muted-foreground">{item.turn_ids.length} lượt</span>
+                      <span className="relative z-10 mt-1 text-[10px] uppercase tracking-wide text-muted-foreground">{labelStatus(item.status)}</span>
                     </div>
                   );
                 })}
@@ -534,25 +540,22 @@ export default function App() {
               </div>
             </ScrollArea>
 
-            <div className="relative z-20 m-0 overflow-hidden rounded-b-xl border-t border-border bg-muted/50 p-3">
+            <div className="relative z-20 m-0 overflow-hidden rounded-b-xl border-t border-border bg-muted/50 p-2.5">
               <div className="absolute left-0 right-0 top-0 h-5 bg-gradient-to-b from-primary/5 to-transparent" />
-              <div className="relative z-10 mb-2 flex items-center gap-2">
-                <Scale className="h-4 w-4 text-primary" />
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-primary">Nhận định của Thẩm phán</h3>
-              </div>
-              <div className="relative z-10 mb-3 grid grid-cols-3 gap-3">
-                <JudgePanel title="Tóm tắt tranh tụng" items={(uiState?.deliberation?.established_facts ?? facts.slice(0, 3).map((fact) => fact.content)).slice(0, 3)} />
-                <JudgePanel title="Rủi ro / điểm mở" badge="AI" items={(uiState?.decision_guard?.unresolved_items ?? uiState?.human_review.checklist ?? []).slice(0, 3)} muted />
-                <div className="flex flex-col">
-                  <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-foreground/80">Ghi chú / kết quả mô phỏng</h4>
-                  <textarea
-                    className="h-20 resize-none rounded-lg border border-border bg-background p-2.5 text-sm leading-5 text-foreground shadow-sm placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
-                    value={uiState?.simulated_decision?.summary || latestTurn?.utterance || ''}
-                    readOnly
-                    placeholder="Kết quả mô phỏng sẽ xuất hiện sau stage simulated_decision..."
-                  />
-                  <div className="mt-1.5 text-right text-[10px] text-muted-foreground">{uiState?.simulated_decision?.risk_level ? `Risk: ${uiState.simulated_decision.risk_level}` : 'BE v2'}</div>
+              <div className="relative z-10 mb-2 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Scale className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-primary">Nhận định của Thẩm phán</h3>
                 </div>
+                <Button variant="outline" size="sm" className="h-8 gap-2 border-border bg-background" onClick={() => setShowJudgeModal(true)}>
+                  <Maximize2 className="h-3.5 w-3.5" />
+                  Mở rộng
+                </Button>
+              </div>
+              <div className="relative z-10 mb-2 grid grid-cols-[1fr_1fr_1.4fr] gap-2">
+                <CompactJudgeCard title="Tóm tắt" value={judgeSummaryItems[0] || 'Chưa có sự kiện đã xác lập.'} />
+                <CompactJudgeCard title="Điểm mở" value={judgeRiskItems[0] || 'Chưa có cờ rủi ro nổi bật.'} muted />
+                <CompactJudgeCard title="Kết quả mô phỏng" value={judgeNote || 'Chờ dữ liệu từ BE v2.'} accent />
               </div>
               <div className="relative z-10 flex gap-2">
                 <Button className="h-9 w-[160px] gap-2 border-none bg-primary font-bold text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90" disabled={!selectedCaseId || Boolean(busyAction)} onClick={advanceSelectedV2}>
@@ -730,6 +733,54 @@ export default function App() {
           </Button>
         )}
 
+        {showJudgeModal && (
+          <div className="absolute inset-6 z-40 overflow-hidden rounded-xl border border-border bg-background shadow-2xl">
+            <div className="flex h-12 items-center justify-between border-b px-4">
+              <div className="flex min-w-0 items-center gap-2">
+                <Scale className="h-4 w-4 text-primary" />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold uppercase tracking-wide text-primary">Nhận định của Thẩm phán</p>
+                  <p className="truncate text-xs text-muted-foreground">{title}</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setShowJudgeModal(false)}>
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            <ScrollArea className="h-[calc(100%-3rem)]">
+              <div className="grid gap-4 p-5 lg:grid-cols-2">
+                <JudgePanel title="Tóm tắt tranh tụng" items={judgeSummaryItems} />
+                <JudgePanel title="Rủi ro / điểm mở" badge="AI" items={judgeRiskItems} muted />
+                <div className="rounded-lg border border-border bg-background p-4 shadow-sm lg:col-span-2">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <h4 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/80">Ghi chú / kết quả mô phỏng</h4>
+                    <Badge variant={badgeVariant(uiState?.simulated_decision?.risk_level)}>
+                      {uiState?.simulated_decision?.risk_level ? `Risk: ${uiState.simulated_decision.risk_level}` : 'BE v2'}
+                    </Badge>
+                  </div>
+                  <textarea
+                    className="h-40 w-full resize-none rounded-lg border border-border bg-muted/30 p-3 text-sm leading-6 text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
+                    value={judgeNote}
+                    readOnly
+                    placeholder="Kết quả mô phỏng sẽ xuất hiện sau stage simulated_decision..."
+                  />
+                </div>
+                <div className="flex gap-3 lg:col-span-2">
+                  <Button className="h-9 w-[180px] gap-2 border-none bg-primary font-bold text-primary-foreground hover:bg-primary/90" disabled={!selectedCaseId || Boolean(busyAction)} onClick={advanceSelectedV2}>
+                    {busyAction === 'advance' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />} Tiếp tục phiên
+                  </Button>
+                  <Button variant="outline" className="h-9 flex-1 gap-2 border-border bg-background font-medium hover:bg-muted" disabled={!selectedCaseId || Boolean(busyAction)} onClick={exportHtml}>
+                    {busyAction === 'html' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4 text-primary" />} Xuất HTML
+                  </Button>
+                  <Button variant="outline" className="h-9 flex-1 gap-2 border-border bg-background font-medium hover:bg-muted" disabled={!selectedCaseId || Boolean(busyAction)} onClick={runFullV2}>
+                    {busyAction === 'full' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Scale className="h-4 w-4 text-primary" />} Chạy đầy đủ
+                  </Button>
+                </div>
+              </div>
+            </ScrollArea>
+          </div>
+        )}
+
         {showPreview && htmlPreview && (
           <div className="absolute inset-6 z-30 rounded-xl border border-border bg-background shadow-2xl">
             <div className="flex h-12 items-center justify-between border-b px-4">
@@ -745,6 +796,18 @@ export default function App() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function CompactJudgeCard({title, value, muted = false, accent = false}: {title: string; value: string; muted?: boolean; accent?: boolean}) {
+  return (
+    <div className={`${accent ? 'border-primary/20 bg-primary/5' : 'border-border bg-background'} min-w-0 rounded-md border px-3 py-2 shadow-sm`}>
+      <div className="mb-1 flex items-center gap-1.5">
+        <CheckCircle2 className={`${muted ? 'text-muted-foreground/50' : accent ? 'text-primary' : 'text-primary'} h-3.5 w-3.5 shrink-0`} />
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</span>
+      </div>
+      <p className="line-clamp-1 text-xs leading-5 text-foreground/90">{value}</p>
     </div>
   );
 }
