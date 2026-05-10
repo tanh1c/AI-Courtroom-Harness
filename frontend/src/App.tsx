@@ -148,6 +148,7 @@ export default function App() {
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(true);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
   const [showPreview, setShowPreview] = useState(false);
+  const [showReportBar, setShowReportBar] = useState(true);
 
   const selectedCase = useMemo(
     () => cases.find((item) => item.case_id === selectedCaseId),
@@ -354,9 +355,9 @@ export default function App() {
         </div>
       </header>
 
-      <div className="relative flex flex-1 overflow-hidden">
-        <aside className={`${isLeftSidebarOpen ? 'w-72 border-r' : 'w-0 border-r-0'} relative z-20 flex shrink-0 flex-col border-border bg-card/30 transition-all duration-300`}>
-          <div className={`flex h-full w-72 flex-col overflow-hidden transition-opacity duration-300 ${isLeftSidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
+        <aside className={`${isLeftSidebarOpen ? 'w-72 border-r' : 'w-0 border-r-0'} relative z-20 flex min-h-0 shrink-0 flex-col border-border bg-card/30 transition-all duration-300`}>
+          <div className={`flex h-full min-h-0 w-72 flex-col overflow-hidden transition-opacity duration-300 ${isLeftSidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
             <div className="shrink-0 border-b border-border/50 p-3">
               <Button variant="ghost" onClick={() => setIsLeftSidebarOpen(false)} className="h-9 w-full justify-between font-normal text-muted-foreground hover:text-foreground">
                 <div className="flex items-center gap-2">
@@ -366,7 +367,7 @@ export default function App() {
               </Button>
             </div>
 
-            <ScrollArea className="flex-1">
+            <ScrollArea className="min-h-0 flex-1">
               <div className="w-72 space-y-2 p-3">
                 <div className="space-y-2 rounded-lg border border-border/50 bg-background p-3">
                   <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Hồ sơ từ BE</label>
@@ -462,8 +463,8 @@ export default function App() {
           )}
         </aside>
 
-        <main className="relative flex min-w-0 flex-1 flex-col bg-background p-4 pb-20">
-          <Card className="relative z-10 flex flex-1 flex-col overflow-hidden rounded-xl border-none shadow-xl">
+        <main className={`relative flex min-h-0 min-w-0 flex-1 flex-col bg-background p-4 ${showReportBar ? 'pb-20' : 'pb-4'}`}>
+          <Card className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border-none shadow-xl">
             <div className="absolute inset-0 z-0 bg-background" />
             <div className="relative z-10 flex items-center justify-between border-b border-border bg-muted/30 p-4 text-foreground">
               <div className="flex min-w-0 items-center gap-3">
@@ -510,7 +511,7 @@ export default function App() {
               })}
             </div>
 
-            <ScrollArea className="relative z-10 flex-1 p-6 px-10">
+            <ScrollArea className="relative z-10 min-h-0 flex-1 p-6 px-10">
               <div className="absolute bottom-6 left-[83px] top-8 w-px bg-border" />
               <div className="relative z-10 mx-auto max-w-4xl space-y-8">
                 {transcript.map((turn, index) => (
@@ -566,8 +567,8 @@ export default function App() {
           </Card>
         </main>
 
-        <aside className={`${isRightSidebarOpen ? 'w-80 border-l' : 'w-0 border-l-0'} relative z-20 flex shrink-0 flex-col border-border bg-card/30 transition-all duration-300`}>
-          <div className={`flex h-full w-80 flex-col overflow-hidden transition-opacity duration-300 ${isRightSidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+        <aside className={`${isRightSidebarOpen ? 'w-80 border-l' : 'w-0 border-l-0'} relative z-20 flex min-h-0 shrink-0 flex-col border-border bg-card/30 transition-all duration-300`}>
+          <div className={`flex h-full min-h-0 w-80 flex-col overflow-hidden transition-opacity duration-300 ${isRightSidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
             <div className="shrink-0 border-b border-border/50 p-3">
               <Button variant="ghost" onClick={() => setIsRightSidebarOpen(false)} className="h-9 w-full justify-between font-normal text-muted-foreground hover:text-foreground">
                 <div className="flex items-center gap-2">
@@ -576,7 +577,7 @@ export default function App() {
               </Button>
             </div>
 
-            <ScrollArea className="flex-1">
+            <ScrollArea className="min-h-0 flex-1">
               <div className="w-80 space-y-3 p-3">
                 <Card className="border-border/50 bg-background shadow-sm">
                   <Collapsible defaultOpen className="flex flex-col">
@@ -672,6 +673,7 @@ export default function App() {
           )}
         </aside>
 
+        {showReportBar ? (
         <div className="absolute bottom-4 left-4 right-4 z-20 flex items-center justify-between rounded-lg border border-border bg-background p-3 text-foreground shadow-xl">
           <div className="flex min-w-0 items-center gap-4">
             <div className="flex items-center gap-2">
@@ -703,11 +705,25 @@ export default function App() {
             <Button size="sm" className="ml-2 h-9 gap-2 border border-primary/20 bg-primary/10 font-semibold text-primary hover:bg-primary/20" disabled={!htmlPreview} onClick={() => setShowPreview(true)}>
               Mở đầy đủ <Maximize2 className="h-3.5 w-3.5" />
             </Button>
-            <Button variant="ghost" size="icon" className="ml-2 h-9 w-9 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setShowPreview(false)}>
+            <Button variant="ghost" size="icon" className="ml-2 h-9 w-9 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => {
+              setShowPreview(false);
+              setShowReportBar(false);
+            }}>
               <X className="h-5 w-5" />
             </Button>
           </div>
         </div>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            className="absolute bottom-4 right-4 z-20 h-9 gap-2 border-border bg-background shadow-xl"
+            onClick={() => setShowReportBar(true)}
+          >
+            <FileText className="h-4 w-4" />
+            Báo cáo
+          </Button>
+        )}
 
         {showPreview && htmlPreview && (
           <div className="absolute inset-6 z-30 rounded-xl border border-border bg-background shadow-2xl">
