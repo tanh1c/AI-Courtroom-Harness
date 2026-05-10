@@ -41,6 +41,15 @@ This creates PDFs under `data/raw/demo_evidence/full_contract_breach/`, uploads 
 API test client, parses PDF text, runs the full simulated trial, and exports `hearing_v2_record.md`
 plus `hearing_v2_record.html`.
 
+To let the configured LLM polish high-value V2 dialogue turns, for example with DeepSeek:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\demos\run_v2_full_trial_demo.py --use-llm --llm-provider deepseek --llm-max-turns 8
+```
+
+The LLM layer is bounded and guarded: evidence-reading stays deterministic, official-judgment
+language is blocked, and the runtime falls back to deterministic text if the provider fails.
+
 To generate only the PDF evidence bundle:
 
 ```powershell

@@ -1,7 +1,13 @@
 from __future__ import annotations
 
+import json
+import os
 from functools import lru_cache
 
+from packages.orchestration.python.ai_court_orchestration.llm import (
+    CourtroomLlmService,
+    get_courtroom_llm_service,
+)
 from packages.retrieval.python.ai_court_retrieval.service import (
     get_local_legal_retrieval_service,
 )
@@ -108,6 +114,22 @@ PARTY_GROUNDED_STAGES = {
     TrialProcedureStage.FINAL_STATEMENTS,
 }
 
+V2_LLM_POLISH_STAGES = {
+    TrialProcedureStage.PLAINTIFF_CLAIM_STATEMENT,
+    TrialProcedureStage.DEFENSE_RESPONSE_STATEMENT,
+    TrialProcedureStage.JUDGE_EXAMINATION,
+    TrialProcedureStage.PLAINTIFF_DEBATE,
+    TrialProcedureStage.DEFENSE_REBUTTAL,
+    TrialProcedureStage.FINAL_STATEMENTS,
+    TrialProcedureStage.SIMULATED_DECISION,
+}
+
+V2_LLM_POLISH_SPEAKERS = {
+    AgentName.PLAINTIFF_AGENT,
+    AgentName.DEFENSE_AGENT,
+    AgentName.JUDGE_AGENT,
+}
+
 ROLE_DRIFT_MARKERS = {
     AgentName.PLAINTIFF_AGENT: ["bị đơn:", "thẩm phán:", "thư ký:"],
     AgentName.DEFENSE_AGENT: ["nguyên đơn:", "thẩm phán:", "thư ký:"],
@@ -170,6 +192,17 @@ def is_party_grounded(turn: CourtroomDialogueTurn) -> bool:
 class CourtroomV2RuntimeService:
     def __init__(self) -> None:
         self.retrieval_service = get_local_legal_retrieval_service()
+        self.llm_service: CourtroomLlmService = get_courtroom_llm_service()
+        self.llm_polish_enabled = os.getenv("AI_COURT_V2_LLM_ENABLED", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        self.llm_polish_max_turns = int(os.getenv("AI_COURT_V2_LLM_MAX_TURNS", "12"))
+        self.last_llm_polish_call_count = 0
+        self.last_llm_provider_label = "heuristic"
+        self._llm_polish_used_by_session: dict[str, int] = {}
 
     def start(
         self,
@@ -188,6 +221,9 @@ class CourtroomV2RuntimeService:
             human_review_mode=human_review_mode,
             status=CaseStatus.SIMULATED,
         )
+        self._llm_polish_used_by_session[session.session_id] = 0
+        self.last_llm_polish_call_count = 0
+        self.last_llm_provider_label = "heuristic"
         self._append_turn(
             session,
             trial_stage=TrialProcedureStage.CASE_PREPARATION,
@@ -361,6 +397,16 @@ class CourtroomV2RuntimeService:
         risk_notes: list[str] | None = None,
     ) -> CourtroomDialogueTurn:
         self.assert_speaker_allowed(trial_stage, speaker)
+        utterance = self._maybe_llm_polish_utterance(
+            session,
+            trial_stage=trial_stage,
+            speaker=speaker,
+            speaker_label=speaker_label,
+            fallback_utterance=utterance,
+            claim_ids=claim_ids or [],
+            evidence_ids=evidence_ids or [],
+            citation_ids=citation_ids or [],
+        )
         compacted_utterance, was_compacted = compact_utterance(utterance)
         notes = list(risk_notes or [])
         if was_compacted:
@@ -405,6 +451,103 @@ class CourtroomV2RuntimeService:
             ungrounded_turn_ids=ungrounded,
             role_drift_warnings=role_drift,
         )
+
+    def _maybe_llm_polish_utterance(
+        self,
+        session: V2TrialSession,
+        *,
+        trial_stage: TrialProcedureStage,
+        speaker: AgentName,
+        speaker_label: str,
+        fallback_utterance: str,
+        claim_ids: list[str],
+        evidence_ids: list[str],
+        citation_ids: list[str],
+    ) -> str:
+        if not self.llm_polish_enabled or not self.llm_service.is_enabled():
+            return fallback_utterance
+        if trial_stage not in V2_LLM_POLISH_STAGES or speaker not in V2_LLM_POLISH_SPEAKERS:
+            return fallback_utterance
+        used = self._llm_polish_used_by_session.get(session.session_id, 0)
+        if used >= self.llm_polish_max_turns:
+            return fallback_utterance
+
+        system_prompt = (
+            "You rewrite one Vietnamese courtroom-simulation utterance. "
+            "Return strict JSON only with shape {\"utterance\": string}. "
+            "Keep the same legal meaning and same procedural role. "
+            "Do not invent facts, evidence, citations, admissions, deadlines, or remedies. "
+            "Do not write official judgment language such as 'tòa tuyên' or 'buộc bị đơn'. "
+            "Do not include speaker labels or colon-prefixed dialogue. "
+            "Make it sound natural, cinematic, and courtroom-like while remaining concise."
+        )
+        user_prompt = json.dumps(
+            {
+                "case": {
+                    "case_id": session.case.case_id,
+                    "title": session.case.title,
+                    "status": session.case.status.value,
+                },
+                "stage": trial_stage.value,
+                "speaker": speaker.value,
+                "speaker_label": speaker_label,
+                "fallback_utterance": fallback_utterance,
+                "related_claims": [
+                    {
+                        "claim_id": claim.claim_id,
+                        "speaker": claim.speaker.value,
+                        "content": claim.content,
+                        "evidence_ids": claim.evidence_ids,
+                        "citation_ids": claim.citation_ids,
+                    }
+                    for claim in session.case.claims
+                    if claim.claim_id in set(claim_ids)
+                ],
+                "related_evidence": [
+                    {
+                        "evidence_id": evidence.evidence_id,
+                        "type": evidence.type.value,
+                        "status": evidence.status.value,
+                        "content": evidence.content[:700],
+                    }
+                    for evidence in session.case.evidence
+                    if evidence.evidence_id in set(evidence_ids)
+                ],
+                "related_citations": [
+                    {
+                        "citation_id": citation.citation_id,
+                        "article": citation.article,
+                        "title": citation.title,
+                        "content": citation.content[:500],
+                    }
+                    for citation in session.case.citations
+                    if citation.citation_id in set(citation_ids)
+                ],
+                "requirements": [
+                    "Vietnamese only.",
+                    "Maximum 90 words.",
+                    "Preserve every legal limitation from the fallback utterance.",
+                    "Use first person when the speaker is plaintiff_agent or defense_agent.",
+                    "The judge may ask questions or announce a simulated non-binding result, but must not sound like an official court judgment.",
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        try:
+            payload = self.llm_service.generate_json(system_prompt, user_prompt, max_tokens=320)
+            polished = str(payload.get("utterance", "")).strip()
+            if not polished:
+                return fallback_utterance
+            if contains_official_judgment_language(polished) or has_role_drift(speaker, polished):
+                return fallback_utterance
+            polished, _ = compact_utterance(polished, MAX_UTTERANCE_CHARS)
+            self._llm_polish_used_by_session[session.session_id] = used + 1
+            self.last_llm_polish_call_count = used + 1
+            self.last_llm_provider_label = self.llm_service.provider_label()
+            return polished
+        except Exception:
+            return fallback_utterance
 
     def _append_act(
         self,

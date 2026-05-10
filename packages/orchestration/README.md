@@ -30,3 +30,14 @@ mode by default and the courtroom runtime already asks for short structured JSON
 is much slower than the default MVP pair and is not part of the default fallback chain.
 
 `9router / cx/gpt-5.2` is supported as an explicit provider for local gateway usage, but it is not part of the default MVP fallback chain.
+
+V2 trial sessions can optionally polish selected dialogue turns with the configured provider:
+
+```powershell
+$env:AI_COURT_V2_LLM_ENABLED="true"
+$env:AI_COURT_V2_LLM_MAX_TURNS="8"
+$env:AI_COURT_LLM_PROVIDER="deepseek"
+```
+
+This only rewrites high-value participant turns and keeps evidence reading, stage transitions,
+grounding, and decision guards deterministic.

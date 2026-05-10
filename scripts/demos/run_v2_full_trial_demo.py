@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
 import warnings
 import webbrowser
@@ -19,7 +20,6 @@ warnings.filterwarnings(
     message=r"The default value of `allowed_objects` will change.*",
 )
 
-from apps.api.app.main import app
 from generate_v2_evidence_bundle import DEFAULT_OUTPUT_DIR, build_bundle
 
 
@@ -38,11 +38,38 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Open the generated V2 HTML hearing record in the default browser.",
     )
+    parser.add_argument(
+        "--use-llm",
+        action="store_true",
+        help="Use the configured LLM provider to polish high-value V2 dialogue turns.",
+    )
+    parser.add_argument(
+        "--llm-provider",
+        default="",
+        help="Optional provider override for this run, for example deepseek.",
+    )
+    parser.add_argument(
+        "--llm-max-turns",
+        type=int,
+        default=12,
+        help="Maximum number of V2 turns to polish with the LLM.",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    if args.use_llm:
+        os.environ["AI_COURT_V2_LLM_ENABLED"] = "true"
+        os.environ["AI_COURT_V2_LLM_MAX_TURNS"] = str(args.llm_max_turns)
+    if args.llm_provider:
+        os.environ["AI_COURT_LLM_PROVIDER"] = args.llm_provider
+
+    from apps.api.app.main import app
+    from packages.orchestration.python.ai_court_orchestration.v2_service import (
+        get_courtroom_v2_runtime_service,
+    )
+
     logging.getLogger("pypdf").setLevel(logging.ERROR)
     manifest = build_bundle(args.evidence_dir)
 
@@ -97,10 +124,14 @@ def main() -> None:
     decision = trial.get("simulated_decision") or {}
     guard = trial.get("decision_guard") or {}
     quality = trial.get("dialogue_quality") or {}
+    runtime_service = get_courtroom_v2_runtime_service()
     summary = {
         "case_id": case_id,
         "evidence_bundle_dir": str(args.evidence_dir),
         "evidence_documents": [document["filename"] for document in manifest["documents"]],
+        "llm_polish_enabled": args.use_llm,
+        "llm_provider_used": runtime_service.last_llm_provider_label,
+        "llm_polish_call_count": runtime_service.last_llm_polish_call_count,
         "v2_status": trial["status"],
         "current_stage": trial["current_stage"],
         "dialogue_turn_count": len(trial["dialogue_turns"]),
