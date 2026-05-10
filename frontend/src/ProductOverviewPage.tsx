@@ -135,6 +135,14 @@ const guardrails = [
   ['Portable records', 'Markdown and HTML exports can be read without the frontend, which keeps demos reproducible.'],
 ];
 
+const pageSections = [
+  {id: 'overview', label: 'Overview', icon: Scale},
+  {id: 'versions', label: 'Version modes', icon: GitBranch},
+  {id: 'flow', label: 'Operating flow', icon: Workflow},
+  {id: 'architecture', label: 'Architecture', icon: Layers3},
+  {id: 'safety', label: 'Safety stack', icon: ShieldCheck},
+];
+
 export function ProductOverviewPage({onBack}: ProductOverviewPageProps) {
   const [selectedVersion, setSelectedVersion] = useState<VersionName>('V2');
   const version = versions[selectedVersion];
@@ -159,15 +167,113 @@ export function ProductOverviewPage({onBack}: ProductOverviewPageProps) {
             <p className="truncate text-xs text-muted-foreground">A courtroom-style explanation of features, versions, architecture, and safety boundaries.</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary">MVP closed</Badge>
-          <Badge variant="outline">V1/V2 inspectable</Badge>
-        </div>
+        <Badge variant="secondary" className="hidden sm:inline-flex">MVP / V1 / V2</Badge>
       </header>
 
-      <ScrollArea className="min-h-0 flex-1">
-        <main className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-5">
-          <section className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+      <div className="flex min-h-0 flex-1">
+        <aside className="hidden w-[292px] shrink-0 border-r border-border bg-card/70 lg:flex lg:flex-col">
+          <div className="border-b border-border p-4">
+            <div className="mb-3 flex items-center gap-2 text-primary">
+              <Scale3d className="h-5 w-5" />
+              <p className="text-xs font-semibold uppercase tracking-[0.22em]">Product nav</p>
+            </div>
+            <p className="text-sm leading-6 text-muted-foreground">
+              Explore the product story by section, then switch between MVP, V1, and V2 without leaving the overview.
+            </p>
+          </div>
+
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border">
+            <nav className="space-y-1" aria-label="Product overview sections">
+              {pageSections.map((section) => {
+                const Icon = section.icon;
+                return (
+                  <a
+                    className="group flex items-center gap-3 rounded-md border border-transparent px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-border hover:bg-background hover:text-foreground"
+                    href={`#${section.id}`}
+                    key={section.id}
+                  >
+                    <Icon className="h-4 w-4 text-primary/70 group-hover:text-primary" />
+                    <span>{section.label}</span>
+                  </a>
+                );
+              })}
+            </nav>
+
+            <Separator />
+
+            <div>
+              <div className="mb-3 flex items-center gap-2 text-primary">
+                <GitBranch className="h-4 w-4" />
+                <h3 className="text-xs font-semibold uppercase tracking-wide">Version modes</h3>
+              </div>
+              <div className="relative space-y-3">
+                <div className="absolute bottom-8 left-[21px] top-8 w-px bg-border" />
+                {(Object.keys(versions) as VersionName[]).map((name) => (
+                  <button
+                    className={`relative z-10 flex w-full items-center gap-3 rounded-md border p-3 text-left transition-colors ${
+                      selectedVersion === name ? 'border-primary/30 bg-primary/5 text-primary' : 'border-border bg-background text-foreground hover:bg-muted/50'
+                    }`}
+                    key={name}
+                    onClick={() => setSelectedVersion(name)}
+                    type="button"
+                  >
+                    <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border font-serif text-sm font-bold ${selectedVersion === name ? 'border-primary bg-background' : 'border-border bg-muted'}`}>
+                      {name}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{versions[name].role}</p>
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">{versions[name].status}</p>
+                    </div>
+                    <ArrowRight className={`ml-auto h-4 w-4 ${selectedVersion === name ? 'opacity-100' : 'opacity-30'}`} />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-border p-4">
+            <div className="rounded-md border border-amber-500/20 bg-amber-500/5 p-3">
+              <div className="mb-1 flex items-center gap-2 text-amber-600">
+                <ShieldAlert className="h-4 w-4" />
+                <p className="text-xs font-semibold uppercase tracking-wide">Boundary</p>
+              </div>
+              <p className="text-xs leading-5 text-muted-foreground">Simulation and review support only. No official judgment is issued.</p>
+            </div>
+          </div>
+        </aside>
+
+        <ScrollArea className="min-h-0 flex-1">
+          <main className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-5">
+          <section className="grid gap-3 lg:hidden">
+            <div className="overflow-x-auto rounded-lg border border-border bg-card p-2 [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border">
+              <div className="flex min-w-max gap-2">
+                {pageSections.map((section) => {
+                  const Icon = section.icon;
+                  return (
+                    <a className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-xs font-medium text-muted-foreground" href={`#${section.id}`} key={section.id}>
+                      <Icon className="h-3.5 w-3.5 text-primary" />
+                      {section.label}
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {(Object.keys(versions) as VersionName[]).map((name) => (
+                <button
+                  className={`rounded-md border px-3 py-2 text-left ${selectedVersion === name ? 'border-primary/40 bg-primary/10 text-primary' : 'border-border bg-card text-foreground'}`}
+                  key={name}
+                  onClick={() => setSelectedVersion(name)}
+                  type="button"
+                >
+                  <p className="font-serif text-sm font-bold uppercase tracking-wide">{name}</p>
+                  <p className="mt-1 truncate text-xs text-muted-foreground">{versions[name].role}</p>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="overflow-hidden rounded-lg border border-border bg-card shadow-sm" id="overview">
             <div className="grid min-h-[360px] lg:grid-cols-[0.95fr_1.05fr]">
               <div className="flex flex-col justify-between border-b border-border bg-muted/20 p-6 lg:border-b-0 lg:border-r">
                 <div>
@@ -194,36 +300,7 @@ export function ProductOverviewPage({onBack}: ProductOverviewPageProps) {
             </div>
           </section>
 
-          <section className="grid gap-5 lg:grid-cols-[340px_1fr]">
-            <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-              <div className="mb-4 flex items-center gap-2 text-primary">
-                <GitBranch className="h-4 w-4" />
-                <h3 className="text-xs font-semibold uppercase tracking-wide">Version rail</h3>
-              </div>
-              <div className="relative space-y-3">
-                <div className="absolute bottom-8 left-[21px] top-8 w-px bg-border" />
-                {(Object.keys(versions) as VersionName[]).map((name) => (
-                  <button
-                    className={`relative z-10 flex w-full items-center gap-3 rounded-md border p-3 text-left transition-colors ${
-                      selectedVersion === name ? 'border-primary/30 bg-primary/5 text-primary' : 'border-border bg-background text-foreground hover:bg-muted/50'
-                    }`}
-                    key={name}
-                    onClick={() => setSelectedVersion(name)}
-                    type="button"
-                  >
-                    <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border font-serif text-sm font-bold ${selectedVersion === name ? 'border-primary bg-background' : 'border-border bg-muted'}`}>
-                      {name}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{versions[name].role}</p>
-                      <p className="mt-0.5 truncate text-xs text-muted-foreground">{versions[name].status}</p>
-                    </div>
-                    <ArrowRight className={`ml-auto h-4 w-4 ${selectedVersion === name ? 'opacity-100' : 'opacity-30'}`} />
-                  </button>
-                ))}
-              </div>
-            </div>
-
+          <section id="versions">
             <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
               <div className="border-b border-border bg-muted/20 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -258,7 +335,7 @@ export function ProductOverviewPage({onBack}: ProductOverviewPageProps) {
             </div>
           </section>
 
-          <section className="rounded-lg border border-border bg-card shadow-sm">
+          <section className="rounded-lg border border-border bg-card shadow-sm" id="flow">
             <div className="flex items-center justify-between gap-3 border-b border-border p-4">
               <div className="flex items-center gap-2 text-primary">
                 <Workflow className="h-4 w-4" />
@@ -282,7 +359,7 @@ export function ProductOverviewPage({onBack}: ProductOverviewPageProps) {
           </section>
 
           <section className="grid gap-5 lg:grid-cols-[1fr_0.85fr]">
-            <div className="rounded-lg border border-border bg-card shadow-sm">
+            <div className="rounded-lg border border-border bg-card shadow-sm" id="architecture">
               <div className="border-b border-border p-4">
                 <div className="flex items-center gap-2 text-primary">
                   <Layers3 className="h-4 w-4" />
@@ -305,7 +382,7 @@ export function ProductOverviewPage({onBack}: ProductOverviewPageProps) {
               </div>
             </div>
 
-            <div className="rounded-lg border border-border bg-card shadow-sm">
+            <div className="rounded-lg border border-border bg-card shadow-sm" id="safety">
               <div className="border-b border-border p-4">
                 <div className="flex items-center gap-2 text-primary">
                   <ShieldCheck className="h-4 w-4" />
@@ -334,8 +411,9 @@ export function ProductOverviewPage({onBack}: ProductOverviewPageProps) {
               </div>
             </div>
           </section>
-        </main>
-      </ScrollArea>
+          </main>
+        </ScrollArea>
+      </div>
     </div>
   );
 }
