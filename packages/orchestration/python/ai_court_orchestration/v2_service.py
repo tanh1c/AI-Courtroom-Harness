@@ -137,6 +137,24 @@ ROLE_DRIFT_MARKERS = {
     AgentName.CLERK_AGENT: ["nguyên đơn:", "bị đơn:", "thẩm phán:"],
 }
 
+V2_LLM_FORBIDDEN_MARKERS = [
+    "tiền đặt cọc",
+    "đặt cọc",
+    "thỏa thuận miệng",
+    "thoả thuận miệng",
+    "hội đồng xét xử",
+    "đề nghị tòa",
+    "xin tòa",
+    "mong tòa",
+    "tòa ghi nhận",
+    "tòa nhìn nhận",
+    "bị đơn phải",
+    "nguyên đơn phải",
+    "tôi đồng ý rằng nghĩa vụ",
+    "đồng ý rằng nghĩa vụ",
+    "nghĩa vụ giao xe hoặc hoàn tiền là rõ ràng",
+]
+
 
 class TrialRuntimeError(ValueError):
     pass
@@ -187,6 +205,11 @@ def is_party_grounded(turn: CourtroomDialogueTurn) -> bool:
     lowered = turn.utterance.lower()
     explicitly_missing = "chưa có chứng cứ" in lowered or "cần đối chiếu" in lowered
     return bool(turn.evidence_ids or turn.citation_ids or explicitly_missing)
+
+
+def has_v2_llm_policy_violation(text: str) -> bool:
+    lowered = text.lower()
+    return any(marker in lowered for marker in V2_LLM_FORBIDDEN_MARKERS)
 
 
 class CourtroomV2RuntimeService:
@@ -473,14 +496,28 @@ class CourtroomV2RuntimeService:
             return fallback_utterance
 
         system_prompt = (
-            "You rewrite one Vietnamese courtroom-simulation utterance. "
+            "You are a Vietnamese courtroom dialogue writer for a realistic film-like civil hearing simulation. "
             "Return strict JSON only with shape {\"utterance\": string}. "
-            "Keep the same legal meaning and same procedural role. "
+            "Substantially rewrite the fallback utterance instead of lightly paraphrasing it. "
+            "Keep the same legal meaning, procedural role, and evidentiary limits. "
             "Do not invent facts, evidence, citations, admissions, deadlines, or remedies. "
             "Do not write official judgment language such as 'tòa tuyên' or 'buộc bị đơn'. "
+            "Avoid words that make the artifact sound like a real court judgment: do not say 'tòa', "
+            "'Hội đồng xét xử', 'bị đơn phải', or 'nguyên đơn phải'. "
+            "Do not introduce unsupported terms such as 'tiền đặt cọc' or 'thỏa thuận miệng'. "
             "Do not include speaker labels or colon-prefixed dialogue. "
-            "Make it sound natural, cinematic, and courtroom-like while remaining concise."
+            "Use natural spoken Vietnamese with courtroom tension: pauses, concessions, careful phrasing, "
+            "and human motivation are allowed, but only if they are grounded in the provided material. "
+            "Avoid bureaucratic template phrasing."
         )
+        recent_turns = [
+            {
+                "speaker": turn.speaker_label,
+                "stage": turn.trial_stage.value,
+                "utterance": turn.utterance,
+            }
+            for turn in session.dialogue_turns[-4:]
+        ]
         user_prompt = json.dumps(
             {
                 "case": {
@@ -492,6 +529,7 @@ class CourtroomV2RuntimeService:
                 "speaker": speaker.value,
                 "speaker_label": speaker_label,
                 "fallback_utterance": fallback_utterance,
+                "recent_transcript_context": recent_turns,
                 "related_claims": [
                     {
                         "claim_id": claim.claim_id,
@@ -525,9 +563,16 @@ class CourtroomV2RuntimeService:
                 ],
                 "requirements": [
                     "Vietnamese only.",
-                    "Maximum 90 words.",
+                    "Maximum 110 words.",
+                    "Write 1-3 natural spoken sentences.",
+                    "Make the line feel like a person responding in court, not a system summary.",
+                    "Do not merely replace a few words; change rhythm, framing, or emotional posture while preserving facts.",
                     "Preserve every legal limitation from the fallback utterance.",
+                    "Do not add a new defense theory, oral agreement, deposit characterization, or party admission.",
                     "Use first person when the speaker is plaintiff_agent or defense_agent.",
+                    "For plaintiff_agent, sound firm and grounded, not melodramatic.",
+                    "For defense_agent, sound cautious and realistic; concede only what the fallback already concedes.",
+                    "For judge_agent, sound calm, probing, and procedural.",
                     "The judge may ask questions or announce a simulated non-binding result, but must not sound like an official court judgment.",
                 ],
             },
@@ -535,15 +580,20 @@ class CourtroomV2RuntimeService:
             indent=2,
         )
         try:
+            self._llm_polish_used_by_session[session.session_id] = used + 1
+            self.last_llm_polish_call_count = used + 1
+            self.last_llm_provider_label = self.llm_service.provider_label()
             payload = self.llm_service.generate_json(system_prompt, user_prompt, max_tokens=320)
             polished = str(payload.get("utterance", "")).strip()
             if not polished:
                 return fallback_utterance
-            if contains_official_judgment_language(polished) or has_role_drift(speaker, polished):
+            if (
+                contains_official_judgment_language(polished)
+                or has_role_drift(speaker, polished)
+                or has_v2_llm_policy_violation(polished)
+            ):
                 return fallback_utterance
             polished, _ = compact_utterance(polished, MAX_UTTERANCE_CHARS)
-            self._llm_polish_used_by_session[session.session_id] = used + 1
-            self.last_llm_polish_call_count = used + 1
             self.last_llm_provider_label = self.llm_service.provider_label()
             return polished
         except Exception:

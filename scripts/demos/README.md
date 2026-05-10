@@ -44,7 +44,7 @@ plus `hearing_v2_record.html`.
 To let the configured LLM polish high-value V2 dialogue turns, for example with DeepSeek:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\demos\run_v2_full_trial_demo.py --use-llm --llm-provider deepseek --llm-max-turns 8
+.\.venv\Scripts\python.exe scripts\demos\run_v2_full_trial_demo.py --use-llm --llm-provider deepseek --llm-max-turns 13
 ```
 
 The LLM layer is bounded and guarded: evidence-reading stays deterministic, official-judgment
