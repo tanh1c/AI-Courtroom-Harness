@@ -31,5 +31,17 @@ dependencies = [
 include-package-data = true
 
 [tool.setuptools.packages.find]
-where = ["packages/shared/python"]
-include = ["ai_court_shared*"]
+where = [
+  "packages/shared/python",
+  "packages/retrieval/python",
+  "packages/orchestration/python",
+  "packages/verification/python",
+  "packages/reporting/python",
+]
+include = [
+  "ai_court_shared*",
+  "ai_court_retrieval*",
+  "ai_court_orchestration*",
+  "ai_court_verification*",
+  "ai_court_reporting*",
+]

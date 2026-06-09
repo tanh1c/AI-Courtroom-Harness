@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from packages.retrieval.python.ai_court_retrieval.service import (
+from ai_court_retrieval.service import (
     get_local_legal_retrieval_service,
 )
-from packages.shared.python.ai_court_shared.schemas import (
+from ai_court_shared.schemas import (
     AgentName,
     AgentToolCall,
     AuditEvent,

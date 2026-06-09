@@ -5,7 +5,7 @@ import unicodedata
 from pathlib import Path
 
 from pypdf import PdfReader
-from packages.shared.python.ai_court_shared.schemas import (
+from ai_court_shared.schemas import (
     AttachmentParseResult,
     AttachmentParseStatus,
     CaseAttachment,

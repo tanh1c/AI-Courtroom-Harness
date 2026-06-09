@@ -18,12 +18,12 @@ warnings.filterwarnings(
 )
 
 from apps.api.app.main import app
-from packages.orchestration.python.ai_court_orchestration.v2_service import (
+from ai_court_orchestration.v2_service import (
     TrialRuntimeError,
     get_courtroom_v2_runtime_service,
     official_judgment_language_hits,
 )
-from packages.shared.python.ai_court_shared.schemas import (
+from ai_court_shared.schemas import (
     AgentName,
     CaseState,
     Citation,

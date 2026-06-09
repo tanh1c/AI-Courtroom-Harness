@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -13,8 +12,6 @@ from fastapi import UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
 
 from .case_parser import parse_case_input
 from .case_store import (
@@ -46,27 +43,27 @@ from .case_store import (
     save_v2_trial_session,
     store_uploaded_attachment_file,
 )
-from packages.orchestration.python.ai_court_orchestration.service import (
+from ai_court_orchestration.service import (
     get_courtroom_simulation_service,
 )
-from packages.orchestration.python.ai_court_orchestration.v1_service import (
+from ai_court_orchestration.v1_service import (
     HearingRuntimeError,
     get_courtroom_v1_runtime_service,
 )
-from packages.orchestration.python.ai_court_orchestration.v2_service import (
+from ai_court_orchestration.v2_service import (
     TrialRuntimeError,
     get_courtroom_v2_runtime_service,
 )
-from packages.reporting.python.ai_court_reporting.service import (
+from ai_court_reporting.service import (
     get_html_report_service,
     get_markdown_report_service,
     get_v1_hearing_record_service,
     get_v2_trial_record_service,
 )
-from packages.retrieval.python.ai_court_retrieval.service import (
+from ai_court_retrieval.service import (
     get_local_legal_retrieval_service,
 )
-from packages.shared.python.ai_court_shared.schemas import (
+from ai_court_shared.schemas import (
     AuditEvent,
     AuditStage,
     AuditTrailResponse,
@@ -99,7 +96,7 @@ from packages.shared.python.ai_court_shared.schemas import (
     V2TrialTimelineItem,
     V2TrialUiStateResponse,
 )
-from packages.verification.python.ai_court_verification.service import (
+from ai_court_verification.service import (
     get_verification_service,
 )
 FIXTURES_DIR = ROOT_DIR / "packages" / "shared" / "fixtures"

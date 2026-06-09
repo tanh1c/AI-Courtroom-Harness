@@ -21,10 +21,10 @@ warnings.filterwarnings(
 )
 
 from apps.api.app.main import app
-from packages.orchestration.python.ai_court_orchestration.service import (
+from ai_court_orchestration.service import (
     get_courtroom_simulation_service,
 )
-from packages.reporting.python.ai_court_reporting.service import (
+from ai_court_reporting.service import (
     get_html_report_service,
 )
 

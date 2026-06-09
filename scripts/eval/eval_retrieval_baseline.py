@@ -8,10 +8,10 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from packages.retrieval.python.ai_court_retrieval.service import (
+from ai_court_retrieval.service import (
     get_local_legal_retrieval_service,
 )
-from packages.shared.python.ai_court_shared.schemas import LegalSearchRequest
+from ai_court_shared.schemas import LegalSearchRequest
 
 QUERY_FILE = Path(__file__).with_name("retrieval_baseline_queries.json")
 

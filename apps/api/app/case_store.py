@@ -6,7 +6,7 @@ import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
-from packages.shared.python.ai_court_shared.schemas import (
+from ai_court_shared.schemas import (
     AuditTrailResponse,
     CaseAttachment,
     CaseCreateRequest,

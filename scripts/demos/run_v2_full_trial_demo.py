@@ -66,7 +66,7 @@ def main() -> None:
         os.environ["AI_COURT_LLM_PROVIDER"] = args.llm_provider
 
     from apps.api.app.main import app
-    from packages.orchestration.python.ai_court_orchestration.v2_service import (
+    from ai_court_orchestration.v2_service import (
         get_courtroom_v2_runtime_service,
     )
 

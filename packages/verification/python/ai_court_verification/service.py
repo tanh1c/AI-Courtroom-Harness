@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from packages.shared.python.ai_court_shared.schemas import (
+from ai_court_shared.schemas import (
     AuditEvent,
     AuditStage,
     CaseStatus,

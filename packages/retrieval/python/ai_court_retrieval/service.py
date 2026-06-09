@@ -7,7 +7,7 @@ from pathlib import Path
 
 from rank_bm25 import BM25Okapi
 
-from packages.shared.python.ai_court_shared.schemas import (
+from ai_court_shared.schemas import (
     Citation,
     EffectiveStatus,
     LegalSearchRequest,
