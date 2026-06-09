@@ -141,6 +141,7 @@ export default function App() {
   const legalIssues = parsed?.legal_issues ?? [];
   const claims = parsed?.claims ?? [];
   const citations = parsed?.citations ?? [];
+  const documentArtifacts = caseDetail?.case_input.document_artifacts ?? [];
   const v2Transcript = uiState?.transcript ?? [];
   const v1Transcript: CourtroomTurn[] = (v1Session?.turns ?? []).map((turn) => ({
     turn_id: turn.turn_id,
@@ -914,6 +915,19 @@ export default function App() {
                     </CollapsibleContent>
                   </Collapsible>
                 </Card>
+
+                <DataPanel
+                  icon={FileText}
+                  title="Document provenance"
+                  count={documentArtifacts.length}
+                  items={documentArtifacts.slice(0, 6).map((item) => ({
+                    id: item.artifact_id,
+                    title: `${item.kind} · ${item.status}`,
+                    body: item.extracted_text_excerpt || `${item.filename} has no extracted text yet.`,
+                    meta: `${item.source} · ${item.page_count} pages · ${item.chunk_count} chunks · ${item.extracted_char_count} chars`,
+                  }))}
+                  empty="Parse/upload attachments để tạo document provenance."
+                />
 
                 <DataPanel
                   icon={Scale}
