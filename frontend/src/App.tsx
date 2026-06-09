@@ -46,6 +46,7 @@ import {
   advanceV2,
   createCase,
   exportMvpMarkdown,
+  exportMvpPrintable,
   exportV1Html,
   exportV1Markdown,
   exportV2Html,
@@ -120,6 +121,7 @@ export default function App() {
   const [htmlPreview, setHtmlPreview] = useState('');
   const [markdownPath, setMarkdownPath] = useState('');
   const [htmlPath, setHtmlPath] = useState('');
+  const [printablePath, setPrintablePath] = useState('');
   const [logs, setLogs] = useState<string[]>([]);
   const [busyAction, setBusyAction] = useState('');
   const [error, setError] = useState('');
@@ -275,6 +277,7 @@ export default function App() {
     setHtmlPreview('');
     setMarkdownPath('');
     setHtmlPath('');
+    setPrintablePath('');
     setSimulation(null);
     setAuditTrail(null);
     setMvpReport(null);
@@ -544,6 +547,26 @@ export default function App() {
       setHtmlPreview(result.html);
       setShowPreview(true);
       setLogs((current) => [...current, `Đã xuất HTML: ${result.htmlPath}`]);
+    });
+  }
+
+  async function exportPrintable() {
+    if (!selectedCaseId) return;
+    await runAction('printable', async () => {
+      if (activeMode === 'mvp') {
+        const result = await exportMvpPrintable(selectedCaseId);
+        setPrintablePath(result.printablePath);
+        setHtmlPath(result.printablePath);
+        setHtmlPreview(result.html);
+        setShowPreview(true);
+        setLogs((current) => [...current, `Đã xuất bản in/PDF: ${result.printablePath}`]);
+        return;
+      }
+      const result = activeMode === 'v1' ? await exportV1Html(selectedCaseId) : await exportV2Html(selectedCaseId);
+      setHtmlPath(result.htmlPath);
+      setHtmlPreview(result.html);
+      setShowPreview(true);
+      setLogs((current) => [...current, `Đã xuất bản in HTML: ${result.htmlPath}`]);
     });
   }
 
@@ -1216,6 +1239,9 @@ export default function App() {
             <Button variant="outline" size="sm" className="h-9 gap-2 border-border font-medium hover:bg-muted" disabled={!selectedCaseId || Boolean(busyAction)} onClick={exportHtml}>
               Xuất HTML <FileDown className="h-4 w-4 text-red-500" />
             </Button>
+            <Button variant="outline" size="sm" className="h-9 gap-2 border-border font-medium hover:bg-muted" disabled={!selectedCaseId || Boolean(busyAction)} onClick={exportPrintable}>
+              Xuất PDF <FileDown className="h-4 w-4 text-green-500" />
+            </Button>
             <Button size="sm" className="ml-2 h-9 gap-2 border border-primary/20 bg-primary/10 font-semibold text-primary hover:bg-primary/20" disabled={!htmlPreview} onClick={() => setShowPreview(true)}>
               Mở đầy đủ <Maximize2 className="h-3.5 w-3.5" />
             </Button>
@@ -1292,7 +1318,7 @@ export default function App() {
             <div className="flex h-12 items-center justify-between border-b px-4">
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold">HTML report preview</p>
-                <p className="truncate text-xs text-muted-foreground">{htmlPath || markdownPath}</p>
+                <p className="truncate text-xs text-muted-foreground">{printablePath || htmlPath || markdownPath}</p>
               </div>
               <Button variant="ghost" size="icon" onClick={() => setShowPreview(false)}>
                 <X className="h-5 w-5" />

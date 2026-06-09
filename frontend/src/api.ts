@@ -256,6 +256,13 @@ export type ReportResponse = {
   report: SimulationResponse['final_report'];
 };
 
+export type PrintableReportResponse = {
+  case_id: string;
+  report_status: string;
+  printable_path: string;
+  html: string;
+};
+
 export type V1Turn = {
   turn_id: string;
   agent: string;
@@ -455,6 +462,13 @@ export async function exportMvpMarkdown(caseId: string): Promise<{markdownPath: 
     method: 'POST',
   });
   return {markdownPath: payload.markdown_path, markdown: payload.markdown};
+}
+
+export async function exportMvpPrintable(caseId: string): Promise<{printablePath: string; html: string}> {
+  const payload = await requestJson<PrintableReportResponse>(`/api/v1/reports/${caseId}/printable`, {
+    method: 'POST',
+  });
+  return {printablePath: payload.printable_path, html: payload.html};
 }
 
 export async function startV1(caseId: string): Promise<V1HearingSession> {
