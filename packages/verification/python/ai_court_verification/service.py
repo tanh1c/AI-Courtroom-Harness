@@ -8,7 +8,9 @@ from ai_court_shared.schemas import (
     CaseStatus,
     ClaimConfidence,
     Citation,
+    CitationVerificationFinding,
     CitationVerificationResult,
+    FactCheckFinding,
     FactCheckResult,
     HumanReviewGate,
     SimulationResponse,
@@ -51,35 +53,79 @@ class VerificationService:
     def _build_fact_check(self, simulation: SimulationResponse) -> FactCheckResult:
         evidence_ids = {item.evidence_id for item in simulation.case.evidence}
         citation_ids = {item.citation_id for item in simulation.case.citations}
-        unsupported_claims = [
-            claim.claim_id
-            for claim in simulation.case.claims
-            if not claim.evidence_ids or any(evidence_id not in evidence_ids for evidence_id in claim.evidence_ids)
-        ]
-        citation_mismatches = [
-            claim.claim_id
-            for claim in simulation.case.claims
-            if any(citation_id not in citation_ids for citation_id in claim.citation_ids)
-        ]
+        unsupported_claims: list[str] = []
+        citation_mismatches: list[str] = []
+        findings: list[FactCheckFinding] = []
+
+        for claim in simulation.case.claims:
+            missing_evidence_ids = [evidence_id for evidence_id in claim.evidence_ids if evidence_id not in evidence_ids]
+            missing_citation_ids = [citation_id for citation_id in claim.citation_ids if citation_id not in citation_ids]
+            if not claim.evidence_ids or missing_evidence_ids:
+                unsupported_claims.append(claim.claim_id)
+                findings.append(
+                    FactCheckFinding(
+                        finding_id=f"FACT_FINDING_{len(findings) + 1:03d}",
+                        claim_id=claim.claim_id,
+                        severity=ClaimConfidence.HIGH,
+                        message="Claim is not fully grounded in known evidence IDs.",
+                        evidence_ids=missing_evidence_ids,
+                        citation_ids=claim.citation_ids,
+                    )
+                )
+            if missing_citation_ids:
+                citation_mismatches.append(claim.claim_id)
+                findings.append(
+                    FactCheckFinding(
+                        finding_id=f"FACT_FINDING_{len(findings) + 1:03d}",
+                        claim_id=claim.claim_id,
+                        severity=ClaimConfidence.HIGH,
+                        message="Claim references citations outside the retrieved citation set.",
+                        evidence_ids=claim.evidence_ids,
+                        citation_ids=missing_citation_ids,
+                    )
+                )
+
         contradictions: list[str] = []
-        if any(item.status != "uncontested" for item in simulation.case.evidence):
-            contradictions.append(
-                "Một số chứng cứ vẫn ở trạng thái disputed nên cần đối chiếu thêm trước khi kết luận."
+        disputed_evidence_ids = [item.evidence_id for item in simulation.case.evidence if item.status != "uncontested"]
+        if disputed_evidence_ids:
+            message = "Một số chứng cứ vẫn ở trạng thái disputed nên cần đối chiếu thêm trước khi kết luận."
+            contradictions.append(message)
+            findings.append(
+                FactCheckFinding(
+                    finding_id=f"FACT_FINDING_{len(findings) + 1:03d}",
+                    severity=ClaimConfidence.MEDIUM,
+                    message=message,
+                    evidence_ids=disputed_evidence_ids,
+                )
             )
-        if any(
-            evidence.challenged_by
+        challenged_evidence_ids = [
+            evidence.evidence_id
             for evidence in simulation.case.evidence
             if evidence.used_by and evidence.challenged_by
-        ):
-            contradictions.append(
-                "Có chứng cứ được cả hai bên viện dẫn nhưng đồng thời đang bị phản biện/challenged."
+        ]
+        if challenged_evidence_ids:
+            message = "Có chứng cứ được cả hai bên viện dẫn nhưng đồng thời đang bị phản biện/challenged."
+            contradictions.append(message)
+            findings.append(
+                FactCheckFinding(
+                    finding_id=f"FACT_FINDING_{len(findings) + 1:03d}",
+                    severity=ClaimConfidence.MEDIUM,
+                    message=message,
+                    evidence_ids=challenged_evidence_ids,
+                )
             )
         if any(
             claim.speaker.value == "defense_agent" and "thanh toán" in claim.content.lower()
             for claim in simulation.case.claims
         ):
-            contradictions.append(
-                "Lập luận của bị đơn cho thấy điều kiện thanh toán còn lại vẫn chưa được làm rõ hoàn toàn."
+            message = "Lập luận của bị đơn cho thấy điều kiện thanh toán còn lại vẫn chưa được làm rõ hoàn toàn."
+            contradictions.append(message)
+            findings.append(
+                FactCheckFinding(
+                    finding_id=f"FACT_FINDING_{len(findings) + 1:03d}",
+                    severity=ClaimConfidence.MEDIUM,
+                    message=message,
+                )
             )
 
         risk_level = ClaimConfidence.LOW
@@ -88,9 +134,10 @@ class VerificationService:
         elif contradictions:
             risk_level = ClaimConfidence.MEDIUM
         return FactCheckResult(
-            unsupported_claims=unsupported_claims,
-            contradictions=contradictions,
-            citation_mismatches=citation_mismatches,
+            unsupported_claims=dedupe(unsupported_claims),
+            contradictions=dedupe(contradictions),
+            citation_mismatches=dedupe(citation_mismatches),
+            findings=findings,
             risk_level=risk_level,
         )
 
@@ -98,17 +145,36 @@ class VerificationService:
         accepted: list[str] = []
         rejected: list[str] = []
         warnings: list[str] = []
+        findings: list[CitationVerificationFinding] = []
         for citation in simulation.case.citations:
             if citation.effective_status.value == "active":
                 accepted.append(citation.citation_id)
             elif citation.effective_status.value == "expired":
                 rejected.append(citation.citation_id)
-                warnings.append(
-                    f"Citation {citation.citation_id} ({citation.article}) đã hết hiệu lực hoặc cần thay thế."
+                message = f"Citation {citation.citation_id} ({citation.article}) đã hết hiệu lực hoặc cần thay thế."
+                warnings.append(message)
+                findings.append(
+                    CitationVerificationFinding(
+                        finding_id=f"CITE_FINDING_{len(findings) + 1:03d}",
+                        citation_id=citation.citation_id,
+                        severity=ClaimConfidence.HIGH,
+                        message=message,
+                        source=citation.source,
+                        effective_status=citation.effective_status,
+                    )
                 )
             else:
-                warnings.append(
-                    f"Citation {citation.citation_id} ({citation.article}) chưa xác định rõ trạng thái hiệu lực."
+                message = f"Citation {citation.citation_id} ({citation.article}) chưa xác định rõ trạng thái hiệu lực."
+                warnings.append(message)
+                findings.append(
+                    CitationVerificationFinding(
+                        finding_id=f"CITE_FINDING_{len(findings) + 1:03d}",
+                        citation_id=citation.citation_id,
+                        severity=ClaimConfidence.MEDIUM,
+                        message=message,
+                        source=citation.source,
+                        effective_status=citation.effective_status,
+                    )
                 )
 
         used_citation_ids = {
@@ -119,8 +185,15 @@ class VerificationService:
         retrieved_citation_ids = {citation.citation_id for citation in simulation.case.citations}
         for citation_id in sorted(used_citation_ids - retrieved_citation_ids):
             rejected.append(citation_id)
-            warnings.append(
-                f"Citation {citation_id} được dùng trong claim nhưng không tồn tại trong retrieved set."
+            message = f"Citation {citation_id} được dùng trong claim nhưng không tồn tại trong retrieved set."
+            warnings.append(message)
+            findings.append(
+                CitationVerificationFinding(
+                    finding_id=f"CITE_FINDING_{len(findings) + 1:03d}",
+                    citation_id=citation_id,
+                    severity=ClaimConfidence.HIGH,
+                    message=message,
+                )
             )
         if simulation.case.citations:
             warnings.append("Cần đối chiếu citation với nguồn văn bản pháp luật chính thức trước khi human review.")
@@ -128,6 +201,7 @@ class VerificationService:
             accepted_citations=dedupe(accepted),
             rejected_citations=dedupe(rejected),
             warnings=dedupe(warnings),
+            findings=findings,
         )
 
     def _build_audit_trail(

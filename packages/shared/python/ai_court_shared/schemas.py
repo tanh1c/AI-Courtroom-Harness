@@ -433,10 +433,29 @@ class HarnessViolation(BaseModel):
     related_turn_id: str | None = None
 
 
+class FactCheckFinding(BaseModel):
+    finding_id: str
+    claim_id: str | None = None
+    severity: ClaimConfidence
+    message: str
+    evidence_ids: list[str] = Field(default_factory=list)
+    citation_ids: list[str] = Field(default_factory=list)
+
+
+class CitationVerificationFinding(BaseModel):
+    finding_id: str
+    citation_id: str
+    severity: ClaimConfidence
+    message: str
+    source: str | None = None
+    effective_status: EffectiveStatus | None = None
+
+
 class FactCheckResult(BaseModel):
     unsupported_claims: list[str] = Field(default_factory=list)
     contradictions: list[str] = Field(default_factory=list)
     citation_mismatches: list[str] = Field(default_factory=list)
+    findings: list[FactCheckFinding] = Field(default_factory=list)
     risk_level: ClaimConfidence
 
 
@@ -444,6 +463,7 @@ class CitationVerificationResult(BaseModel):
     accepted_citations: list[str] = Field(default_factory=list)
     rejected_citations: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    findings: list[CitationVerificationFinding] = Field(default_factory=list)
 
 
 class AuditEvent(BaseModel):
