@@ -142,6 +142,7 @@ export default function App() {
   const claims = parsed?.claims ?? [];
   const citations = parsed?.citations ?? [];
   const documentArtifacts = caseDetail?.case_input.document_artifacts ?? [];
+  const citationStatusVariant = (status?: string) => (status === 'active' ? 'default' : status === 'expired' ? 'destructive' : 'outline');
   const v2Transcript = uiState?.transcript ?? [];
   const v1Transcript: CourtroomTurn[] = (v1Session?.turns ?? []).map((turn) => ({
     turn_id: turn.turn_id,
@@ -898,16 +899,34 @@ export default function App() {
                     </CollapsibleTrigger>
                     <CollapsibleContent className="space-y-3 p-3 pt-0">
                       {citations.slice(0, 5).map((item) => (
-                        <div className="flex gap-3" key={item.citation_id}>
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-red-900/20 bg-red-900/10 text-red-500">
-                            <BookOpen className="h-4 w-4" />
+                        <div className="rounded-lg border border-border/60 bg-card/60 p-3" key={item.citation_id}>
+                          <div className="mb-2 flex items-start gap-3">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-red-900/20 bg-red-900/10 text-red-500">
+                              <BookOpen className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h5 className="truncate text-sm font-semibold text-foreground/90">{item.article || item.chunk_id}</h5>
+                              <p className="truncate text-xs text-muted-foreground">{item.title}</p>
+                              <p className="mt-1 truncate text-[10px] text-muted-foreground">
+                                {item.so_ky_hieu || item.doc_id} · {item.co_quan_ban_hanh || 'unknown agency'}
+                              </p>
+                            </div>
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <h5 className="truncate text-sm font-semibold text-foreground/90">{item.article}</h5>
-                            <p className="mb-1 truncate text-xs text-muted-foreground">{item.title}</p>
-                            <Badge variant="outline" className="h-4 border-green-500/30 bg-green-500/5 px-1.5 py-0 text-[9px] text-green-600">
+                          <div className="flex flex-wrap gap-1.5">
+                            <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+                              {item.retrieval_method}
+                            </Badge>
+                            <Badge variant={citationStatusVariant(item.effective_status)} className="h-5 px-1.5 text-[10px]">
+                              {item.effective_status || 'unknown'}
+                            </Badge>
+                            <Badge variant="outline" className="h-5 border-green-500/30 bg-green-500/5 px-1.5 text-[10px] text-green-600">
                               score {item.retrieval_score.toFixed(2)}
                             </Badge>
+                          </div>
+                          <div className="mt-2 space-y-1 text-[10px] text-muted-foreground">
+                            <p className="truncate">source: {item.source || item.provenance.source || 'unknown'}</p>
+                            <p className="truncate">chunk: {item.doc_id} / {item.chunk_id}</p>
+                            <p className="truncate">field: {item.linh_vuc || 'unknown'} · effective: {item.ngay_co_hieu_luc || 'unknown'}</p>
                           </div>
                         </div>
                       ))}
