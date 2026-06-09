@@ -188,12 +188,28 @@ export type SimulationResponse = {
     unsupported_claims: string[];
     contradictions: string[];
     citation_mismatches: string[];
+    findings: Array<{
+      finding_id: string;
+      claim_id?: string | null;
+      severity: string;
+      message: string;
+      evidence_ids: string[];
+      citation_ids: string[];
+    }>;
     risk_level: string;
   };
   citation_verification: {
     accepted_citations: string[];
     rejected_citations: string[];
     warnings: string[];
+    findings: Array<{
+      finding_id: string;
+      citation_id: string;
+      severity: string;
+      message: string;
+      source?: string | null;
+      effective_status?: string | null;
+    }>;
   };
   audit_trail: AuditTrailResponse['audit_trail'];
   human_review: HumanReviewGate;

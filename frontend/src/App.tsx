@@ -235,6 +235,20 @@ export default function App() {
         ? (v1Session?.human_review.checklist ?? [])
         : (simulation?.human_review.checklist ?? [])
   ).slice(0, 3);
+  const safetyFindings = [
+    ...(simulation?.fact_check.findings ?? []).map((item) => ({
+      id: item.finding_id,
+      title: `fact-check · ${item.severity}`,
+      body: item.message,
+      meta: [item.claim_id, ...item.evidence_ids, ...item.citation_ids].filter(Boolean).join(' · '),
+    })),
+    ...(simulation?.citation_verification.findings ?? []).map((item) => ({
+      id: item.finding_id,
+      title: `citation · ${item.severity}`,
+      body: item.message,
+      meta: [item.citation_id, item.effective_status, item.source].filter(Boolean).join(' · '),
+    })),
+  ];
   const judgeNote =
     activeMode === 'v2'
       ? uiState?.simulated_decision?.summary || latestTurn?.utterance || ''
@@ -986,6 +1000,13 @@ export default function App() {
                         body: item.message,
                       }))}
                       empty="Chạy simulation để có audit trail."
+                    />
+                    <DataPanel
+                      icon={ShieldCheck}
+                      title="Safety findings"
+                      count={safetyFindings.length}
+                      items={safetyFindings.slice(0, 6)}
+                      empty="Simulation chưa tạo safety findings chi tiết."
                     />
                     <Card className="border-border/50 bg-background p-4 shadow-sm">
                       <div className="mb-3 flex items-center gap-2 text-primary">
