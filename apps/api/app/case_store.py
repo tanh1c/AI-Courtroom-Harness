@@ -16,6 +16,7 @@ from ai_court_shared.schemas import (
     CaseRecord,
     CaseState,
     CaseStatus,
+    DocumentArtifact,
     HearingSession,
     HumanReviewRecord,
     HtmlReportResponse,
@@ -66,6 +67,8 @@ def _ensure_storage() -> None:
             connection.execute("ALTER TABLE cases ADD COLUMN review_record_json TEXT")
         if "report_markdown_path" not in columns:
             connection.execute("ALTER TABLE cases ADD COLUMN report_markdown_path TEXT")
+        if "document_artifacts_json" not in columns:
+            connection.execute("ALTER TABLE cases ADD COLUMN document_artifacts_json TEXT")
 
 
 def _connect() -> sqlite3.Connection:
@@ -119,6 +122,20 @@ def _deserialize_attachments(raw_value: str) -> list[CaseAttachment]:
     return [CaseAttachment.model_validate(item) for item in payload]
 
 
+def _serialize_document_artifacts(artifacts: list[DocumentArtifact]) -> str:
+    return json.dumps(
+        [artifact.model_dump(mode="json") for artifact in artifacts],
+        ensure_ascii=False,
+    )
+
+
+def _deserialize_document_artifacts(raw_value: str | None) -> list[DocumentArtifact]:
+    if not raw_value:
+        return []
+    payload = json.loads(raw_value)
+    return [DocumentArtifact.model_validate(item) for item in payload]
+
+
 def _snapshot_case_input(case_input: CaseFileInput) -> None:
     _write_json(_case_dir(case_input.case_id) / "case.json", case_input.model_dump(mode="json"))
 
@@ -156,6 +173,7 @@ def _snapshot_review_record(case_id: str, review_record: HumanReviewRecord) -> N
 
 
 def _row_to_case_input(row: sqlite3.Row) -> CaseFileInput:
+    keys = set(row.keys())
     return CaseFileInput(
         case_id=row["case_id"],
         title=row["title"],
@@ -163,6 +181,9 @@ def _row_to_case_input(row: sqlite3.Row) -> CaseFileInput:
         language=row["language"],
         narrative=row["narrative"],
         attachments=_deserialize_attachments(row["attachments_json"]),
+        document_artifacts=_deserialize_document_artifacts(
+            row["document_artifacts_json"] if "document_artifacts_json" in keys else None
+        ),
     )
 
 
@@ -238,9 +259,9 @@ def create_case(request: CaseCreateRequest) -> CaseRecord:
             """
             INSERT INTO cases (
                 case_id, title, case_type, language, narrative, status,
-                attachments_json, parsed_state_json, created_at, updated_at
+                attachments_json, document_artifacts_json, parsed_state_json, created_at, updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 case_input.case_id,
@@ -250,6 +271,7 @@ def create_case(request: CaseCreateRequest) -> CaseRecord:
                 case_input.narrative,
                 CaseStatus.DRAFT,
                 _serialize_attachments(case_input.attachments),
+                _serialize_document_artifacts(case_input.document_artifacts),
                 None,
                 now,
                 now,
@@ -630,15 +652,17 @@ def add_case_attachment(
             language=case_input.language,
             narrative=case_input.narrative,
             attachments=attachments,
+            document_artifacts=case_input.document_artifacts,
         )
         connection.execute(
             """
             UPDATE cases
-            SET attachments_json = ?, status = ?, parsed_state_json = ?, updated_at = ?
+            SET attachments_json = ?, document_artifacts_json = ?, status = ?, parsed_state_json = ?, updated_at = ?
             WHERE case_id = ?
             """,
             (
                 _serialize_attachments(updated_case_input.attachments),
+                _serialize_document_artifacts(updated_case_input.document_artifacts),
                 CaseStatus.DRAFT,
                 None,
                 _utc_now(),

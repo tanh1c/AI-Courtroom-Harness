@@ -102,6 +102,19 @@ export type CaseDetail = {
     title: string;
     narrative: string;
     attachments: Array<{attachment_id: string; filename: string; note?: string | null}>;
+    document_artifacts: Array<{
+      artifact_id: string;
+      attachment_id: string;
+      filename: string;
+      kind: string;
+      status: string;
+      page_count: number;
+      chunk_count: number;
+      extracted_char_count: number;
+      extracted_text_excerpt?: string | null;
+      source: string;
+      warnings: string[];
+    }>;
   };
   parsed_case?: {
     facts: Array<{fact_id: string; content: string; confidence: string; source: string}>;

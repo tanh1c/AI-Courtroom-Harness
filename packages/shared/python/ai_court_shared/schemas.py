@@ -136,6 +136,19 @@ class AttachmentParseStatus(str, Enum):
     UNREADABLE = "unreadable"
 
 
+class DocumentArtifactStatus(str, Enum):
+    INGESTED = "ingested"
+    METADATA_ONLY = "metadata_only"
+    MISSING_FILE = "missing_file"
+    UNREADABLE = "unreadable"
+
+
+class DocumentArtifactKind(str, Enum):
+    PDF = "pdf"
+    TEXT = "text"
+    OTHER = "other"
+
+
 class TrialProcedureStage(str, Enum):
     CASE_PREPARATION = "case_preparation"
     OPENING_FORMALITIES = "opening_formalities"
@@ -174,6 +187,20 @@ class CaseAttachment(BaseModel):
     local_path: str | None = None
 
 
+class DocumentArtifact(BaseModel):
+    artifact_id: str
+    attachment_id: str
+    filename: str
+    kind: DocumentArtifactKind
+    status: DocumentArtifactStatus
+    page_count: int = 0
+    chunk_count: int = 0
+    extracted_char_count: int = 0
+    extracted_text_excerpt: str | None = None
+    source: str
+    warnings: list[str] = Field(default_factory=list)
+
+
 class CaseFileInput(BaseModel):
     case_id: str
     title: str
@@ -181,6 +208,7 @@ class CaseFileInput(BaseModel):
     language: str = "vi"
     narrative: str
     attachments: list[CaseAttachment] = Field(default_factory=list)
+    document_artifacts: list[DocumentArtifact] = Field(default_factory=list)
 
 
 class CaseCreateRequest(BaseModel):
