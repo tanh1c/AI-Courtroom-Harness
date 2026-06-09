@@ -800,3 +800,10 @@ class HtmlReportResponse(BaseModel):
     report_status: CaseStatus
     html_path: str
     html: str
+
+
+class PrintableReportResponse(BaseModel):
+    case_id: str
+    report_status: CaseStatus
+    printable_path: str
+    html: str

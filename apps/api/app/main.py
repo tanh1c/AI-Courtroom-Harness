@@ -25,6 +25,7 @@ from .case_store import (
     load_hearing_record_html,
     load_hearing_record_markdown,
     load_markdown_report,
+    load_printable_report,
     load_review_record,
     load_simulation_response,
     load_v2_trial_record_html,
@@ -37,6 +38,7 @@ from .case_store import (
     save_hearing_record_html,
     save_hearing_record_markdown,
     save_markdown_report,
+    save_printable_report,
     save_review_record,
     save_simulation_response,
     save_v2_trial_record_html,
@@ -90,6 +92,7 @@ from ai_court_shared.schemas import (
     LegalSearchResponse,
     MarkdownReportResponse,
     ParseCaseResponse,
+    PrintableReportResponse,
     ReportResponse,
     SimulationResponse,
     V2TrialAdvanceRequest,
@@ -653,4 +656,44 @@ def get_markdown_export(case_id: str) -> MarkdownReportResponse:
     report = load_markdown_report(case_id)
     if report is None:
         raise HTTPException(status_code=404, detail=f"Markdown report not found: {case_id}")
+    return report
+
+
+@app.post("/api/v1/reports/{case_id}/printable", response_model=PrintableReportResponse)
+def export_printable_report(case_id: str) -> PrintableReportResponse:
+    simulation_response = load_simulation_response(case_id)
+    if simulation_response is None:
+        raise HTTPException(status_code=404, detail=f"Simulation not found: {case_id}")
+    if simulation_response.case.status != CaseStatus.REPORT_READY:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Report is not ready for printable export: {simulation_response.case.status.value}",
+        )
+
+    markdown_report = load_markdown_report(case_id)
+    markdown = (
+        markdown_report.markdown
+        if markdown_report is not None
+        else get_markdown_report_service().render(simulation_response, load_review_record(case_id))
+    )
+    if markdown_report is None:
+        save_markdown_report(case_id, markdown)
+    html = get_html_report_service().render(
+        title=f"AI Courtroom Harness Printable Report - {case_id}",
+        markdown_text=markdown,
+    )
+    printable_path = save_printable_report(case_id, html)
+    return PrintableReportResponse(
+        case_id=case_id,
+        report_status=simulation_response.case.status,
+        printable_path=printable_path,
+        html=html,
+    )
+
+
+@app.get("/api/v1/reports/{case_id}/printable", response_model=PrintableReportResponse)
+def get_printable_export(case_id: str) -> PrintableReportResponse:
+    report = load_printable_report(case_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail=f"Printable report not found: {case_id}")
     return report

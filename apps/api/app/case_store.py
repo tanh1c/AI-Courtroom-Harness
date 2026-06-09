@@ -21,6 +21,7 @@ from ai_court_shared.schemas import (
     HumanReviewRecord,
     HtmlReportResponse,
     MarkdownReportResponse,
+    PrintableReportResponse,
     SimulationResponse,
     V2TrialSession,
 )
@@ -67,6 +68,8 @@ def _ensure_storage() -> None:
             connection.execute("ALTER TABLE cases ADD COLUMN review_record_json TEXT")
         if "report_markdown_path" not in columns:
             connection.execute("ALTER TABLE cases ADD COLUMN report_markdown_path TEXT")
+        if "report_printable_path" not in columns:
+            connection.execute("ALTER TABLE cases ADD COLUMN report_printable_path TEXT")
         if "document_artifacts_json" not in columns:
             connection.execute("ALTER TABLE cases ADD COLUMN document_artifacts_json TEXT")
 
@@ -517,6 +520,27 @@ def save_markdown_report(case_id: str, markdown: str) -> str:
     return str(path)
 
 
+def save_printable_report(case_id: str, html: str) -> str:
+    _ensure_storage()
+    path = _case_dir(case_id) / "report_printable.html"
+    _write_text(path, html)
+    with _connect() as connection:
+        connection.execute(
+            """
+            UPDATE cases
+            SET report_printable_path = ?, updated_at = ?
+            WHERE case_id = ?
+            """,
+            (
+                str(path),
+                _utc_now(),
+                case_id,
+            ),
+        )
+        connection.commit()
+    return str(path)
+
+
 def save_hearing_record_markdown(case_id: str, markdown: str) -> str:
     path = _case_dir(case_id) / "hearing_v1_record.md"
     _write_text(path, markdown)
@@ -625,6 +649,33 @@ def load_markdown_report(case_id: str) -> MarkdownReportResponse | None:
         report_status=simulation_response.case.status,
         markdown_path=str(path),
         markdown=path.read_text(encoding="utf-8"),
+    )
+
+
+def load_printable_report(case_id: str) -> PrintableReportResponse | None:
+    _ensure_storage()
+    simulation_response = load_simulation_response(case_id)
+    if simulation_response is None:
+        return None
+    with _connect() as connection:
+        row = connection.execute(
+            "SELECT report_printable_path FROM cases WHERE case_id = ?",
+            (case_id,),
+        ).fetchone()
+    printable_path = row["report_printable_path"] if row is not None else None
+    if not printable_path:
+        path = _case_dir(case_id) / "report_printable.html"
+        if not path.exists():
+            return None
+        printable_path = str(path)
+    path = Path(printable_path)
+    if not path.exists():
+        return None
+    return PrintableReportResponse(
+        case_id=case_id,
+        report_status=simulation_response.case.status,
+        printable_path=str(path),
+        html=path.read_text(encoding="utf-8"),
     )
 
 
