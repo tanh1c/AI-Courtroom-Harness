@@ -317,6 +317,25 @@ def load_case_input(case_id: str) -> CaseFileInput | None:
     return None
 
 
+def save_document_artifacts(case_input: CaseFileInput) -> None:
+    _ensure_storage()
+    with _connect() as connection:
+        connection.execute(
+            """
+            UPDATE cases
+            SET document_artifacts_json = ?, updated_at = ?
+            WHERE case_id = ?
+            """,
+            (
+                _serialize_document_artifacts(case_input.document_artifacts),
+                _utc_now(),
+                case_input.case_id,
+            ),
+        )
+        connection.commit()
+    _snapshot_case_input(case_input)
+
+
 def save_case_state(case_state: CaseState) -> None:
     _ensure_storage()
     with _connect() as connection:

@@ -32,6 +32,7 @@ from .case_store import (
     load_v2_trial_session,
     list_cases,
     save_case_state,
+    save_document_artifacts,
     save_hearing_session,
     save_hearing_record_html,
     save_hearing_record_markdown,
@@ -263,6 +264,7 @@ def parse_case(case_id: str) -> ParseCaseResponse:
         raise HTTPException(status_code=404, detail=f"Case not found: {case_id}")
 
     case_state = parse_case_input(case_input)
+    save_document_artifacts(case_input)
     save_case_state(case_state)
     return ParseCaseResponse(case=case_state)
 

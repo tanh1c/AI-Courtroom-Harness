@@ -5,6 +5,8 @@ import unicodedata
 from pathlib import Path
 
 from pypdf import PdfReader
+
+from .document_ingestion import build_document_artifacts
 from ai_court_shared.schemas import (
     AttachmentParseResult,
     AttachmentParseStatus,
@@ -417,6 +419,8 @@ def build_legal_issues(case_input: CaseFileInput, attachment_parses: list[Attach
 
 
 def parse_case_input(case_input: CaseFileInput) -> CaseState:
+    document_artifacts = build_document_artifacts(case_input.attachments)
+    case_input.document_artifacts = document_artifacts
     attachment_parses = build_attachment_parses(case_input.attachments)
     narrative_facts = build_facts(case_input, attachment_parses)
     attachment_facts = build_attachment_facts(attachment_parses, len(narrative_facts) + 1)
