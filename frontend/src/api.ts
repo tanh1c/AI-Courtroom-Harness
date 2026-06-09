@@ -130,12 +130,25 @@ export type CaseDetail = {
     }>;
     citations: Array<{
       citation_id: string;
+      doc_id: string;
+      chunk_id: string;
       article: string;
+      clause?: string | null;
       title: string;
+      so_ky_hieu?: string | null;
+      loai_van_ban?: string | null;
+      co_quan_ban_hanh?: string | null;
+      linh_vuc?: string | null;
       content?: string;
       retrieval_score: number;
+      retrieval_method: string;
       effective_status?: string;
+      raw_effective_status?: string | null;
+      ngay_ban_hanh?: string | null;
+      ngay_co_hieu_luc?: string | null;
+      ngay_het_hieu_luc?: string | null;
       source?: string;
+      provenance: Record<string, string | null>;
     }>;
   } | null;
 };

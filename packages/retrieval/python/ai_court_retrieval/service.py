@@ -96,17 +96,33 @@ class LocalLegalRetrievalService:
                 return False
         return True
 
-    def _to_citation(self, chunk: LegalChunk, score: float) -> Citation:
+    def _to_citation(self, chunk: LegalChunk, score: float, strategy: RetrievalStrategy) -> Citation:
         return Citation(
             citation_id=chunk.chunk_id,
             doc_id=chunk.doc_id,
+            chunk_id=chunk.chunk_id,
             title=chunk.title,
+            so_ky_hieu=chunk.so_ky_hieu,
+            loai_van_ban=chunk.loai_van_ban,
+            co_quan_ban_hanh=chunk.co_quan_ban_hanh,
+            linh_vuc=chunk.linh_vuc,
             article=chunk.article or "",
             clause=chunk.clause,
             content=chunk.content,
             retrieval_score=round(score, 4),
+            retrieval_method=strategy,
             effective_status=map_effective_status(chunk.tinh_trang_hieu_luc),
+            raw_effective_status=chunk.tinh_trang_hieu_luc,
+            ngay_ban_hanh=chunk.ngay_ban_hanh,
+            ngay_co_hieu_luc=chunk.ngay_co_hieu_luc,
+            ngay_het_hieu_luc=chunk.ngay_het_hieu_luc,
             source=chunk.source,
+            provenance={
+                "corpus_path": str(self.corpus_path),
+                "doc_id": chunk.doc_id,
+                "chunk_id": chunk.chunk_id,
+                "source": chunk.source,
+            },
         )
 
     def _bm25_rank(self, request: LegalSearchRequest) -> list[tuple[int, float]]:
@@ -145,7 +161,7 @@ class LocalLegalRetrievalService:
     def search(self, request: LegalSearchRequest) -> LegalSearchResponse:
         ranked, strategy = self._hybrid_rank(request)
         citations = [
-            self._to_citation(self.chunks[index], score)
+            self._to_citation(self.chunks[index], score, strategy)
             for index, score in ranked[: request.top_k]
         ]
         return LegalSearchResponse(

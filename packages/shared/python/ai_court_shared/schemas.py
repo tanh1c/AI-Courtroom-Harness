@@ -286,13 +286,24 @@ class Claim(BaseModel):
 class Citation(BaseModel):
     citation_id: str
     doc_id: str
+    chunk_id: str
     title: str
+    so_ky_hieu: str | None = None
+    loai_van_ban: str | None = None
+    co_quan_ban_hanh: str | None = None
+    linh_vuc: str | None = None
     article: str
     clause: str | None = None
     content: str
     retrieval_score: float
+    retrieval_method: RetrievalStrategy
     effective_status: EffectiveStatus
+    raw_effective_status: str | None = None
+    ngay_ban_hanh: str | None = None
+    ngay_co_hieu_luc: str | None = None
+    ngay_het_hieu_luc: str | None = None
     source: str
+    provenance: dict[str, str | None] = Field(default_factory=dict)
 
 
 class LegalSearchFilter(BaseModel):
