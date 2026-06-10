@@ -17,10 +17,12 @@ from .case_parser import parse_case_input
 from .case_store import (
     add_case_attachment,
     create_case as create_case_record,
+    create_eval_run,
     load_audit_trail,
     load_case_detail,
     load_case_input,
     load_case_state,
+    load_eval_runs,
     load_hearing_session,
     load_hearing_record_html,
     load_hearing_record_markdown,
@@ -45,6 +47,11 @@ from .case_store import (
     save_v2_trial_record_markdown,
     save_v2_trial_session,
     store_uploaded_attachment_file,
+)
+from .security_guardrails import (
+    validate_attachment,
+    validate_case_payload,
+    validate_search_query,
 )
 from ai_court_orchestration.service import (
     get_courtroom_simulation_service,
@@ -77,6 +84,8 @@ from ai_court_shared.schemas import (
     CaseListResponse,
     CaseStatus,
     ClaimConfidence,
+    EvalRunListResponse,
+    EvalRunRecord,
     HumanReviewGate,
     HearingAdvanceRequest,
     HearingEvidenceChallengesResponse,
@@ -117,6 +126,15 @@ def utc_now() -> str:
 
 def next_audit_event_id(events: list[AuditEvent]) -> str:
     return f"AUDIT_{len(events) + 1:03d}"
+
+
+def enforce_guardrail(response) -> None:
+    if response.allowed:
+        return
+    raise HTTPException(
+        status_code=400,
+        detail=response.model_dump(mode="json"),
+    )
 
 
 def resolve_human_review(
@@ -224,6 +242,7 @@ def get_cases() -> CaseListResponse:
 
 @app.post("/api/v1/cases", response_model=CaseCreateResponse)
 def create_case(request: CaseCreateRequest) -> CaseCreateResponse:
+    enforce_guardrail(validate_case_payload(request.title, request.narrative))
     record = create_case_record(request)
     return CaseCreateResponse(case=record)
 
@@ -247,6 +266,7 @@ async def upload_case_attachment(
         raise HTTPException(status_code=404, detail=f"Case not found: {case_id}")
 
     payload = await file.read()
+    enforce_guardrail(validate_attachment(file.filename, file.content_type or "application/octet-stream", len(payload)))
     local_path = store_uploaded_attachment_file(case_id, file.filename, payload)
     case_detail = add_case_attachment(
         case_id=case_id,
@@ -288,8 +308,25 @@ def get_case_audit(case_id: str) -> AuditTrailResponse:
     return audit_response
 
 
+@app.post("/api/v1/cases/{case_id}/eval-runs", response_model=EvalRunRecord)
+def create_case_eval_run(case_id: str) -> EvalRunRecord:
+    eval_run = create_eval_run(case_id)
+    if eval_run is None:
+        raise HTTPException(status_code=404, detail=f"Simulation not found: {case_id}")
+    return eval_run
+
+
+@app.get("/api/v1/cases/{case_id}/eval-runs", response_model=EvalRunListResponse)
+def get_case_eval_runs(case_id: str) -> EvalRunListResponse:
+    case_detail = load_case_detail(case_id)
+    if case_detail is None:
+        raise HTTPException(status_code=404, detail=f"Case not found: {case_id}")
+    return load_eval_runs(case_id)
+
+
 @app.post("/api/v1/legal-search", response_model=LegalSearchResponse)
 def legal_search(request: LegalSearchRequest) -> LegalSearchResponse:
+    enforce_guardrail(validate_search_query(request.query))
     service = get_local_legal_retrieval_service()
     return service.search(request)
 

@@ -1,5 +1,32 @@
 # Demo Scripts
 
+## Production-readiness check
+
+Before a portfolio demo, run the local readiness gate from the repo root:
+
+```powershell
+npm run demo:ready
+npm run smoke
+npm run typecheck
+npm run build:web
+```
+
+What it verifies:
+
+- API imports and health route work through FastAPI `TestClient`
+- legal search returns citations from the local retrieval stack
+- prompt-injection guardrails block unsafe search input
+- case parse, simulation, human review, EvalOps, and printable export work end-to-end
+- smoke tests cover security, retrieval, EvalOps, and report export regressions
+- frontend TypeScript and production build pass
+
+To run the API and frontend manually for the browser demo:
+
+```powershell
+npm run serve:api
+npm run dev:web
+```
+
 Run the scripted MVP demo from the repo root:
 
 ```powershell

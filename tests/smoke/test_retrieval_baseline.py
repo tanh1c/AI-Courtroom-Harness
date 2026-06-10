@@ -30,3 +30,20 @@ def test_retrieval_baseline_recall_threshold() -> None:
 
     recall_at_k = total_hits / total_expected
     assert recall_at_k >= MIN_RECALL_AT_K
+
+
+def test_local_hybrid_retrieval_returns_vector_enriched_provenance() -> None:
+    service = get_local_legal_retrieval_service()
+    response = service.search(
+        LegalSearchRequest(
+            query="nghĩa vụ giao tài sản và thanh toán trong hợp đồng mua bán",
+            top_k=5,
+        )
+    )
+
+    assert response.query_strategy == RetrievalStrategy.HYBRID
+    assert response.citations
+    assert all(citation.retrieval_method == RetrievalStrategy.HYBRID for citation in response.citations)
+    assert all(citation.provenance["retrieval_strategy"] == "local_hybrid" for citation in response.citations)
+    assert all(citation.provenance["vector_backend"] == "hashed_token_cosine" for citation in response.citations)
+    assert all(citation.retrieval_score > 0 for citation in response.citations)

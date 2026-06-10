@@ -11,6 +11,9 @@
     "dev:web": "npm --prefix frontend run dev",
     "build:web": "npm --prefix frontend run build",
     "dev:api": ".venv\\Scripts\\python.exe -m uvicorn apps.api.app.main:app --reload",
-    "typecheck": "npm --prefix frontend run lint"
+    "serve:api": ".venv\\Scripts\\python.exe -m uvicorn apps.api.app.main:app --host 0.0.0.0 --port 8000",
+    "typecheck": "npm --prefix frontend run lint",
+    "smoke": ".venv\\Scripts\\python.exe -m pytest tests/smoke/test_security_guardrails.py tests/smoke/test_retrieval_baseline.py tests/smoke/test_evalops_observability.py tests/smoke/test_report_exports.py -q",
+    "demo:ready": ".venv\\Scripts\\python.exe scripts/demos/check_demo_readiness.py"
   }
 }

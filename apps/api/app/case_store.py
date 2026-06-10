@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from ai_court_shared.schemas import (
+    AuditStage,
     AuditTrailResponse,
     CaseAttachment,
     CaseCreateRequest,
@@ -16,13 +17,19 @@ from ai_court_shared.schemas import (
     CaseRecord,
     CaseState,
     CaseStatus,
+    ClaimConfidence,
     DocumentArtifact,
+    EvalMetric,
+    EvalRunListResponse,
+    EvalRunRecord,
+    EvalTraceStep,
     HearingSession,
     HumanReviewRecord,
     HtmlReportResponse,
     MarkdownReportResponse,
     PrintableReportResponse,
     SimulationResponse,
+    TurnStatus,
     V2TrialSession,
 )
 
@@ -444,6 +451,85 @@ def load_audit_trail(case_id: str) -> AuditTrailResponse | None:
         audit_trail=simulation_response.audit_trail,
         human_review=simulation_response.human_review,
     )
+
+
+def _eval_runs_path(case_id: str) -> Path:
+    return _case_dir(case_id) / "eval_runs.json"
+
+
+def _eval_metric(name: str, value: float, threshold: float | None = None) -> EvalMetric:
+    return EvalMetric(
+        name=name,
+        value=value,
+        threshold=threshold,
+        passed=threshold is None or value <= threshold,
+    )
+
+
+def _build_eval_run(simulation_response: SimulationResponse) -> EvalRunRecord:
+    case_id = simulation_response.case.case_id
+    findings = simulation_response.fact_check.findings
+    citation_findings = simulation_response.citation_verification.findings
+    high_audit_events = [
+        event
+        for event in simulation_response.audit_trail
+        if event.severity == ClaimConfidence.HIGH
+    ]
+    trace_steps = [
+        EvalTraceStep(
+            step_id=event.event_id,
+            stage=event.stage,
+            status=TurnStatus.NEEDS_REVIEW if event.severity == ClaimConfidence.HIGH else TurnStatus.OK,
+            summary=event.message,
+            related_claim_ids=event.related_claim_ids,
+            related_citation_ids=event.related_citation_ids,
+            related_evidence_ids=event.related_evidence_ids,
+        )
+        for event in simulation_response.audit_trail
+    ]
+    metrics = [
+        _eval_metric("unsupported_claims", float(len(simulation_response.fact_check.unsupported_claims)), 0),
+        _eval_metric("citation_mismatches", float(len(simulation_response.fact_check.citation_mismatches)), 0),
+        _eval_metric("rejected_citations", float(len(simulation_response.citation_verification.rejected_citations)), 0),
+        _eval_metric("fact_check_findings", float(len(findings)), 0),
+        _eval_metric("citation_findings", float(len(citation_findings)), 0),
+        _eval_metric("high_audit_events", float(len(high_audit_events)), 0),
+        _eval_metric("human_review_blocked", 1.0 if simulation_response.human_review.blocked else 0.0, 0),
+    ]
+    failed_metrics = [metric.name for metric in metrics if not metric.passed]
+    return EvalRunRecord(
+        eval_run_id=f"EVAL_{datetime.now(UTC).strftime('%Y%m%d%H%M%S%f')}",
+        case_id=case_id,
+        created_at=_utc_now(),
+        status=TurnStatus.NEEDS_REVIEW if failed_metrics else TurnStatus.OK,
+        metrics=metrics,
+        trace_steps=trace_steps,
+        warnings=failed_metrics,
+        human_review=simulation_response.human_review,
+    )
+
+
+def create_eval_run(case_id: str) -> EvalRunRecord | None:
+    _ensure_storage()
+    simulation_response = load_simulation_response(case_id)
+    if simulation_response is None:
+        return None
+    eval_run = _build_eval_run(simulation_response)
+    existing = load_eval_runs(case_id)
+    runs = [eval_run, *existing.eval_runs]
+    _write_json(
+        _eval_runs_path(case_id),
+        EvalRunListResponse(case_id=case_id, eval_runs=runs).model_dump(mode="json"),
+    )
+    return eval_run
+
+
+def load_eval_runs(case_id: str) -> EvalRunListResponse:
+    _ensure_storage()
+    path = _eval_runs_path(case_id)
+    if not path.exists():
+        return EvalRunListResponse(case_id=case_id)
+    return EvalRunListResponse.model_validate(_read_json(path))
 
 
 def load_review_record(case_id: str) -> HumanReviewRecord | None:

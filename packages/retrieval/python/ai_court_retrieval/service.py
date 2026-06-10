@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+import math
+from collections import Counter
 from functools import lru_cache
 from pathlib import Path
 
@@ -39,11 +42,36 @@ FALLBACK_CORPUS_PATH = (
 )
 import re
 TOKEN_PATTERN = re.compile(r"\w+", re.UNICODE)
+HASH_VECTOR_DIMENSIONS = 256
 logger = logging.getLogger(__name__)
 
 
 def tokenize(text: str) -> list[str]:
     return TOKEN_PATTERN.findall(text.lower())
+
+
+def _hash_token(token: str) -> int:
+    digest = hashlib.blake2b(token.encode("utf-8"), digest_size=4).digest()
+    return int.from_bytes(digest, "big") % HASH_VECTOR_DIMENSIONS
+
+
+def hashed_embedding(text: str) -> dict[int, float]:
+    token_counts = Counter(tokenize(text))
+    if not token_counts:
+        return {}
+    vector = {index: float(count) for index, count in ((_hash_token(token), count) for token, count in token_counts.items())}
+    norm = math.sqrt(sum(value * value for value in vector.values()))
+    if norm == 0:
+        return {}
+    return {index: value / norm for index, value in vector.items()}
+
+
+def cosine_similarity(left: dict[int, float], right: dict[int, float]) -> float:
+    if not left or not right:
+        return 0.0
+    if len(left) > len(right):
+        left, right = right, left
+    return sum(value * right.get(index, 0.0) for index, value in left.items())
 
 
 def map_effective_status(value: str | None) -> EffectiveStatus:
@@ -64,7 +92,9 @@ class LocalLegalRetrievalService:
         self.corpus_path = corpus_path or default_corpus
         self.chunks = self._load_chunks()
         self.chunk_index_by_id = {chunk.chunk_id: index for index, chunk in enumerate(self.chunks)}
-        self.tokenized_corpus = [tokenize(self._chunk_text(chunk)) for chunk in self.chunks]
+        self.chunk_texts = [self._chunk_text(chunk) for chunk in self.chunks]
+        self.tokenized_corpus = [tokenize(text) for text in self.chunk_texts]
+        self.chunk_embeddings = [hashed_embedding(text) for text in self.chunk_texts]
         self.bm25 = BM25Okapi(self.tokenized_corpus)
 
     def _load_chunks(self) -> list[LegalChunk]:
@@ -122,6 +152,8 @@ class LocalLegalRetrievalService:
                 "doc_id": chunk.doc_id,
                 "chunk_id": chunk.chunk_id,
                 "source": chunk.source,
+                "retrieval_strategy": "local_hybrid" if strategy == RetrievalStrategy.HYBRID else "bm25_local",
+                "vector_backend": "hashed_token_cosine" if strategy == RetrievalStrategy.HYBRID else None,
             },
         )
 
@@ -135,28 +167,51 @@ class LocalLegalRetrievalService:
         ranked.sort(key=lambda item: item[1], reverse=True)
         return ranked
 
+    def _local_vector_rank(self, request: LegalSearchRequest) -> list[tuple[int, float]]:
+        query_embedding = hashed_embedding(request.query)
+        ranked = []
+        for index, chunk_embedding in enumerate(self.chunk_embeddings):
+            if not self._matches_filters(self.chunks[index], request):
+                continue
+            score = cosine_similarity(query_embedding, chunk_embedding)
+            if score <= 0:
+                continue
+            ranked.append((index, score))
+        ranked.sort(key=lambda item: item[1], reverse=True)
+        return ranked
+
     def _hybrid_rank(self, request: LegalSearchRequest) -> tuple[list[tuple[int, float]], RetrievalStrategy]:
         bm25_ranked = self._bm25_rank(request)
+        local_vector_ranked = self._local_vector_rank(request)
         remote_client = RemoteVectorClient.from_env()
-        if remote_client is None:
-            return bm25_ranked, RetrievalStrategy.BM25_LOCAL
-
-        try:
-            vector_response = remote_client.search(request, top_k=50)
-        except Exception as exc:
-            logger.warning("Remote vector search failed; falling back to BM25 only: %s", exc)
-            return bm25_ranked, RetrievalStrategy.BM25_LOCAL
+        remote_ranked: list[tuple[int, float]] = []
+        if remote_client is not None:
+            try:
+                vector_response = remote_client.search(request, top_k=50)
+            except Exception as exc:
+                logger.warning("Remote vector search failed; falling back to local hybrid only: %s", exc)
+            else:
+                for result in vector_response.results[:50]:
+                    index = self.chunk_index_by_id.get(result.chunk_id)
+                    if index is None or not self._matches_filters(self.chunks[index], request):
+                        continue
+                    remote_ranked.append((index, float(result.score)))
 
         fused_scores: dict[int, float] = {}
         for rank, (index, _) in enumerate(bm25_ranked[:50], start=1):
             fused_scores[index] = fused_scores.get(index, 0.0) + 1.0 / (60 + rank)
-        for rank, result in enumerate(vector_response.results[:50], start=1):
-            index = self.chunk_index_by_id.get(result.chunk_id)
-            if index is None:
-                continue
+        for rank, (index, _) in enumerate(local_vector_ranked[:50], start=1):
+            fused_scores[index] = fused_scores.get(index, 0.0) + 1.0 / (60 + rank)
+        for rank, (index, _) in enumerate(remote_ranked[:50], start=1):
             fused_scores[index] = fused_scores.get(index, 0.0) + 1.0 / (60 + rank)
 
-        return sorted(fused_scores.items(), key=lambda item: item[1], reverse=True), RetrievalStrategy.HYBRID
+        if remote_ranked:
+            strategy = RetrievalStrategy.HYBRID
+        elif local_vector_ranked:
+            strategy = RetrievalStrategy.HYBRID
+        else:
+            strategy = RetrievalStrategy.BM25_LOCAL
+        return sorted(fused_scores.items(), key=lambda item: item[1], reverse=True), strategy
 
     def search(self, request: LegalSearchRequest) -> LegalSearchResponse:
         ranked, strategy = self._hybrid_rank(request)

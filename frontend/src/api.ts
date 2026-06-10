@@ -182,6 +182,35 @@ export type AuditTrailResponse = {
   human_review: HumanReviewGate;
 };
 
+export type EvalRunRecord = {
+  eval_run_id: string;
+  case_id: string;
+  created_at: string;
+  status: string;
+  metrics: Array<{
+    name: string;
+    value: number;
+    threshold?: number | null;
+    passed: boolean;
+  }>;
+  trace_steps: Array<{
+    step_id: string;
+    stage: string;
+    status: string;
+    summary: string;
+    related_claim_ids: string[];
+    related_citation_ids: string[];
+    related_evidence_ids: string[];
+  }>;
+  warnings: string[];
+  human_review: HumanReviewGate;
+};
+
+export type EvalRunListResponse = {
+  case_id: string;
+  eval_runs: EvalRunRecord[];
+};
+
 export type SimulationResponse = {
   case: NonNullable<CaseDetail['parsed_case']> & {case_id: string; title: string; status: string};
   fact_check: {
@@ -433,6 +462,14 @@ export async function simulateCase(caseId: string): Promise<SimulationResponse> 
 
 export async function getAuditTrail(caseId: string): Promise<AuditTrailResponse> {
   return requestJson<AuditTrailResponse>(`/api/v1/cases/${caseId}/audit`);
+}
+
+export async function createEvalRun(caseId: string): Promise<EvalRunRecord> {
+  return requestJson<EvalRunRecord>(`/api/v1/cases/${caseId}/eval-runs`, {method: 'POST'});
+}
+
+export async function getEvalRuns(caseId: string): Promise<EvalRunListResponse> {
+  return requestJson<EvalRunListResponse>(`/api/v1/cases/${caseId}/eval-runs`);
 }
 
 export async function reviewCase(options: {

@@ -476,6 +476,18 @@ class AuditEvent(BaseModel):
     related_evidence_ids: list[str] = Field(default_factory=list)
 
 
+class SecurityGuardrailFinding(BaseModel):
+    finding_id: str
+    field: str
+    severity: ClaimConfidence
+    message: str
+
+
+class SecurityGuardrailResponse(BaseModel):
+    allowed: bool
+    findings: list[SecurityGuardrailFinding] = Field(default_factory=list)
+
+
 class HumanReviewGate(BaseModel):
     required: bool
     blocked: bool
@@ -807,3 +819,36 @@ class PrintableReportResponse(BaseModel):
     report_status: CaseStatus
     printable_path: str
     html: str
+
+
+class EvalMetric(BaseModel):
+    name: str
+    value: float
+    threshold: float | None = None
+    passed: bool = True
+
+
+class EvalTraceStep(BaseModel):
+    step_id: str
+    stage: AuditStage
+    status: TurnStatus
+    summary: str
+    related_claim_ids: list[str] = Field(default_factory=list)
+    related_citation_ids: list[str] = Field(default_factory=list)
+    related_evidence_ids: list[str] = Field(default_factory=list)
+
+
+class EvalRunRecord(BaseModel):
+    eval_run_id: str
+    case_id: str
+    created_at: str
+    status: TurnStatus
+    metrics: list[EvalMetric] = Field(default_factory=list)
+    trace_steps: list[EvalTraceStep] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    human_review: HumanReviewGate
+
+
+class EvalRunListResponse(BaseModel):
+    case_id: str
+    eval_runs: list[EvalRunRecord] = Field(default_factory=list)

@@ -34,6 +34,7 @@ import {
   CaseDetail,
   CaseRecord,
   CourtroomTurn,
+  EvalRunRecord,
   ReportResponse,
   ReviewResponse,
   SimulationResponse,
@@ -45,6 +46,7 @@ import {
   advanceV1,
   advanceV2,
   createCase,
+  createEvalRun,
   exportMvpMarkdown,
   exportMvpPrintable,
   exportV1Html,
@@ -53,6 +55,7 @@ import {
   exportV2Markdown,
   getAuditTrail,
   getCase,
+  getEvalRuns,
   getReport,
   getV1Challenges,
   getV1Hearing,
@@ -111,6 +114,7 @@ export default function App() {
   const [files, setFiles] = useState<File[]>([]);
   const [simulation, setSimulation] = useState<SimulationResponse | null>(null);
   const [auditTrail, setAuditTrail] = useState<AuditTrailResponse | null>(null);
+  const [evalRun, setEvalRun] = useState<EvalRunRecord | null>(null);
   const [mvpReport, setMvpReport] = useState<ReportResponse | null>(null);
   const [reviewResult, setReviewResult] = useState<ReviewResponse | null>(null);
   const [v1Session, setV1Session] = useState<V1HearingSession | null>(null);
@@ -280,6 +284,7 @@ export default function App() {
     setPrintablePath('');
     setSimulation(null);
     setAuditTrail(null);
+    setEvalRun(null);
     setMvpReport(null);
     setReviewResult(null);
     setV1Session(null);
@@ -290,6 +295,7 @@ export default function App() {
     setCaseDetail(detail);
     await Promise.all([
       getAuditTrail(caseId).then(setAuditTrail).catch(() => undefined),
+      getEvalRuns(caseId).then((result) => setEvalRun(result.eval_runs[0] ?? null)).catch(() => undefined),
       getReport(caseId).then(setMvpReport).catch(() => undefined),
       getV1Hearing(caseId).then(setV1Session).catch(() => undefined),
       getV1Challenges(caseId).then(setV1Challenges).catch(() => undefined),
@@ -379,6 +385,15 @@ export default function App() {
       await refreshCases(selectedCaseId);
       setSimulation(result);
       setAuditTrail({case_id: selectedCaseId, audit_trail: result.audit_trail, human_review: result.human_review});
+    });
+  }
+
+  async function createSelectedEvalRun() {
+    if (!selectedCaseId) return;
+    await runAction('eval', async () => {
+      const result = await createEvalRun(selectedCaseId);
+      setEvalRun(result);
+      setLogs((current) => [...current, `EvalOps run: ${result.eval_run_id} (${result.status})`]);
     });
   }
 
@@ -1031,6 +1046,31 @@ export default function App() {
                       items={safetyFindings.slice(0, 6)}
                       empty="Simulation chưa tạo safety findings chi tiết."
                     />
+                    <Card className="border-border/50 bg-background p-4 shadow-sm">
+                      <div className="mb-3 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-primary">
+                          <Bot className="h-4 w-4" />
+                          <span className="text-xs font-semibold uppercase tracking-wide">EvalOps trace</span>
+                        </div>
+                        <Badge variant={badgeVariant(evalRun?.status)}>{evalRun?.status || 'not run'}</Badge>
+                      </div>
+                      <div className="space-y-2 text-sm text-muted-foreground">
+                        <InfoLine label="Run" value={evalRun?.eval_run_id || 'Chưa có'} />
+                        <InfoLine label="Trace steps" value={String(evalRun?.trace_steps.length ?? 0)} />
+                        {(evalRun?.metrics ?? []).slice(0, 4).map((metric) => (
+                          <div className="flex items-center justify-between rounded-md bg-muted/40 px-2 py-1 text-xs" key={metric.name}>
+                            <span>{metric.name}</span>
+                            <Badge variant={metric.passed ? 'secondary' : 'destructive'} className="h-5">
+                              {metric.value}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                      <Button className="mt-3 h-8 w-full gap-2" size="sm" variant="outline" disabled={!selectedCaseId || Boolean(busyAction) || !simulation} onClick={createSelectedEvalRun}>
+                        {busyAction === 'eval' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bot className="h-3.5 w-3.5" />}
+                        Run EvalOps
+                      </Button>
+                    </Card>
                     <Card className="border-border/50 bg-background p-4 shadow-sm">
                       <div className="mb-3 flex items-center gap-2 text-primary">
                         <UserCheck className="h-4 w-4" />
