@@ -7,7 +7,7 @@ from typing import Any
 
 import httpx
 
-from packages.shared.python.ai_court_shared.env_config import load_repo_env
+from ai_court_shared.env_config import load_repo_env
 
 
 load_repo_env()

@@ -102,6 +102,19 @@ export type CaseDetail = {
     title: string;
     narrative: string;
     attachments: Array<{attachment_id: string; filename: string; note?: string | null}>;
+    document_artifacts: Array<{
+      artifact_id: string;
+      attachment_id: string;
+      filename: string;
+      kind: string;
+      status: string;
+      page_count: number;
+      chunk_count: number;
+      extracted_char_count: number;
+      extracted_text_excerpt?: string | null;
+      source: string;
+      warnings: string[];
+    }>;
   };
   parsed_case?: {
     facts: Array<{fact_id: string; content: string; confidence: string; source: string}>;
@@ -117,12 +130,25 @@ export type CaseDetail = {
     }>;
     citations: Array<{
       citation_id: string;
+      doc_id: string;
+      chunk_id: string;
       article: string;
+      clause?: string | null;
       title: string;
+      so_ky_hieu?: string | null;
+      loai_van_ban?: string | null;
+      co_quan_ban_hanh?: string | null;
+      linh_vuc?: string | null;
       content?: string;
       retrieval_score: number;
+      retrieval_method: string;
       effective_status?: string;
+      raw_effective_status?: string | null;
+      ngay_ban_hanh?: string | null;
+      ngay_co_hieu_luc?: string | null;
+      ngay_het_hieu_luc?: string | null;
       source?: string;
+      provenance: Record<string, string | null>;
     }>;
   } | null;
 };
@@ -156,18 +182,63 @@ export type AuditTrailResponse = {
   human_review: HumanReviewGate;
 };
 
+export type EvalRunRecord = {
+  eval_run_id: string;
+  case_id: string;
+  created_at: string;
+  status: string;
+  metrics: Array<{
+    name: string;
+    value: number;
+    threshold?: number | null;
+    passed: boolean;
+  }>;
+  trace_steps: Array<{
+    step_id: string;
+    stage: string;
+    status: string;
+    summary: string;
+    related_claim_ids: string[];
+    related_citation_ids: string[];
+    related_evidence_ids: string[];
+  }>;
+  warnings: string[];
+  human_review: HumanReviewGate;
+};
+
+export type EvalRunListResponse = {
+  case_id: string;
+  eval_runs: EvalRunRecord[];
+};
+
 export type SimulationResponse = {
   case: NonNullable<CaseDetail['parsed_case']> & {case_id: string; title: string; status: string};
   fact_check: {
     unsupported_claims: string[];
     contradictions: string[];
     citation_mismatches: string[];
+    findings: Array<{
+      finding_id: string;
+      claim_id?: string | null;
+      severity: string;
+      message: string;
+      evidence_ids: string[];
+      citation_ids: string[];
+    }>;
     risk_level: string;
   };
   citation_verification: {
     accepted_citations: string[];
     rejected_citations: string[];
     warnings: string[];
+    findings: Array<{
+      finding_id: string;
+      citation_id: string;
+      severity: string;
+      message: string;
+      source?: string | null;
+      effective_status?: string | null;
+    }>;
   };
   audit_trail: AuditTrailResponse['audit_trail'];
   human_review: HumanReviewGate;
@@ -212,6 +283,13 @@ export type ReportResponse = {
   report_status: string;
   generated_from_turns: string[];
   report: SimulationResponse['final_report'];
+};
+
+export type PrintableReportResponse = {
+  case_id: string;
+  report_status: string;
+  printable_path: string;
+  html: string;
 };
 
 export type V1Turn = {
@@ -386,6 +464,14 @@ export async function getAuditTrail(caseId: string): Promise<AuditTrailResponse>
   return requestJson<AuditTrailResponse>(`/api/v1/cases/${caseId}/audit`);
 }
 
+export async function createEvalRun(caseId: string): Promise<EvalRunRecord> {
+  return requestJson<EvalRunRecord>(`/api/v1/cases/${caseId}/eval-runs`, {method: 'POST'});
+}
+
+export async function getEvalRuns(caseId: string): Promise<EvalRunListResponse> {
+  return requestJson<EvalRunListResponse>(`/api/v1/cases/${caseId}/eval-runs`);
+}
+
 export async function reviewCase(options: {
   caseId: string;
   decision: 'approve' | 'reject';
@@ -413,6 +499,13 @@ export async function exportMvpMarkdown(caseId: string): Promise<{markdownPath: 
     method: 'POST',
   });
   return {markdownPath: payload.markdown_path, markdown: payload.markdown};
+}
+
+export async function exportMvpPrintable(caseId: string): Promise<{printablePath: string; html: string}> {
+  const payload = await requestJson<PrintableReportResponse>(`/api/v1/reports/${caseId}/printable`, {
+    method: 'POST',
+  });
+  return {printablePath: payload.printable_path, html: payload.html};
 }
 
 export async function startV1(caseId: string): Promise<V1HearingSession> {

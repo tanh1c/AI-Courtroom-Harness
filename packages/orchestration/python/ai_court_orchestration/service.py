@@ -13,10 +13,10 @@ from langgraph.graph import END, StateGraph
 from pydantic import ValidationError
 
 from .llm import get_courtroom_llm_service
-from packages.retrieval.python.ai_court_retrieval.service import (
+from ai_court_retrieval.service import (
     get_local_legal_retrieval_service,
 )
-from packages.shared.python.ai_court_shared.schemas import (
+from ai_court_shared.schemas import (
     AgentName,
     AgentTurn,
     CaseState,

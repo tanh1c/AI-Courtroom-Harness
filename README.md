@@ -53,14 +53,16 @@ data/              local generated artifacts, ignored by git
 
 ## Quickstart
 
-Use a repo-local virtual environment.
+Use a repo-local virtual environment for every Python command.
 
 ```powershell
 py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e .
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -e . pytest
+npm --prefix frontend install
 ```
 
-Run the API:
+Run the API from the repository root:
 
 ```powershell
 npm run dev:api
@@ -69,7 +71,6 @@ npm run dev:api
 Run the V2 frontend dashboard in another PowerShell window:
 
 ```powershell
-npm --prefix frontend install
 npm run dev:web
 ```
 
@@ -92,11 +93,14 @@ Optional HTML preview:
 Run from the repository root.
 
 ```powershell
+.\.venv\Scripts\python.exe -m pytest tests\smoke\test_imports.py -v
 .\.venv\Scripts\python.exe -m compileall apps packages scripts\eval
 .\.venv\Scripts\python.exe scripts\eval\smoke_case_intake.py
 .\.venv\Scripts\python.exe scripts\eval\smoke_legal_search.py
 .\.venv\Scripts\python.exe scripts\eval\smoke_simulation.py
 .\.venv\Scripts\python.exe scripts\eval\smoke_review_export.py
+npm run typecheck
+npm run build:web
 ```
 
 V1 backend checks:

@@ -6,7 +6,8 @@ import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
-from packages.shared.python.ai_court_shared.schemas import (
+from ai_court_shared.schemas import (
+    AuditStage,
     AuditTrailResponse,
     CaseAttachment,
     CaseCreateRequest,
@@ -16,11 +17,19 @@ from packages.shared.python.ai_court_shared.schemas import (
     CaseRecord,
     CaseState,
     CaseStatus,
+    ClaimConfidence,
+    DocumentArtifact,
+    EvalMetric,
+    EvalRunListResponse,
+    EvalRunRecord,
+    EvalTraceStep,
     HearingSession,
     HumanReviewRecord,
     HtmlReportResponse,
     MarkdownReportResponse,
+    PrintableReportResponse,
     SimulationResponse,
+    TurnStatus,
     V2TrialSession,
 )
 
@@ -66,6 +75,10 @@ def _ensure_storage() -> None:
             connection.execute("ALTER TABLE cases ADD COLUMN review_record_json TEXT")
         if "report_markdown_path" not in columns:
             connection.execute("ALTER TABLE cases ADD COLUMN report_markdown_path TEXT")
+        if "report_printable_path" not in columns:
+            connection.execute("ALTER TABLE cases ADD COLUMN report_printable_path TEXT")
+        if "document_artifacts_json" not in columns:
+            connection.execute("ALTER TABLE cases ADD COLUMN document_artifacts_json TEXT")
 
 
 def _connect() -> sqlite3.Connection:
@@ -119,6 +132,20 @@ def _deserialize_attachments(raw_value: str) -> list[CaseAttachment]:
     return [CaseAttachment.model_validate(item) for item in payload]
 
 
+def _serialize_document_artifacts(artifacts: list[DocumentArtifact]) -> str:
+    return json.dumps(
+        [artifact.model_dump(mode="json") for artifact in artifacts],
+        ensure_ascii=False,
+    )
+
+
+def _deserialize_document_artifacts(raw_value: str | None) -> list[DocumentArtifact]:
+    if not raw_value:
+        return []
+    payload = json.loads(raw_value)
+    return [DocumentArtifact.model_validate(item) for item in payload]
+
+
 def _snapshot_case_input(case_input: CaseFileInput) -> None:
     _write_json(_case_dir(case_input.case_id) / "case.json", case_input.model_dump(mode="json"))
 
@@ -156,6 +183,7 @@ def _snapshot_review_record(case_id: str, review_record: HumanReviewRecord) -> N
 
 
 def _row_to_case_input(row: sqlite3.Row) -> CaseFileInput:
+    keys = set(row.keys())
     return CaseFileInput(
         case_id=row["case_id"],
         title=row["title"],
@@ -163,6 +191,9 @@ def _row_to_case_input(row: sqlite3.Row) -> CaseFileInput:
         language=row["language"],
         narrative=row["narrative"],
         attachments=_deserialize_attachments(row["attachments_json"]),
+        document_artifacts=_deserialize_document_artifacts(
+            row["document_artifacts_json"] if "document_artifacts_json" in keys else None
+        ),
     )
 
 
@@ -238,9 +269,9 @@ def create_case(request: CaseCreateRequest) -> CaseRecord:
             """
             INSERT INTO cases (
                 case_id, title, case_type, language, narrative, status,
-                attachments_json, parsed_state_json, created_at, updated_at
+                attachments_json, document_artifacts_json, parsed_state_json, created_at, updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 case_input.case_id,
@@ -250,6 +281,7 @@ def create_case(request: CaseCreateRequest) -> CaseRecord:
                 case_input.narrative,
                 CaseStatus.DRAFT,
                 _serialize_attachments(case_input.attachments),
+                _serialize_document_artifacts(case_input.document_artifacts),
                 None,
                 now,
                 now,
@@ -293,6 +325,25 @@ def load_case_input(case_id: str) -> CaseFileInput | None:
     if sample_case.get("case_id") == case_id:
         return CaseFileInput.model_validate(sample_case)
     return None
+
+
+def save_document_artifacts(case_input: CaseFileInput) -> None:
+    _ensure_storage()
+    with _connect() as connection:
+        connection.execute(
+            """
+            UPDATE cases
+            SET document_artifacts_json = ?, updated_at = ?
+            WHERE case_id = ?
+            """,
+            (
+                _serialize_document_artifacts(case_input.document_artifacts),
+                _utc_now(),
+                case_input.case_id,
+            ),
+        )
+        connection.commit()
+    _snapshot_case_input(case_input)
 
 
 def save_case_state(case_state: CaseState) -> None:
@@ -402,6 +453,85 @@ def load_audit_trail(case_id: str) -> AuditTrailResponse | None:
     )
 
 
+def _eval_runs_path(case_id: str) -> Path:
+    return _case_dir(case_id) / "eval_runs.json"
+
+
+def _eval_metric(name: str, value: float, threshold: float | None = None) -> EvalMetric:
+    return EvalMetric(
+        name=name,
+        value=value,
+        threshold=threshold,
+        passed=threshold is None or value <= threshold,
+    )
+
+
+def _build_eval_run(simulation_response: SimulationResponse) -> EvalRunRecord:
+    case_id = simulation_response.case.case_id
+    findings = simulation_response.fact_check.findings
+    citation_findings = simulation_response.citation_verification.findings
+    high_audit_events = [
+        event
+        for event in simulation_response.audit_trail
+        if event.severity == ClaimConfidence.HIGH
+    ]
+    trace_steps = [
+        EvalTraceStep(
+            step_id=event.event_id,
+            stage=event.stage,
+            status=TurnStatus.NEEDS_REVIEW if event.severity == ClaimConfidence.HIGH else TurnStatus.OK,
+            summary=event.message,
+            related_claim_ids=event.related_claim_ids,
+            related_citation_ids=event.related_citation_ids,
+            related_evidence_ids=event.related_evidence_ids,
+        )
+        for event in simulation_response.audit_trail
+    ]
+    metrics = [
+        _eval_metric("unsupported_claims", float(len(simulation_response.fact_check.unsupported_claims)), 0),
+        _eval_metric("citation_mismatches", float(len(simulation_response.fact_check.citation_mismatches)), 0),
+        _eval_metric("rejected_citations", float(len(simulation_response.citation_verification.rejected_citations)), 0),
+        _eval_metric("fact_check_findings", float(len(findings)), 0),
+        _eval_metric("citation_findings", float(len(citation_findings)), 0),
+        _eval_metric("high_audit_events", float(len(high_audit_events)), 0),
+        _eval_metric("human_review_blocked", 1.0 if simulation_response.human_review.blocked else 0.0, 0),
+    ]
+    failed_metrics = [metric.name for metric in metrics if not metric.passed]
+    return EvalRunRecord(
+        eval_run_id=f"EVAL_{datetime.now(UTC).strftime('%Y%m%d%H%M%S%f')}",
+        case_id=case_id,
+        created_at=_utc_now(),
+        status=TurnStatus.NEEDS_REVIEW if failed_metrics else TurnStatus.OK,
+        metrics=metrics,
+        trace_steps=trace_steps,
+        warnings=failed_metrics,
+        human_review=simulation_response.human_review,
+    )
+
+
+def create_eval_run(case_id: str) -> EvalRunRecord | None:
+    _ensure_storage()
+    simulation_response = load_simulation_response(case_id)
+    if simulation_response is None:
+        return None
+    eval_run = _build_eval_run(simulation_response)
+    existing = load_eval_runs(case_id)
+    runs = [eval_run, *existing.eval_runs]
+    _write_json(
+        _eval_runs_path(case_id),
+        EvalRunListResponse(case_id=case_id, eval_runs=runs).model_dump(mode="json"),
+    )
+    return eval_run
+
+
+def load_eval_runs(case_id: str) -> EvalRunListResponse:
+    _ensure_storage()
+    path = _eval_runs_path(case_id)
+    if not path.exists():
+        return EvalRunListResponse(case_id=case_id)
+    return EvalRunListResponse.model_validate(_read_json(path))
+
+
 def load_review_record(case_id: str) -> HumanReviewRecord | None:
     _ensure_storage()
     with _connect() as connection:
@@ -464,6 +594,27 @@ def save_markdown_report(case_id: str, markdown: str) -> str:
             """
             UPDATE cases
             SET report_markdown_path = ?, updated_at = ?
+            WHERE case_id = ?
+            """,
+            (
+                str(path),
+                _utc_now(),
+                case_id,
+            ),
+        )
+        connection.commit()
+    return str(path)
+
+
+def save_printable_report(case_id: str, html: str) -> str:
+    _ensure_storage()
+    path = _case_dir(case_id) / "report_printable.html"
+    _write_text(path, html)
+    with _connect() as connection:
+        connection.execute(
+            """
+            UPDATE cases
+            SET report_printable_path = ?, updated_at = ?
             WHERE case_id = ?
             """,
             (
@@ -587,6 +738,33 @@ def load_markdown_report(case_id: str) -> MarkdownReportResponse | None:
     )
 
 
+def load_printable_report(case_id: str) -> PrintableReportResponse | None:
+    _ensure_storage()
+    simulation_response = load_simulation_response(case_id)
+    if simulation_response is None:
+        return None
+    with _connect() as connection:
+        row = connection.execute(
+            "SELECT report_printable_path FROM cases WHERE case_id = ?",
+            (case_id,),
+        ).fetchone()
+    printable_path = row["report_printable_path"] if row is not None else None
+    if not printable_path:
+        path = _case_dir(case_id) / "report_printable.html"
+        if not path.exists():
+            return None
+        printable_path = str(path)
+    path = Path(printable_path)
+    if not path.exists():
+        return None
+    return PrintableReportResponse(
+        case_id=case_id,
+        report_status=simulation_response.case.status,
+        printable_path=str(path),
+        html=path.read_text(encoding="utf-8"),
+    )
+
+
 def reserve_next_attachment_id(attachments: list[CaseAttachment]) -> str:
     max_number = 0
     for attachment in attachments:
@@ -630,15 +808,17 @@ def add_case_attachment(
             language=case_input.language,
             narrative=case_input.narrative,
             attachments=attachments,
+            document_artifacts=case_input.document_artifacts,
         )
         connection.execute(
             """
             UPDATE cases
-            SET attachments_json = ?, status = ?, parsed_state_json = ?, updated_at = ?
+            SET attachments_json = ?, document_artifacts_json = ?, status = ?, parsed_state_json = ?, updated_at = ?
             WHERE case_id = ?
             """,
             (
                 _serialize_attachments(updated_case_input.attachments),
+                _serialize_document_artifacts(updated_case_input.document_artifacts),
                 CaseStatus.DRAFT,
                 None,
                 _utc_now(),

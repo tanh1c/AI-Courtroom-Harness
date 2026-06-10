@@ -9,7 +9,7 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from packages.retrieval.python.ai_court_retrieval.ingest import (
+from ai_court_retrieval.ingest import (
     build_legal_chunks,
     build_legal_chunks_from_doc_ids,
 )

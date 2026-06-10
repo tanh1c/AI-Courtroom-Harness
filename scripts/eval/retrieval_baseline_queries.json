@@ -2,17 +2,17 @@
   {
     "query": "bên bán giao tài sản đúng thời hạn theo hợp đồng",
     "top_k": 3,
-    "expected_citation_ids": ["LAW_CHUNK_001_001", "LAW_CHUNK_002_001"]
+    "expected_citation_ids": ["LAW_CHUNK_95942_528", "LAW_CHUNK_26117_040", "LAW_CHUNK_95942_532"]
   },
   {
     "query": "bên mua thanh toán tiền theo thỏa thuận trong hợp đồng",
     "top_k": 3,
-    "expected_citation_ids": ["LAW_CHUNK_001_002", "LAW_CHUNK_002_002"]
+    "expected_citation_ids": ["LAW_CHUNK_95942_537", "LAW_CHUNK_26117_056", "LAW_CHUNK_26117_073"]
   },
   {
     "query": "bồi thường thiệt hại do vi phạm nghĩa vụ dân sự",
     "top_k": 3,
-    "expected_citation_ids": ["LAW_CHUNK_001_004", "LAW_CHUNK_001_003"]
+    "expected_citation_ids": ["LAW_CHUNK_95942_506", "LAW_CHUNK_95942_440", "LAW_CHUNK_95942_443"]
   }
 ]
 

@@ -7,6 +7,9 @@ Mock courtroom UI wired to the backend V2 trial pipeline.
 From the repository root:
 
 ```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e . pytest
+npm --prefix frontend install
 npm run dev:api
 npm run dev:web
 ```
@@ -26,3 +29,12 @@ The UI can:
 - Create a case and upload PDF attachments.
 - Run parse -> V2 start -> V2 stage advances -> markdown/html export.
 - Render `GET /api/v1/cases/{case_id}/trial-v2/ui-state`.
+
+## Frontend Validation
+
+Run from the repository root after UI changes:
+
+```powershell
+npm run typecheck
+npm run build:web
+```

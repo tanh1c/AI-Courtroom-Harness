@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -13,21 +12,22 @@ from fastapi import UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
 
 from .case_parser import parse_case_input
 from .case_store import (
     add_case_attachment,
     create_case as create_case_record,
+    create_eval_run,
     load_audit_trail,
     load_case_detail,
     load_case_input,
     load_case_state,
+    load_eval_runs,
     load_hearing_session,
     load_hearing_record_html,
     load_hearing_record_markdown,
     load_markdown_report,
+    load_printable_report,
     load_review_record,
     load_simulation_response,
     load_v2_trial_record_html,
@@ -35,10 +35,12 @@ from .case_store import (
     load_v2_trial_session,
     list_cases,
     save_case_state,
+    save_document_artifacts,
     save_hearing_session,
     save_hearing_record_html,
     save_hearing_record_markdown,
     save_markdown_report,
+    save_printable_report,
     save_review_record,
     save_simulation_response,
     save_v2_trial_record_html,
@@ -46,27 +48,32 @@ from .case_store import (
     save_v2_trial_session,
     store_uploaded_attachment_file,
 )
-from packages.orchestration.python.ai_court_orchestration.service import (
+from .security_guardrails import (
+    validate_attachment,
+    validate_case_payload,
+    validate_search_query,
+)
+from ai_court_orchestration.service import (
     get_courtroom_simulation_service,
 )
-from packages.orchestration.python.ai_court_orchestration.v1_service import (
+from ai_court_orchestration.v1_service import (
     HearingRuntimeError,
     get_courtroom_v1_runtime_service,
 )
-from packages.orchestration.python.ai_court_orchestration.v2_service import (
+from ai_court_orchestration.v2_service import (
     TrialRuntimeError,
     get_courtroom_v2_runtime_service,
 )
-from packages.reporting.python.ai_court_reporting.service import (
+from ai_court_reporting.service import (
     get_html_report_service,
     get_markdown_report_service,
     get_v1_hearing_record_service,
     get_v2_trial_record_service,
 )
-from packages.retrieval.python.ai_court_retrieval.service import (
+from ai_court_retrieval.service import (
     get_local_legal_retrieval_service,
 )
-from packages.shared.python.ai_court_shared.schemas import (
+from ai_court_shared.schemas import (
     AuditEvent,
     AuditStage,
     AuditTrailResponse,
@@ -77,6 +84,8 @@ from packages.shared.python.ai_court_shared.schemas import (
     CaseListResponse,
     CaseStatus,
     ClaimConfidence,
+    EvalRunListResponse,
+    EvalRunRecord,
     HumanReviewGate,
     HearingAdvanceRequest,
     HearingEvidenceChallengesResponse,
@@ -92,6 +101,7 @@ from packages.shared.python.ai_court_shared.schemas import (
     LegalSearchResponse,
     MarkdownReportResponse,
     ParseCaseResponse,
+    PrintableReportResponse,
     ReportResponse,
     SimulationResponse,
     V2TrialAdvanceRequest,
@@ -99,7 +109,7 @@ from packages.shared.python.ai_court_shared.schemas import (
     V2TrialTimelineItem,
     V2TrialUiStateResponse,
 )
-from packages.verification.python.ai_court_verification.service import (
+from ai_court_verification.service import (
     get_verification_service,
 )
 FIXTURES_DIR = ROOT_DIR / "packages" / "shared" / "fixtures"
@@ -116,6 +126,15 @@ def utc_now() -> str:
 
 def next_audit_event_id(events: list[AuditEvent]) -> str:
     return f"AUDIT_{len(events) + 1:03d}"
+
+
+def enforce_guardrail(response) -> None:
+    if response.allowed:
+        return
+    raise HTTPException(
+        status_code=400,
+        detail=response.model_dump(mode="json"),
+    )
 
 
 def resolve_human_review(
@@ -223,6 +242,7 @@ def get_cases() -> CaseListResponse:
 
 @app.post("/api/v1/cases", response_model=CaseCreateResponse)
 def create_case(request: CaseCreateRequest) -> CaseCreateResponse:
+    enforce_guardrail(validate_case_payload(request.title, request.narrative))
     record = create_case_record(request)
     return CaseCreateResponse(case=record)
 
@@ -246,6 +266,7 @@ async def upload_case_attachment(
         raise HTTPException(status_code=404, detail=f"Case not found: {case_id}")
 
     payload = await file.read()
+    enforce_guardrail(validate_attachment(file.filename, file.content_type or "application/octet-stream", len(payload)))
     local_path = store_uploaded_attachment_file(case_id, file.filename, payload)
     case_detail = add_case_attachment(
         case_id=case_id,
@@ -266,6 +287,7 @@ def parse_case(case_id: str) -> ParseCaseResponse:
         raise HTTPException(status_code=404, detail=f"Case not found: {case_id}")
 
     case_state = parse_case_input(case_input)
+    save_document_artifacts(case_input)
     save_case_state(case_state)
     return ParseCaseResponse(case=case_state)
 
@@ -286,8 +308,25 @@ def get_case_audit(case_id: str) -> AuditTrailResponse:
     return audit_response
 
 
+@app.post("/api/v1/cases/{case_id}/eval-runs", response_model=EvalRunRecord)
+def create_case_eval_run(case_id: str) -> EvalRunRecord:
+    eval_run = create_eval_run(case_id)
+    if eval_run is None:
+        raise HTTPException(status_code=404, detail=f"Simulation not found: {case_id}")
+    return eval_run
+
+
+@app.get("/api/v1/cases/{case_id}/eval-runs", response_model=EvalRunListResponse)
+def get_case_eval_runs(case_id: str) -> EvalRunListResponse:
+    case_detail = load_case_detail(case_id)
+    if case_detail is None:
+        raise HTTPException(status_code=404, detail=f"Case not found: {case_id}")
+    return load_eval_runs(case_id)
+
+
 @app.post("/api/v1/legal-search", response_model=LegalSearchResponse)
 def legal_search(request: LegalSearchRequest) -> LegalSearchResponse:
+    enforce_guardrail(validate_search_query(request.query))
     service = get_local_legal_retrieval_service()
     return service.search(request)
 
@@ -654,4 +693,44 @@ def get_markdown_export(case_id: str) -> MarkdownReportResponse:
     report = load_markdown_report(case_id)
     if report is None:
         raise HTTPException(status_code=404, detail=f"Markdown report not found: {case_id}")
+    return report
+
+
+@app.post("/api/v1/reports/{case_id}/printable", response_model=PrintableReportResponse)
+def export_printable_report(case_id: str) -> PrintableReportResponse:
+    simulation_response = load_simulation_response(case_id)
+    if simulation_response is None:
+        raise HTTPException(status_code=404, detail=f"Simulation not found: {case_id}")
+    if simulation_response.case.status != CaseStatus.REPORT_READY:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Report is not ready for printable export: {simulation_response.case.status.value}",
+        )
+
+    markdown_report = load_markdown_report(case_id)
+    markdown = (
+        markdown_report.markdown
+        if markdown_report is not None
+        else get_markdown_report_service().render(simulation_response, load_review_record(case_id))
+    )
+    if markdown_report is None:
+        save_markdown_report(case_id, markdown)
+    html = get_html_report_service().render(
+        title=f"AI Courtroom Harness Printable Report - {case_id}",
+        markdown_text=markdown,
+    )
+    printable_path = save_printable_report(case_id, html)
+    return PrintableReportResponse(
+        case_id=case_id,
+        report_status=simulation_response.case.status,
+        printable_path=printable_path,
+        html=html,
+    )
+
+
+@app.get("/api/v1/reports/{case_id}/printable", response_model=PrintableReportResponse)
+def get_printable_export(case_id: str) -> PrintableReportResponse:
+    report = load_printable_report(case_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail=f"Printable report not found: {case_id}")
     return report

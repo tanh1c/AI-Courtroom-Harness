@@ -8,11 +8,11 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from packages.orchestration.python.ai_court_orchestration.v1_service import (
+from ai_court_orchestration.v1_service import (
     HearingRuntimeError,
     get_courtroom_v1_runtime_service,
 )
-from packages.shared.python.ai_court_shared.schemas import (
+from ai_court_shared.schemas import (
     AgentName,
     CaseState,
     Claim,

@@ -15,8 +15,8 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from packages.retrieval.python.ai_court_retrieval.models import LegalChunk
-from packages.shared.python.ai_court_shared.schemas import (
+from ai_court_retrieval.models import LegalChunk
+from ai_court_shared.schemas import (
     RemoteVectorSearchRequest,
     RemoteVectorSearchResponse,
     RemoteVectorSearchResult,
@@ -37,7 +37,7 @@ def create_app(
     embeddings_path: Path,
     metadata_path: Path,
 ) -> FastAPI:
-    from packages.retrieval.python.ai_court_retrieval.vector import encode_query
+    from ai_court_retrieval.vector import encode_query
     from sentence_transformers import SentenceTransformer
 
     chunks = load_chunks(corpus_path)
@@ -100,7 +100,7 @@ def ensure_vector_index(
     metadata_path: Path,
     model_name: str,
 ) -> None:
-    from packages.retrieval.python.ai_court_retrieval.vector import build_vector_index
+    from ai_court_retrieval.vector import build_vector_index
 
     if embeddings_path.exists() and metadata_path.exists():
         return

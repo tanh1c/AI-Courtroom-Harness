@@ -8,12 +8,12 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from packages.orchestration.python.ai_court_orchestration.v2_service import (
+from ai_court_orchestration.v2_service import (
     get_courtroom_v2_runtime_service,
     official_judgment_language_hits,
 )
-from packages.reporting.python.ai_court_reporting.service import get_v2_trial_record_service
-from packages.shared.python.ai_court_shared.schemas import CaseState, HumanReviewMode
+from ai_court_reporting.service import get_v2_trial_record_service
+from ai_court_shared.schemas import CaseState, HumanReviewMode
 
 FIXTURE_PATH = ROOT_DIR / "packages/shared/fixtures/v2_demo_cases.json"
 

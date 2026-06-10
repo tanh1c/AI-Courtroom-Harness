@@ -4,8 +4,8 @@ import os
 
 import httpx
 
-from packages.shared.python.ai_court_shared.env_config import load_repo_env
-from packages.shared.python.ai_court_shared.schemas import (
+from ai_court_shared.env_config import load_repo_env
+from ai_court_shared.schemas import (
     LegalSearchRequest,
     RemoteVectorSearchRequest,
     RemoteVectorSearchResponse,

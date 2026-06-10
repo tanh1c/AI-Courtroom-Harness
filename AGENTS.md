@@ -18,11 +18,16 @@ This repository is a Phase 0 monorepo skeleton for `AI Courtroom Harness`.
 
 Run commands from the repository root unless noted otherwise.
 
-- `python -m venv .venv`: create the required local Python environment.
+- `py -3.12 -m venv .venv`: create the required local Python environment.
 - `.venv\Scripts\Activate.ps1`: activate the virtual environment in PowerShell.
-- `python -m pip install -e .`: install project dependencies into `.venv`.
-- `python -m compileall apps packages`: quick Python smoke check.
-- `uvicorn app.main:app --reload`: run the mock API from `apps/api`.
+- `.venv\Scripts\python.exe -m pip install -e . pytest`: install backend packages and smoke-test dependencies into `.venv`.
+- `.venv\Scripts\python.exe -m pytest tests\smoke\test_imports.py -v`: verify installed backend package imports.
+- `.venv\Scripts\python.exe -m compileall apps packages scripts\eval`: quick Python syntax smoke check.
+- `npm --prefix frontend install`: install frontend dependencies.
+- `npm run dev:api`: run the FastAPI app from the repository root.
+- `npm run dev:web`: run the Vite frontend from the repository root.
+- `npm run typecheck`: run frontend TypeScript checks.
+- `npm run build:web`: build the frontend.
 - `git status --short --branch`: verify workspace state before commit/push.
 
 ## Dependency and API Usage Policy
@@ -51,7 +56,7 @@ Prefer existing libraries, SDKs, and official APIs over custom hardcoded impleme
 
 ## Commit, Push & Pull Request Guidelines
 
-After each completed task: validate, commit, and push unless explicitly told not to.
+After each completed task: validate and commit. Push only when explicitly requested.
 
 - Format commits as `<type>: <short summary>`.
 - Preferred types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`.

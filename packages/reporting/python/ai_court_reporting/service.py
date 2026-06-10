@@ -5,7 +5,7 @@ from html import escape
 
 import markdown as markdown_lib
 
-from packages.shared.python.ai_court_shared.schemas import (
+from ai_court_shared.schemas import (
     AgentName,
     AgentTurn,
     HearingSession,

@@ -136,6 +136,19 @@ class AttachmentParseStatus(str, Enum):
     UNREADABLE = "unreadable"
 
 
+class DocumentArtifactStatus(str, Enum):
+    INGESTED = "ingested"
+    METADATA_ONLY = "metadata_only"
+    MISSING_FILE = "missing_file"
+    UNREADABLE = "unreadable"
+
+
+class DocumentArtifactKind(str, Enum):
+    PDF = "pdf"
+    TEXT = "text"
+    OTHER = "other"
+
+
 class TrialProcedureStage(str, Enum):
     CASE_PREPARATION = "case_preparation"
     OPENING_FORMALITIES = "opening_formalities"
@@ -174,6 +187,20 @@ class CaseAttachment(BaseModel):
     local_path: str | None = None
 
 
+class DocumentArtifact(BaseModel):
+    artifact_id: str
+    attachment_id: str
+    filename: str
+    kind: DocumentArtifactKind
+    status: DocumentArtifactStatus
+    page_count: int = 0
+    chunk_count: int = 0
+    extracted_char_count: int = 0
+    extracted_text_excerpt: str | None = None
+    source: str
+    warnings: list[str] = Field(default_factory=list)
+
+
 class CaseFileInput(BaseModel):
     case_id: str
     title: str
@@ -181,6 +208,7 @@ class CaseFileInput(BaseModel):
     language: str = "vi"
     narrative: str
     attachments: list[CaseAttachment] = Field(default_factory=list)
+    document_artifacts: list[DocumentArtifact] = Field(default_factory=list)
 
 
 class CaseCreateRequest(BaseModel):
@@ -258,13 +286,24 @@ class Claim(BaseModel):
 class Citation(BaseModel):
     citation_id: str
     doc_id: str
+    chunk_id: str
     title: str
+    so_ky_hieu: str | None = None
+    loai_van_ban: str | None = None
+    co_quan_ban_hanh: str | None = None
+    linh_vuc: str | None = None
     article: str
     clause: str | None = None
     content: str
     retrieval_score: float
+    retrieval_method: RetrievalStrategy
     effective_status: EffectiveStatus
+    raw_effective_status: str | None = None
+    ngay_ban_hanh: str | None = None
+    ngay_co_hieu_luc: str | None = None
+    ngay_het_hieu_luc: str | None = None
     source: str
+    provenance: dict[str, str | None] = Field(default_factory=dict)
 
 
 class LegalSearchFilter(BaseModel):
@@ -394,10 +433,29 @@ class HarnessViolation(BaseModel):
     related_turn_id: str | None = None
 
 
+class FactCheckFinding(BaseModel):
+    finding_id: str
+    claim_id: str | None = None
+    severity: ClaimConfidence
+    message: str
+    evidence_ids: list[str] = Field(default_factory=list)
+    citation_ids: list[str] = Field(default_factory=list)
+
+
+class CitationVerificationFinding(BaseModel):
+    finding_id: str
+    citation_id: str
+    severity: ClaimConfidence
+    message: str
+    source: str | None = None
+    effective_status: EffectiveStatus | None = None
+
+
 class FactCheckResult(BaseModel):
     unsupported_claims: list[str] = Field(default_factory=list)
     contradictions: list[str] = Field(default_factory=list)
     citation_mismatches: list[str] = Field(default_factory=list)
+    findings: list[FactCheckFinding] = Field(default_factory=list)
     risk_level: ClaimConfidence
 
 
@@ -405,6 +463,7 @@ class CitationVerificationResult(BaseModel):
     accepted_citations: list[str] = Field(default_factory=list)
     rejected_citations: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    findings: list[CitationVerificationFinding] = Field(default_factory=list)
 
 
 class AuditEvent(BaseModel):
@@ -415,6 +474,18 @@ class AuditEvent(BaseModel):
     related_claim_ids: list[str] = Field(default_factory=list)
     related_citation_ids: list[str] = Field(default_factory=list)
     related_evidence_ids: list[str] = Field(default_factory=list)
+
+
+class SecurityGuardrailFinding(BaseModel):
+    finding_id: str
+    field: str
+    severity: ClaimConfidence
+    message: str
+
+
+class SecurityGuardrailResponse(BaseModel):
+    allowed: bool
+    findings: list[SecurityGuardrailFinding] = Field(default_factory=list)
 
 
 class HumanReviewGate(BaseModel):
@@ -741,3 +812,43 @@ class HtmlReportResponse(BaseModel):
     report_status: CaseStatus
     html_path: str
     html: str
+
+
+class PrintableReportResponse(BaseModel):
+    case_id: str
+    report_status: CaseStatus
+    printable_path: str
+    html: str
+
+
+class EvalMetric(BaseModel):
+    name: str
+    value: float
+    threshold: float | None = None
+    passed: bool = True
+
+
+class EvalTraceStep(BaseModel):
+    step_id: str
+    stage: AuditStage
+    status: TurnStatus
+    summary: str
+    related_claim_ids: list[str] = Field(default_factory=list)
+    related_citation_ids: list[str] = Field(default_factory=list)
+    related_evidence_ids: list[str] = Field(default_factory=list)
+
+
+class EvalRunRecord(BaseModel):
+    eval_run_id: str
+    case_id: str
+    created_at: str
+    status: TurnStatus
+    metrics: list[EvalMetric] = Field(default_factory=list)
+    trace_steps: list[EvalTraceStep] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    human_review: HumanReviewGate
+
+
+class EvalRunListResponse(BaseModel):
+    case_id: str
+    eval_runs: list[EvalRunRecord] = Field(default_factory=list)

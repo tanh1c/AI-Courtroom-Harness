@@ -10,7 +10,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from dotenv import dotenv_values, set_key
 
-from packages.shared.python.ai_court_shared.env_config import (
+from ai_court_shared.env_config import (
     get_repo_env_path,
     load_repo_env,
 )

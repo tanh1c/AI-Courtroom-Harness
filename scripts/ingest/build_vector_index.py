@@ -8,8 +8,8 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from packages.retrieval.python.ai_court_retrieval.models import LegalChunk
-from packages.retrieval.python.ai_court_retrieval.vector import build_vector_index
+from ai_court_retrieval.models import LegalChunk
+from ai_court_retrieval.vector import build_vector_index
 
 
 def main() -> None:

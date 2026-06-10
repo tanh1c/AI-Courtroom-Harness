@@ -8,7 +8,7 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from packages.orchestration.python.ai_court_orchestration.llm import (
+from ai_court_orchestration.llm import (
     get_courtroom_llm_service,
 )
 
